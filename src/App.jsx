@@ -1,5 +1,5 @@
 import Player from './components/Player'
-import Sidebar from './components/SIdebar'
+import Sidebar from './components/Sidebar'
 import Navbar from './components/Navbar'
 
 function App() {

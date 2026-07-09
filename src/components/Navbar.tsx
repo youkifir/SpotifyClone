@@ -1,10 +1,9 @@
 import React from 'react'
 import { assets } from '../assets/assets'
 
-const Navbar = () => {
+const Navbar: React.FC = () => {
   return (
     <div className='bg-[#121212] h-14 rounded-lg grid grid-cols-3 items-center px-4 w-full select-none shrink-0'>
-
       <div className='flex items-center justify-start'>
         <img 
           className='w-8 h-8 cursor-pointer hover:scale-105 transition' 
@@ -12,7 +11,6 @@ const Navbar = () => {
           alt="Spotify" 
         />
       </div>
-
       <div className='flex items-center justify-center gap-2 w-full max-w-125 justify-self-center min-w-0'>
         <div className='bg-[#1f1f1f] p-3 rounded-full hover:bg-[#2a2a2a] hover:scale-105 cursor-pointer transition flex items-center justify-center w-11 h-11 shrink-0'>
           <img className='w-5' src={assets.home_icon} alt="Home" />
@@ -37,7 +35,6 @@ const Navbar = () => {
           </div>
         </div>
       </div>
-
       <div className='flex items-center justify-end gap-3'>
         <button className='bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 transition hidden xl:block shadow-sm'>
           Watch about Premium
