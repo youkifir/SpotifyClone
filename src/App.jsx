@@ -1,15 +1,27 @@
 import Player from './components/Player'
+import Sidebar from './components/SIdebar'
+import Navbar from './components/Navbar'
 
 function App() {
   return (
-    <div className="h-screen bg-neutral-900">
-      <div className="h-[90%] flex">
-        <h1 className="text-red-500 p-4">Spotify Clone</h1>
-      </div>
+    <div className="h-screen bg-black flex flex-col p-2 gap-2 overflow-hidden">
       
+      {/* Верхнє меню на весь розмір екрана */}
+      <Navbar />
+      
+      {/* Головна робоча область сайту */}
+      <div className="h-[81%] flex flex-1 gap-2 overflow-hidden">
+        <Sidebar />
+        
+        {/* Права частина з контентом */}
+        <div className="flex-1 bg-[#121212] rounded-lg text-white p-4">
+          {/* Тут будуть твої треки/альбоми */}
+        </div>
+      </div>
 
+      {/* Програвач знизу */}
       <Player />
-      <audio preload='auto'></audio>
+      <audio preload="auto"></audio>
     </div>
   )
 }
