@@ -31,4 +31,29 @@ const createAlbum = async (req, res) => {
   }
 };
 
-module.exports = { getAlbums, getAlbumById, createAlbum };
+// PUT /api/albums/:id
+const updateAlbum = async (req, res) => {
+  try {
+    const album = await Album.findByIdAndUpdate(req.params.id, req.body, {
+      new: true, // вернуть уже обновлённый документ
+      runValidators: true,
+    });
+    if (!album) return res.status(404).json({ message: 'Альбом не найден' });
+    res.json(album);
+  } catch (err) {
+    res.status(400).json({ message: 'Ошибка при обновлении альбома', error: err.message });
+  }
+};
+
+// DELETE /api/albums/:id
+const deleteAlbum = async (req, res) => {
+  try {
+    const album = await Album.findByIdAndDelete(req.params.id);
+    if (!album) return res.status(404).json({ message: 'Альбом не найден' });
+    res.json({ message: 'Альбом удалён', album });
+  } catch (err) {
+    res.status(500).json({ message: 'Ошибка при удалении альбома', error: err.message });
+  }
+};
+
+module.exports = { getAlbums, getAlbumById, createAlbum, updateAlbum, deleteAlbum };

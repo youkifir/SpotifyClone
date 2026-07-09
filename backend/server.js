@@ -6,6 +6,7 @@ const connectDB = require('./config/db');
 
 const songRoutes = require('./routes/songRoutes');
 const albumRoutes = require('./routes/albumRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +22,7 @@ app.use(express.json());
 connectDB();
 
 // Роуты API
+app.use('/api/auth', authRoutes);
 app.use('/api/songs', songRoutes);
 app.use('/api/albums', albumRoutes);
 
