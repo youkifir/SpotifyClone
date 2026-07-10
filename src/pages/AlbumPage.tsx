@@ -3,13 +3,24 @@ import { albumsData, songsData } from '../assets/assets'
 import SongList from '../components/SongList'
 import Button from '../components/Button'
 import { assets } from '../assets/assets'
+import { usePlayer } from '../context/usePlayer'
 
 function AlbumPage() {
   const { id } = useParams()
   const album = albumsData.find((a) => String(a.id) === id)
+  const { track, playStatus, playWithId, play } = usePlayer()
 
   if (!album) {
     return <Navigate to="/" replace />
+  }
+
+  const handlePlayAlbum = () => {
+    const isCurrentSongInAlbum = songsData.some((s) => s.id === track.id)
+    if (isCurrentSongInAlbum) {
+      play()
+    } else {
+      playWithId(songsData[0].id)
+    }
   }
 
   return (
@@ -29,7 +40,16 @@ function AlbumPage() {
 
       {/* керування */}
       <div className="flex items-center gap-6 px-6 py-6">
-        <img src={assets.play_icon} alt="Відтворити" className="w-14 h-14 cursor-pointer" />
+        <div
+          onClick={handlePlayAlbum}
+          className="w-14 h-14 rounded-full bg-[#1db954] shadow-lg flex items-center justify-center cursor-pointer hover:scale-105 transition"
+        >
+          <img
+            src={playStatus && songsData.some((s) => s.id === track.id) ? assets.pause_icon : assets.play_icon}
+            alt="Відтворити"
+            className="w-6 h-6"
+          />
+        </div>
         <Button variant="ghost">Ще</Button>
       </div>
 

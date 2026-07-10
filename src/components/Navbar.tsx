@@ -7,7 +7,7 @@ const Navbar: React.FC = () => {
       <div className='flex items-center justify-start'>
         <img 
           className='w-8 h-8 cursor-pointer hover:scale-105 transition' 
-          src={assets.spotify_logo} 
+          src={assets.spotify_logo}   
           alt="Spotify" 
         />
       </div>
