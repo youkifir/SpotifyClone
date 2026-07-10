@@ -15,7 +15,7 @@ export const Player: React.FC = () => {
     volume,
     shuffle,
     loop,
-    setIsFullScreen, // Деструктуризували функцію відкриття екрана
+    setIsFullScreen,
     play,
     pause,
     previous,
@@ -47,6 +47,11 @@ export const Player: React.FC = () => {
 
   const stop = (e: React.MouseEvent) => e.stopPropagation()
 
+  if (!track) return null
+
+  // Динамический URL картинки трека с поддержкой локального бэка
+  const trackImageUrl = track.image?.startsWith('http') ? track.image : `http://localhost:5000/${track.image}`
+
   return (
     <div className='h-[10%] min-h-16 bg-black text-white flex flex-col justify-center'>
 
@@ -63,10 +68,10 @@ export const Player: React.FC = () => {
           className='flex items-center justify-between gap-3 px-3 py-2 cursor-pointer active:bg-[#1a1a1a] transition-colors'
         >
           <div className='flex items-center gap-3 min-w-0 flex-1'>
-            <img className='w-10 h-10 rounded object-cover shrink-0' src={track.image} alt={track.name} />
+            <img className='w-10 h-10 rounded object-cover shrink-0' src={trackImageUrl} alt={track.name} />
             <div className='min-w-0'>
               <p className='font-medium text-sm truncate'>{track.name}</p>
-              <p className='text-xs text-neutral-400 truncate'>{track.desc.slice(0, 30)}</p>
+              <p className='text-xs text-neutral-400 truncate'>{track.desc?.slice(0, 30)}</p>
             </div>
           </div>
           <div className='flex items-center gap-4 shrink-0'>
@@ -94,10 +99,10 @@ export const Player: React.FC = () => {
       {/* --- Десктопна панель (lg і вище) --- */}
       <div className='hidden lg:flex justify-between items-center px-4 h-full'>
         <div className='flex items-center gap-4 w-1/4 min-w-0'>
-          <img className='w-12 h-12 rounded object-cover shrink-0' src={track.image} alt={track.name} />
+          <img className='w-12 h-12 rounded object-cover shrink-0' src={trackImageUrl} alt={track.name} />
           <div className='min-w-0'>
             <p className='font-medium text-sm truncate'>{track.name}</p>
-            <p className='text-xs opacity-70 truncate'>{track.desc.slice(0, 25)}</p>
+            <p className='text-xs opacity-70 truncate'>{track.desc?.slice(0, 25)}</p>
           </div>
           <img className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition shrink-0' src={assets.like_icon} alt="Like" />
         </div>
@@ -146,7 +151,6 @@ export const Player: React.FC = () => {
 
         <div className='flex items-center gap-3 opacity-75 hover:opacity-100 transition w-1/4 justify-end'>
           <img className='w-4 cursor-pointer hover:scale-110 transition' src={assets.plays_icon} alt="Plays" />
-          {/* Кнопка тексту пісні тепер відкриває повний екран */}
           <img onClick={() => setIsFullScreen(true)} className='w-4 cursor-pointer hover:scale-110 transition' src={assets.mic_icon} alt="Lyrics" />
           <img className='w-4 cursor-pointer hover:scale-110 transition' src={assets.queue_icon} alt="Queue" />
           <img className='w-4 cursor-pointer hover:scale-110 transition' src={assets.speaker_icon} alt="Connect to a device" />
@@ -162,7 +166,6 @@ export const Player: React.FC = () => {
             />
           </div>
           <img className='w-4 cursor-pointer hover:scale-110 transition' src={assets.mini_player_icon} alt="Miniplayer" />
-          {/* Кнопка розширення теж відкриває повний екран */}
           <img onClick={() => setIsFullScreen(true)} className='w-4 cursor-pointer hover:scale-110 transition' src={assets.zoom_icon} alt="Fullscreen" />
         </div>
       </div>
