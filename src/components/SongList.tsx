@@ -18,10 +18,11 @@ function SongList({ songs }: SongListProps) {
 
   return (
     <div>
-      <div className="grid grid-cols-[16px_4fr_2fr_minmax(80px,1fr)] gap-4 px-4 py-2 text-neutral-400 text-sm border-b border-[#2a2a2a]">
+      <div className="grid grid-cols-[16px_4fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-neutral-400 text-sm border-b border-[#2a2a2a]">
         <span>#</span>
         <span>Назва</span>
         <span className="hidden sm:block">Опис</span>
+        <span></span>
         <img src={assets.clock_icon} alt="Тривалість" className="w-4 h-4 justify-self-end" />
       </div>
       <div className="mt-2">
@@ -33,7 +34,7 @@ function SongList({ songs }: SongListProps) {
             <div
               key={song.id}
               onClick={() => playWithId(song.id)}
-              className={`grid grid-cols-[16px_4fr_2fr_minmax(80px,1fr)] gap-4 px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group ${
+              className={`grid grid-cols-[16px_4fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group ${
                 isActive ? 'text-[#1db954]' : 'text-neutral-300'
               }`}
             >
@@ -46,10 +47,16 @@ function SongList({ songs }: SongListProps) {
                 />
               </span>
               <div className="flex items-center gap-3 min-w-0">
-                <img src={song.image} alt={song.name} className="w-10 h-10 rounded object-cover" />
+                <img src={song.image} alt={song.name} className="w-10 h-10 rounded object-cover shrink-0" />
                 <span className={`text-sm truncate ${isActive ? 'text-[#1db954]' : 'text-white'}`}>{song.name}</span>
               </div>
               <span className="hidden sm:block self-center text-sm truncate">{song.desc}</span>
+              <img
+                src={assets.like_icon}
+                alt="Подобається"
+                onClick={(e) => e.stopPropagation()}
+                className="w-4 h-4 self-center opacity-0 group-hover:opacity-70 hover:opacity-100! hover:scale-110 transition"
+              />
               <span className="self-center text-sm justify-self-end">{song.duration}</span>
             </div>
           )
