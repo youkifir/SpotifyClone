@@ -15,6 +15,7 @@ export const Player: React.FC = () => {
     volume,
     shuffle,
     loop,
+    setIsFullScreen, // Деструктуризували функцію відкриття екрана
     play,
     pause,
     previous,
@@ -99,7 +100,8 @@ export const Player: React.FC = () => {
 
       <div className='hidden lg:flex items-center gap-3 opacity-75 hover:opacity-100 transition w-1/4 justify-end'>
         <img className='w-4 cursor-pointer' src={assets.plays_icon} alt="Plays" />
-        <img className='w-4 cursor-pointer' src={assets.mic_icon} alt="Lyrics" />
+        {/* Кнопка тексту пісні тепер відкриває повний екран */}
+        <img onClick={() => setIsFullScreen(true)} className='w-4 cursor-pointer hover:scale-110 transition' src={assets.mic_icon} alt="Lyrics" />
         <img className='w-4 cursor-pointer' src={assets.queue_icon} alt="Queue" />
         <img className='w-4 cursor-pointer' src={assets.speaker_icon} alt="Connect to a device" />
         <img className='w-4 cursor-pointer' src={assets.volume_icon} alt="Volume" />
@@ -114,7 +116,8 @@ export const Player: React.FC = () => {
           />
         </div>
         <img className='w-4 cursor-pointer' src={assets.mini_player_icon} alt="Miniplayer" />
-        <img className='w-4 cursor-pointer' src={assets.zoom_icon} alt="Fullscreen" />
+        {/* Кнопка розширення теж відкриває повний екран */}
+        <img onClick={() => setIsFullScreen(true)} className='w-4 cursor-pointer hover:scale-110 transition' src={assets.zoom_icon} alt="Fullscreen" />
       </div>
     </div>
   )

@@ -14,6 +14,7 @@ export interface Song {
   file: string
   desc: string
   duration: string
+  lyrics?: string // Додали необов'язкове поле для тексту пісні
 }
 
 interface TimeParts {
@@ -31,6 +32,8 @@ interface PlayerContextType {
   volume: number
   shuffle: boolean
   loop: boolean
+  isFullScreen: boolean // Додано
+  setIsFullScreen: React.Dispatch<React.SetStateAction<boolean>> // Додано
   play: () => void
   pause: () => void
   playWithId: (id: Song['id']) => void
@@ -63,6 +66,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const [volume, setVolumeState] = useState(0.7)
   const [shuffle, setShuffle] = useState(false)
   const [loop, setLoop] = useState(false)
+  const [isFullScreen, setIsFullScreen] = useState(false) // Додано стан для повного екрана
 
   const play = () => {
     const audio = audioRef.current
@@ -129,7 +133,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const toggleShuffle = () => setShuffle((s) => !s)
   const toggleLoop = () => setLoop((l) => !l)
 
-  // Load new track whenever it changes, autoplay
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -137,7 +140,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     audio.load()
     audio.volume = volume
     audio.play().then(() => setPlayStatus(true)).catch(() => setPlayStatus(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track])
 
   useEffect(() => {
@@ -169,7 +171,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
       audio.removeEventListener('ended', handleEnded)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track, loop, shuffle])
 
   const value: PlayerContextType = {
@@ -182,6 +183,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     volume,
     shuffle,
     loop,
+    isFullScreen, // Додано
+    setIsFullScreen, // Додано
     play,
     pause,
     playWithId,

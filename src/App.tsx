@@ -2,15 +2,13 @@ import { Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import Player from './components/Player'
+import FullScreenPlayer from './components/FullScreenPlayer' // Імпортували новий компонент
 import Home from './pages/Home'
 import AlbumPage from './pages/AlbumPage'
-
-// 1. Імпортуйте ваш провайдер (перевірте шлях до файлу, де він створений!)
 import { PlayerContextProvider } from './context/PlayerContext' 
 
 function App() {
   return (
-    // 2. Огортаємо все дерево компонентів у Провайдер
     <PlayerContextProvider>
       <div className="h-screen bg-black flex flex-col p-2 gap-2 overflow-hidden">
         
@@ -33,8 +31,10 @@ function App() {
 
         {/* Програвач знизу */}
         <Player />
-        <audio preload="auto"></audio>
       </div>
+
+      {/* Повноекранний режим із текстом пісні */}
+      <FullScreenPlayer />
     </PlayerContextProvider>
   )
 }
