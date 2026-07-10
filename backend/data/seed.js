@@ -1,6 +1,6 @@
-// Скрипт наполнения базы данных.
-// Запуск: node data/seed.js
-// (выполнять из папки backend)
+// Database seeding script.
+// Run: node data/seed.js
+// (run this command from the backend folder)
 
 require('dotenv').config();
 const mongoose = require('mongoose');
@@ -16,7 +16,7 @@ const albumsData = [
   { name: 'Happy Favorites', image: '/images/img15.jpg', desc: 'Your weekly update of the most played tracks', bgColor: '#744210' },
 ];
 
-// file и image указывают на папку public фронтенда (см. пояснение в чате)
+// The file and image paths point to the frontend public folder.
 const songsData = [
   { name: 'Song One', image: '/images/img1.jpg', file: '/songs/song1.mp3', desc: 'Put a smile on your face with these happy tunes', duration: '3:00', genre: 'Pop' },
   { name: 'Song Two', image: '/images/img2.jpg', file: '/songs/song2.mp3', desc: 'Put a smile on your face with these happy tunes', duration: '2:20', genre: 'Pop' },
@@ -31,28 +31,28 @@ const songsData = [
 const runSeed = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('✅ Подключено к MongoDB для сида');
+    console.log('✅ Connected to MongoDB for seeding');
 
     await Album.deleteMany();
     await Song.deleteMany();
-    console.log('🗑️  Старые данные удалены');
+    console.log('🗑️ Previous data deleted');
 
     const createdAlbums = await Album.insertMany(albumsData);
-    console.log(`✅ Добавлено альбомов: ${createdAlbums.length}`);
+    console.log(`✅ Albums added: ${createdAlbums.length}`);
 
-    // Первую песню привяжем к первому альбому просто для примера связи
-    const songsWithAlbum = songsData.map((song, i) => ({
+    // Assign each song to an album to demonstrate the relationship.
+    const songsWithAlbum = songsData.map((song, index) => ({
       ...song,
-      album: createdAlbums[i % createdAlbums.length]._id,
+      album: createdAlbums[index % createdAlbums.length]._id,
     }));
 
     const createdSongs = await Song.insertMany(songsWithAlbum);
-    console.log(`✅ Добавлено песен: ${createdSongs.length}`);
+    console.log(`✅ Songs added: ${createdSongs.length}`);
 
-    console.log('🎉 Готово!');
+    console.log('🎉 Seeding completed successfully');
     process.exit(0);
   } catch (err) {
-    console.error('❌ Ошибка при сидировании:', err.message);
+    console.error('❌ Seeding error:', err.message);
     process.exit(1);
   }
 };

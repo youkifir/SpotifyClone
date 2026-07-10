@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getSongs, getSongById, searchSongs, createSong, getGenres, updateSong, deleteSong } = require('../controllers/songController');
+const { getSongs, getSongById, searchSongs, createSong, getGenres, updateSong, deleteSong, getSongLyrics } = require('../controllers/songController');
 const { protect, isAdmin } = require('../middleware/auth');
 
 // ВАЖНО: /search и /genres должны идти раньше /:id, иначе Express подумает,
@@ -9,6 +9,7 @@ router.get('/search', searchSongs);
 router.get('/genres', getGenres);
 router.get('/', getSongs);
 router.get('/:id', getSongById);
+router.get('/:id/lyrics', getSongLyrics); // текст песни, публично доступен всем
 
 // Создавать, редактировать и удалять песни (в т.ч. загружать полные треки,
 // а не 30-секундные превью из iTunes) может только админ

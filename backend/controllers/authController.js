@@ -12,20 +12,20 @@ const generateToken = (user) => {
 // Публичная регистрация всегда создаёт обычного пользователя (role: 'user').
 // Роль admin выдаётся только вручную (см. data/createAdmin.js), это защищает
 // от того, что кто угодно объявит себя админом через тело запроса.
-const register = async (req, res) => {
+const register = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
 
     if (!username || !email || !password) {
-      return res.status(400).json({ message: 'Заповніть усі поля: username, email, password' });
+      return res.status(400).json({ success: false, message: 'All fields are required: username, email, password', errors: [] });
     }
     if (password.length < 6) {
-      return res.status(400).json({ message: 'Пароль має містити щонайменше 6 символів' });
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long', errors: [] });
     }
 
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
-      return res.status(409).json({ message: 'Користувач з таким email вже існує' });
+      return res.status(409).json({ success: false, message: 'A user with this email already exists', errors: [] });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -41,55 +41,55 @@ const register = async (req, res) => {
     const token = generateToken(user);
 
     res.status(201).json({
-      message: 'Реєстрація успішна',
+      message: 'Registration successful',
       token,
       user: { id: user._id, username: user.username, email: user.email, role: user.role },
     });
   } catch (err) {
-    res.status(500).json({ message: 'Помилка при реєстрації', error: err.message });
+    next(err);
   }
 };
 
 // POST /api/auth/login
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Введіть email та пароль' });
+      return res.status(400).json({ success: false, message: 'Email and password are required', errors: [] });
     }
 
     // явно подтягиваем поле password, т.к. в модели у него select: false
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     if (!user) {
-      return res.status(401).json({ message: 'Невірний email або пароль' });
+      return res.status(401).json({ success: false, message: 'Invalid email or password', errors: [] });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Невірний email або пароль' });
+      return res.status(401).json({ success: false, message: 'Invalid email or password', errors: [] });
     }
 
     const token = generateToken(user);
 
     res.json({
-      message: 'Вхід успішний',
+      message: 'Login successful',
       token,
       user: { id: user._id, username: user.username, email: user.email, role: user.role },
     });
   } catch (err) {
-    res.status(500).json({ message: 'Помилка при вході', error: err.message });
+    next(err);
   }
 };
 
 // GET /api/auth/me — профиль текущего пользователя (нужен валидный токен)
-const getMe = async (req, res) => {
+const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'Користувача не знайдено' });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found', errors: [] });
     res.json({ id: user._id, username: user.username, email: user.email, role: user.role });
   } catch (err) {
-    res.status(500).json({ message: 'Помилка при отриманні профілю', error: err.message });
+    next(err);
   }
 };
 

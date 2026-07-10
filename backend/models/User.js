@@ -2,12 +2,31 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
-    username: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    // select: false — пароль (хэш) по умолчанию не будет попадать в обычные find()/findById(),
-    // чтобы случайно не отдать его на фронт. Явно запрашивается через .select('+password')
-    password: { type: String, required: true, select: false },
-    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    username: {
+      type: String,
+      required: [true, 'Username is required'],
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: [true, 'Email is required'],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'],
+    },
+    // select: false prevents the password hash from being returned by default
+    // in find() and findById() queries. Request it explicitly with .select('+password').
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      select: false,
+    },
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+    },
   },
   { timestamps: true }
 );

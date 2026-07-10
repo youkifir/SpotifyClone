@@ -4,9 +4,10 @@ const bcrypt = require('bcryptjs');
 const connectDB = require('../config/db');
 const User = require('../models/User');
 
-// Запуск: npm run seed:admin
-// Данные можно переопределить через .env (ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_USERNAME),
-// иначе используются значения по умолчанию ниже.
+// Run: npm run seed:admin
+// Values can be overridden in the .env file
+// (ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_USERNAME).
+// Otherwise, the default values below will be used.
 const run = async () => {
   await connectDB();
 
@@ -15,13 +16,16 @@ const run = async () => {
   const username = process.env.ADMIN_USERNAME || 'admin';
 
   const existing = await User.findOne({ email });
+
   if (existing) {
-    console.log('⚠️  Користувач з таким email вже існує:', email);
+    console.log('⚠️ A user with this email already exists:', email);
+
     if (existing.role !== 'admin') {
       existing.role = 'admin';
       await existing.save();
-      console.log('   Роль оновлено на admin.');
+      console.log('   User role updated to admin.');
     }
+
     await mongoose.disconnect();
     process.exit(0);
   }
@@ -36,15 +40,15 @@ const run = async () => {
     role: 'admin',
   });
 
-  console.log('✅ Адміністратора створено:');
+  console.log('✅ Administrator created successfully:');
   console.log(`   email:    ${admin.email}`);
-  console.log(`   password: ${password} (обов'язково змініть після першого входу)`);
+  console.log(`   password: ${password} (change it after the first login)`);
 
   await mongoose.disconnect();
   process.exit(0);
 };
 
 run().catch((err) => {
-  console.error('❌ Помилка створення адміна:', err.message);
+  console.error('❌ Error while creating administrator:', err.message);
   process.exit(1);
 });
