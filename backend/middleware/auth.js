@@ -1,0 +1,30 @@
+const jwt = require('jsonwebtoken');
+
+const createError = (message, statusCode) =>
+  Object.assign(new Error(message), { statusCode });
+
+const protect = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next(createError('Access denied: token is missing', 401));
+  }
+
+  try {
+    req.user = jwt.verify(
+      authHeader.split(' ')[1],
+      process.env.JWT_SECRET
+    );
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+const isAdmin = (req, res, next) =>
+  req.user?.role === 'admin'
+    ? next()
+    : next(createError('Access denied: administrator privileges are required', 403));
+
+module.exports = { protect, isAdmin };
