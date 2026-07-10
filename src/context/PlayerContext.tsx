@@ -5,7 +5,6 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { songsData } from '../assets/assets'
 
 export interface Song {
   id: number | string
@@ -14,7 +13,7 @@ export interface Song {
   file: string
   desc: string
   duration: string
-  lyrics?: string // Додали необов'язкове поле для тексту пісні
+  lyrics?: string
 }
 
 interface TimeParts {
@@ -24,6 +23,7 @@ interface TimeParts {
 
 interface PlayerContextType {
   audioRef: React.RefObject<HTMLAudioElement | null>
+  songsData: Song[]
   track: Song
   playStatus: boolean
   currentTime: TimeParts
@@ -32,8 +32,8 @@ interface PlayerContextType {
   volume: number
   shuffle: boolean
   loop: boolean
-  isFullScreen: boolean // Додано
-  setIsFullScreen: React.Dispatch<React.SetStateAction<boolean>> // Додано
+  isFullScreen: boolean
+  setIsFullScreen: React.Dispatch<React.SetStateAction<boolean>>
   play: () => void
   pause: () => void
   playWithId: (id: Song['id']) => void
@@ -58,7 +58,10 @@ const toParts = (seconds: number): TimeParts => {
 export const PlayerContextProvider = ({ children }: { children: ReactNode }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  const [track, setTrack] = useState<Song>(songsData[0])
+  // Изначально списки пустые, пока бэкенд не ответит
+  const [songsData, setSongsData] = useState<Song[]>([])
+  const [track, setTrack] = useState<Song | null>(null)
+
   const [playStatus, setPlayStatus] = useState(false)
   const [currentTime, setCurrentTime] = useState<TimeParts>({ minute: 0, second: 0 })
   const [totalTime, setTotalTime] = useState<TimeParts>({ minute: 0, second: 0 })
@@ -66,11 +69,41 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const [volume, setVolumeState] = useState(0.7)
   const [shuffle, setShuffle] = useState(false)
   const [loop, setLoop] = useState(false)
-  const [isFullScreen, setIsFullScreen] = useState(false) // Додано стан для повного екрана
+  const [isFullScreen, setIsFullScreen] = useState(false)
+
+  // Загружаем песни с бэкенда при монтировании
+  useEffect(() => {
+    const fetchSongs = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/songs')
+        if (response.ok) {
+          const resData = await response.json()
+          // Проверяем формат ответа бэка: если массив обернут в data, берем его, иначе сам массив
+          const fetchedSongs = Array.isArray(resData) ? resData : (resData.data || [])
+
+          // Нормализуем _id от MongoDB в id для фронтенда, чтобы не было конфликтов в верстке
+          const normalizedSongs = fetchedSongs.map((song: any) => ({
+            ...song,
+            id: song.id || song._id // если бэк отдал _id, пишем его в id
+          }))
+
+          setSongsData(normalizedSongs)
+
+          if (normalizedSongs.length > 0) {
+            setTrack(normalizedSongs[0])
+          }
+        }
+      } catch (error) {
+        console.error('Помилка завантаження пісень:', error)
+      }
+    }
+
+    fetchSongs()
+  }, [])
 
   const play = () => {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio || !track) return
     audio.play()
     setPlayStatus(true)
   }
@@ -83,9 +116,11 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   }
 
   const playWithId = (id: Song['id']) => {
+    if (songsData.length === 0) return
     const song = songsData.find((s) => s.id === id)
     if (!song) return
-    if (track.id === id) {
+
+    if (track && track.id === id) {
       if (playStatus) {
         pause()
       } else {
@@ -97,6 +132,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   }
 
   const changeTrack = (direction: 1 | -1) => {
+    if (!track || songsData.length === 0) return
     const index = songsData.findIndex((s) => s.id === track.id)
     if (index === -1) return
 
@@ -135,11 +171,19 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
 
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio) return
-    audio.src = track.file
+    if (!audio || !track) return
+
+    // Склеиваем URL, если бэк отдает относительный путь (например, "uploads/song.mp3")
+    const fileUrl = track.file.startsWith('http') ? track.file : `http://localhost:5000/${track.file}`
+
+    audio.src = fileUrl
     audio.load()
     audio.volume = volume
-    audio.play().then(() => setPlayStatus(true)).catch(() => setPlayStatus(false))
+
+    // Запускаем трек (но отлавливаем ошибку блокировки браузера, если юзер еще никуда не кликнул)
+    audio.play()
+      .then(() => setPlayStatus(true))
+      .catch(() => setPlayStatus(false))
   }, [track])
 
   useEffect(() => {
@@ -173,9 +217,20 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     }
   }, [track, loop, shuffle])
 
+  // Если песни еще загружаются или база пуста, даем дефолтную пустую структуру для трека, чтобы фронт не падал
+  const currentTrack = track || {
+    id: '',
+    name: 'Немає треків',
+    image: '',
+    file: '',
+    desc: '',
+    duration: '0:00'
+  }
+
   const value: PlayerContextType = {
     audioRef,
-    track,
+    songsData, // Сохранили старое название
+    track: currentTrack,
     playStatus,
     currentTime,
     totalTime,
@@ -183,8 +238,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     volume,
     shuffle,
     loop,
-    isFullScreen, // Додано
-    setIsFullScreen, // Додано
+    isFullScreen,
+    setIsFullScreen,
     play,
     pause,
     playWithId,
