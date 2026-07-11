@@ -29,22 +29,32 @@ interface Song {
   source: 'local' | 'itunes'
 }
 
-type Tab = 'albums' | 'songs'
+type Tab = 'albums' | 'songs' | 'users'
 type ModalMode = 'create' | 'edit'
+
+interface UserRecord {
+  id: string
+  username: string
+  email: string
+  role: 'user' | 'admin'
+  createdAt: string
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const imgSrc = (url: string) =>
   url?.startsWith('http') ? url : `${API}/${url}`
 
-const authHeaders = (token: string) => ({
+const authHeaders = (token: string | null) => ({
   'Content-Type': 'application/json',
-  Authorization: `Bearer ${token}`,
+  Authorization: `Bearer ${token ?? ''}`,
 })
 
 // ─── File Upload Helper ───────────────────────────────────────────────────────
 
-async function uploadFile(file: File, token: string): Promise<string> {
+async function uploadFile(file: File, token: string | null): Promise<string> {
+  if (!token) throw new Error('Токен авторизації відсутній')
+  
   const formData = new FormData()
   formData.append('file', file)
   const res = await fetch(`${API}/api/upload`, {
@@ -69,6 +79,8 @@ function Toast({ msg, ok }: { msg: string; ok: boolean }) {
     </div>
   )
 }
+
+// ─── Confirm Modal ───────────────────────────────────────────────────────────
 
 function ConfirmModal({
   title,
@@ -113,7 +125,7 @@ function AlbumModal({
 }: {
   mode: ModalMode
   initial?: Album
-  token: string
+  token: string | null
   onClose: () => void
   onSaved: (msg: string) => void
 }) {
@@ -147,7 +159,7 @@ function AlbumModal({
         body: JSON.stringify({ ...form, image: imageUrl }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.message || 'Помилка')
+      if (!res.ok) throw new Error(data.message || 'Помилка збереження альбому')
       onSaved(mode === 'create' ? 'Альбом створено!' : 'Альбом оновлено!')
       onClose()
     } catch (err: any) {
@@ -196,7 +208,7 @@ function AlbumModal({
               <input
                 value={form.image}
                 onChange={set('image')}
-                placeholder="https://... або /images/img1.jpg"
+                placeholder="https://..."
                 className="admin-input"
                 disabled={!!imageFile}
               />
@@ -212,6 +224,7 @@ function AlbumModal({
               className="admin-input resize-none"
             />
           </Field>
+          
           <Field label="Фоновий колір">
             <div className="flex items-center gap-3">
               <input
@@ -251,6 +264,21 @@ function AlbumModal({
   )
 }
 
+// ─── iTunes Track Type ────────────────────────────────────────────────────────
+
+interface ItunesTrack {
+  name: string
+  artist: string
+  image: string
+  file: string
+  duration: string
+  desc: string
+  genre: string
+  source: 'itunes'
+  externalId: string
+  alreadyAdded: boolean
+}
+
 // ─── Song Modal ───────────────────────────────────────────────────────────────
 
 function SongModal({
@@ -263,7 +291,83 @@ function SongModal({
 }: {
   mode: ModalMode
   initial?: Song
-  token: string
+  token: string | null
+  albums: Album[]
+  onClose: () => void
+  onSaved: (msg: string) => void
+}) {
+  const [source, setSource] = useState<'local' | 'itunes'>(initial?.source ?? 'local')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 overflow-y-auto">
+      <div className="bg-[#282828] rounded-xl shadow-2xl my-auto w-full max-w-lg">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <h3 className="text-white font-bold text-lg">
+            {mode === 'create' ? 'Нова пісня' : 'Редагувати пісню'}
+          </h3>
+          <button onClick={onClose} className="text-neutral-400 hover:text-white text-xl leading-none transition">✕</button>
+        </div>
+
+        {mode === 'create' && (
+          <div className="px-6 pb-4">
+            <div className="flex bg-[#1a1a1a] rounded-full p-1 gap-1 w-fit">
+              <button
+                onClick={() => setSource('local')}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                  source === 'local' ? 'bg-[#1db954] text-black' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                📁 Local — файл
+              </button>
+              <button
+                onClick={() => setSource('itunes')}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+                  source === 'itunes' ? 'bg-purple-500 text-white' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                🎵 iTunes — пошук
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="px-6 pb-6">
+          {source === 'local' ? (
+            <LocalSongForm
+              mode={mode}
+              initial={initial}
+              token={token}
+              albums={albums}
+              onClose={onClose}
+              onSaved={onSaved}
+            />
+          ) : (
+            <ItunesSongSearch
+              token={token}
+              albums={albums}
+              onClose={onClose}
+              onSaved={onSaved}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Local Song Form ──────────────────────────────────────────────────────────
+
+function LocalSongForm({
+  mode,
+  initial,
+  token,
+  albums,
+  onClose,
+  onSaved,
+}: {
+  mode: ModalMode
+  initial?: Song
+  token: string | null
   albums: Album[]
   onClose: () => void
   onSaved: (msg: string) => void
@@ -277,7 +381,6 @@ function SongModal({
     duration: initial?.duration ?? '0:00',
     genre: initial?.genre ?? '',
     album: initial?.album ?? '',
-    source: initial?.source ?? 'local',
   })
   const [audioFile, setAudioFile] = useState<File | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -290,7 +393,6 @@ function SongModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  // Автоматически вычисляем длительность из аудио файла
   const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null
     setAudioFile(file)
@@ -325,7 +427,7 @@ function SongModal({
       }
 
       setUploadProgress('Збереження...')
-      const body = { ...form, image: imageUrl, file: fileUrl, album: form.album || null }
+      const body = { ...form, image: imageUrl, file: fileUrl, album: form.album || null, source: 'local' }
       const url = mode === 'create' ? `${API}/api/songs` : `${API}/api/songs/${initial!._id}`
       const res = await fetch(url, {
         method: mode === 'create' ? 'POST' : 'PUT',
@@ -333,7 +435,7 @@ function SongModal({
         body: JSON.stringify(body),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.message || 'Помилка')
+      if (!res.ok) throw new Error(data.message || 'Помилка збереження треку')
       onSaved(mode === 'create' ? 'Пісню додано!' : 'Пісню оновлено!')
       onClose()
     } catch (err: any) {
@@ -345,127 +447,278 @@ function SongModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 overflow-y-auto">
-      <div className="bg-[#282828] rounded-xl p-6 w-full max-w-lg shadow-2xl my-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-white font-bold text-lg">
-            {mode === 'create' ? 'Нова пісня' : 'Редагувати пісню'}
-          </h3>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white text-xl leading-none transition">✕</button>
+    <>
+      {error && (
+        <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded-md mb-4 text-sm">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Назва пісні" required>
+            <input required value={form.name} onChange={set('name')} placeholder="Назва" className="admin-input" />
+          </Field>
+          <Field label="Виконавець">
+            <input value={form.artist} onChange={set('artist')} placeholder="Автор" className="admin-input" />
+          </Field>
         </div>
 
-        {error && (
-          <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded-md mb-4 text-sm">
-            {error}
+        <Field label="Обкладинка">
+          <div className="flex flex-col gap-2">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+              className="admin-input text-sm file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#1db954]/20 file:text-[#1db954] hover:file:bg-[#1db954]/30"
+            />
+            <input
+              value={form.image}
+              onChange={set('image')}
+              placeholder="Або URL обкладинки: https://..."
+              className="admin-input"
+              disabled={!!imageFile}
+            />
           </div>
-        )}
+        </Field>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Назва пісні" required>
-              <input required value={form.name} onChange={set('name')} placeholder="Назва" className="admin-input" />
-            </Field>
-            <Field label="Виконавець">
-              <input value={form.artist} onChange={set('artist')} placeholder="Автор" className="admin-input" />
-            </Field>
+        <Field label="Аудіофайл" required>
+          <div className="flex flex-col gap-2">
+            <input
+              type="file"
+              accept="audio/*"
+              onChange={handleAudioChange}
+              className="admin-input text-sm file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#1db954]/20 file:text-[#1db954] hover:file:bg-[#1db954]/30"
+            />
+            <input
+              value={form.file}
+              onChange={set('file')}
+              placeholder="Або URL аудіо: /songs/track.mp3"
+              className="admin-input"
+              disabled={!!audioFile}
+            />
           </div>
+        </Field>
 
-          {/* Обкладинка */}
-          <Field label="Обкладинка">
-            <div className="flex flex-col gap-2">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
-                className="admin-input text-sm file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#1db954]/20 file:text-[#1db954] hover:file:bg-[#1db954]/30"
-              />
-              <p className="text-neutral-500 text-xs">або вкажіть URL обкладинки:</p>
-              <input
-                value={form.image}
-                onChange={set('image')}
-                placeholder="https://..."
-                className="admin-input"
-                disabled={!!imageFile}
-              />
-            </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Жанр">
+            <input value={form.genre} onChange={set('genre')} placeholder="Pop, Rock..." className="admin-input" />
+          </Field>
+          <Field label="Тривалість">
+            <input value={form.duration} onChange={set('duration')} placeholder="3:45" className="admin-input" />
+          </Field>
+        </div>
+
+        <Field label="Альбом">
+          <select value={form.album} onChange={set('album')} className="admin-input">
+            <option value="">— Без альбому —</option>
+            {albums.map((a) => (
+              <option key={a._id} value={a._id}>{a.name}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Опис">
+          <textarea value={form.desc} onChange={set('desc')} placeholder="Короткий опис..." rows={2} className="admin-input resize-none" />
+        </Field>
+
+        <div className="flex gap-3 justify-end mt-2 items-center">
+          {loading && uploadProgress && (
+            <span className="text-[#1db954] text-xs animate-pulse">{uploadProgress}</span>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition"
+          >
+            Скасувати
+          </button>
+          <button
+            type="submit"
+            disabled={loading || (!form.file && !audioFile)}
+            className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-50"
+          >
+            {loading ? 'Збереження...' : 'Зберегти'}
+          </button>
+        </div>
+      </form>
+    </>
+  )
+}
+
+// ─── iTunes Song Search ───────────────────────────────────────────────────────
+
+function ItunesSongSearch({
+  token,
+  albums,
+  onClose,
+  onSaved,
+}: {
+  token: string | null
+  albums: Album[]
+  onClose: () => void
+  onSaved: (msg: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<ItunesTrack[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [selected, setSelected] = useState<ItunesTrack | null>(null)
+  const [albumId, setAlbumId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [justAdded, setJustAdded] = useState<Set<string>>(new Set())
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const q = query.trim()
+    if (!q) return
+    setSearchError('')
+    setSearching(true)
+    setResults([])
+    setSelected(null)
+    try {
+      const res = await fetch(`${API}/api/songs/itunes-preview?q=${encodeURIComponent(q)}`, {
+        headers: { Authorization: `Bearer ${token ?? ''}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка пошуку')
+      setResults(data.data)
+      if (data.data.length === 0) setSearchError('Нічого не знайдено.')
+    } catch (err: any) {
+      setSearchError(err.message)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!selected) return
+    setSaveError('')
+    setSaving(true)
+    try {
+      const body = {
+        name: selected.name,
+        artist: selected.artist,
+        image: selected.image,
+        file: selected.file,
+        duration: selected.duration,
+        desc: selected.desc,
+        genre: selected.genre,
+        source: 'itunes',
+        externalId: selected.externalId,
+        album: albumId || null,
+      }
+      const res = await fetch(`${API}/api/songs`, {
+        method: 'POST',
+        headers: authHeaders(token),
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка імпорту')
+      setJustAdded(prev => new Set(prev).add(selected.externalId))
+      setResults(prev =>
+        prev.map(t => t.externalId === selected.externalId ? { ...t, alreadyAdded: true } : t)
+      )
+      setSelected(null)
+      onSaved('Трек з iTunes додано!')
+    } catch (err: any) {
+      setSaveError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isAdded = (track: ItunesTrack) => track.alreadyAdded || justAdded.has(track.externalId)
+
+  return (
+    <div className="flex flex-col gap-4">
+      <form onSubmit={handleSearch} className="flex gap-2">
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Пошук в iTunes: назва, артист..."
+          className="admin-input flex-1"
+          autoFocus
+        />
+        <button
+          type="submit"
+          disabled={searching || !query.trim()}
+          className="px-4 py-2 rounded-full text-sm font-bold bg-purple-500 hover:bg-purple-400 text-white transition disabled:opacity-40"
+        >
+          {searching ? '...' : 'Знайти'}
+        </button>
+      </form>
+
+      {searchError && <p className="text-red-400 text-xs">{searchError}</p>}
+
+      {results.length > 0 && (
+        <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
+          {results.map(track => {
+            const added = isAdded(track)
+            const isSelected = selected?.externalId === track.externalId
+            return (
+              <button
+                key={track.externalId}
+                type="button"
+                onClick={() => !added && setSelected(isSelected ? null : track)}
+                disabled={added}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-left transition w-full
+                  ${added
+                    ? 'opacity-40 cursor-not-allowed bg-[#1a1a1a]'
+                    : isSelected
+                      ? 'bg-purple-500/20 border border-purple-500/60'
+                      : 'bg-[#1a1a1a] hover:bg-[#222] border border-transparent'
+                  }`}
+              >
+                <img src={track.image} alt={track.name} className="w-10 h-10 rounded object-cover" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">{track.name}</p>
+                  <p className="text-neutral-400 text-xs truncate">{track.artist} · {track.duration}</p>
+                </div>
+                {added && <span className="text-xs text-neutral-500">Додано</span>}
+                {!added && isSelected && <span className="text-xs text-purple-300">✓</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {selected && (
+        <div className="border border-purple-500/30 bg-purple-500/5 rounded-xl p-4 flex flex-col gap-3">
+          <Field label="Прив'язати до альбому">
+            <select value={albumId} onChange={e => setAlbumId(e.target.value)} className="admin-input">
+              <option value="">— Без альбому —</option>
+              {albums.map(a => (
+                <option key={a._id} value={a._id}>{a.name}</option>
+              ))}
+            </select>
           </Field>
 
-          {/* Аудіо файл */}
-          <Field label="Аудіофайл" required>
-            <div className="flex flex-col gap-2">
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={handleAudioChange}
-                className="admin-input text-sm file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#1db954]/20 file:text-[#1db954] hover:file:bg-[#1db954]/30"
-              />
-              <p className="text-neutral-500 text-xs">або вкажіть URL аудіо:</p>
-              <input
-                value={form.file}
-                onChange={set('file')}
-                placeholder="https://... або /songs/song1.mp3"
-                className="admin-input"
-                disabled={!!audioFile}
-              />
-            </div>
-          </Field>
+          {saveError && <p className="text-red-400 text-xs">{saveError}</p>}
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Жанр">
-              <input value={form.genre} onChange={set('genre')} placeholder="Pop, Rock, Hip-Hop..." className="admin-input" />
-            </Field>
-            <Field label="Тривалість">
-              <input value={form.duration} onChange={set('duration')} placeholder="3:45" className="admin-input" />
-            </Field>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Альбом">
-              <select value={form.album} onChange={set('album')} className="admin-input">
-                <option value="">— Без альбому —</option>
-                {albums.map((a) => (
-                  <option key={a._id} value={a._id}>{a.name}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Джерело">
-              <select value={form.source} onChange={set('source')} className="admin-input">
-                <option value="local">local</option>
-                <option value="itunes">itunes</option>
-              </select>
-            </Field>
-          </div>
-
-          <Field label="Опис">
-            <textarea value={form.desc} onChange={set('desc')} placeholder="Короткий опис..." rows={2} className="admin-input resize-none" />
-          </Field>
-
-          <div className="flex gap-3 justify-end mt-2 items-center">
-            {loading && uploadProgress && (
-              <span className="text-[#1db954] text-xs animate-pulse">{uploadProgress}</span>
-            )}
+          <div className="flex gap-2 justify-end">
             <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition"
+              onClick={() => setSelected(null)}
+              className="px-4 py-1.5 rounded-full text-xs font-bold text-neutral-300 hover:text-white border border-neutral-600"
             >
               Скасувати
             </button>
             <button
-              type="submit"
-              disabled={loading || (!form.file && !audioFile)}
-              className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-50"
+              onClick={handleImport}
+              disabled={saving}
+              className="px-4 py-1.5 rounded-full text-xs font-bold bg-purple-500 text-white hover:bg-purple-400"
             >
-              {loading ? 'Збереження...' : 'Зберегти'}
+              {saving ? 'Імпорт...' : 'Імпортувати'}
             </button>
           </div>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── Field wrapper ────────────────────────────────────────────────────────────
+// ─── Field Wrapper ────────────────────────────────────────────────────────────
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
@@ -478,7 +731,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
   )
 }
 
-// ─── Main AdminPanel ─────────────────────────────────────────────────────────
+// ─── Main Admin Panel ────────────────────────────────────────────────────────
 
 export default function AdminPanel() {
   const { user, token } = useAuth()
@@ -488,6 +741,10 @@ export default function AdminPanel() {
   const [albums, setAlbums] = useState<Album[]>([])
   const [songs, setSongs] = useState<Song[]>([])
   const [loadingData, setLoadingData] = useState(false)
+
+  const [users, setUsers] = useState<UserRecord[]>([])
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [userDeleteTarget, setUserDeleteTarget] = useState<{ id: string; name: string } | null>(null)
 
   const [albumModal, setAlbumModal] = useState<{ mode: ModalMode; item?: Album } | null>(null)
   const [songModal, setSongModal] = useState<{ mode: ModalMode; item?: Song } | null>(null)
@@ -513,10 +770,30 @@ export default function AdminPanel() {
     setSongs(data.data ?? data)
   }
 
+  const fetchUsers = async () => {
+    if (!token) return
+    setUsersLoading(true)
+    try {
+      const res = await fetch(`${API}/api/auth/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      setUsers(data.data ?? [])
+    } catch {
+      showToast('Не вдалося завантажити користувачів', false)
+    } finally {
+      setUsersLoading(false)
+    }
+  }
+
   useEffect(() => {
     setLoadingData(true)
     Promise.all([fetchAlbums(), fetchSongs()]).finally(() => setLoadingData(false))
   }, [])
+
+  useEffect(() => {
+    if (tab === 'users') fetchUsers()
+  }, [tab])
 
   const handleDelete = async () => {
     if (!deleteTarget || !token) return
@@ -526,13 +803,13 @@ export default function AdminPanel() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error('Помилка видалення')
+      if (!res.ok) throw new Error('Помилка сервера при видаленні')
       showToast(type === 'album' ? 'Альбом видалено!' : 'Пісню видалено!')
       if (type === 'album') {
         fetchAlbums()
       } else {
         fetchSongs()
-        refreshSongs() // Обновляем плеер
+        refreshSongs()
       }
     } catch (err: any) {
       showToast(err.message, false)
@@ -541,9 +818,24 @@ export default function AdminPanel() {
     }
   }
 
-  const albumName = (id: string | null) => {
-    if (!id) return '—'
-    return albums.find((a) => a._id === id)?.name ?? '—'
+  const handleDeleteUser = async () => {
+    if (!userDeleteTarget || !token) return
+    try {
+      const res = await fetch(`${API}/api/auth/users/${userDeleteTarget.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.message || 'Помилка')
+      }
+      showToast('Користувача видалено!')
+      fetchUsers()
+    } catch (err: any) {
+      showToast(err.message, false)
+    } finally {
+      setUserDeleteTarget(null)
+    }
   }
 
   return (
@@ -556,217 +848,187 @@ export default function AdminPanel() {
         </div>
         <div className="flex items-center gap-2 bg-[#1db954]/10 border border-[#1db954]/30 rounded-full px-3 py-1.5">
           <span className="w-2 h-2 rounded-full bg-[#1db954] animate-pulse shrink-0" />
-          <span className="text-[#1db954] text-xs font-semibold hidden sm:inline">{user.username}</span>
-          <span className="text-[#1db954]/60 text-xs hidden sm:inline">•</span>
-          <span className="text-[#1db954]/60 text-xs hidden sm:inline">admin</span>
+          <span className="text-[#1db954] text-xs font-semibold">{user.username}</span>
         </div>
       </div>
 
-      {/* ── Stats strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* ── Stats Strip ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
         {[
+          { label: 'Користувачів', value: users.length, color: 'text-white' },
           { label: 'Альбомів', value: albums.length, color: 'text-white' },
           { label: 'Пісень', value: songs.length, color: 'text-white' },
           { label: 'Жанрів', value: [...new Set(songs.map((s) => s.genre).filter(Boolean))].length, color: 'text-white' },
-          { label: 'iTunes треків', value: songs.filter((s) => s.source === 'itunes').length, color: 'text-[#1db954]' },
+          { label: 'iTunes треків', value: songs.filter((s) => s.source === 'itunes').length, color: 'text-purple-400' },
         ].map((stat) => (
-          <div key={stat.label} className="bg-[#181818] hover:bg-[#1f1f1f] transition rounded-xl p-4">
+          <div key={stat.label} className="bg-[#181818] rounded-xl p-4">
             <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
             <p className="text-xs text-neutral-400 mt-0.5 font-medium">{stat.label}</p>
           </div>
         ))}
       </div>
 
-      {/* ── Tabs ── */}
-      <div className="flex items-center justify-between">
+      {/* ── Tabs & Actions ── */}
+      <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
         <div className="flex bg-[#181818] rounded-full p-1 gap-1">
-          {(['albums', 'songs'] as Tab[]).map((t) => (
+          {(['albums', 'songs', 'users'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-full text-sm font-bold transition ${
-                tab === t
-                  ? 'bg-white text-black'
-                  : 'text-neutral-400 hover:text-white'
+                tab === t ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
-              {t === 'albums' ? 'Альбоми' : 'Пісні'}
+              {t === 'albums' ? 'Альбоми' : t === 'songs' ? 'Пісні' : 'Користувачі'}
             </button>
           ))}
         </div>
 
-        <button
-          onClick={() =>
-            tab === 'albums'
-              ? setAlbumModal({ mode: 'create' })
-              : setSongModal({ mode: 'create' })
-          }
-          className="flex items-center gap-2 bg-[#1db954] hover:bg-[#1ed760] text-black text-sm font-bold px-4 py-2 rounded-full transition hover:scale-105"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-          </svg>
-          <span>{tab === 'albums' ? 'Додати альбом' : 'Додати пісню'}</span>
-        </button>
+        {tab !== 'users' && (
+          <button
+            onClick={() => tab === 'albums' ? setAlbumModal({ mode: 'create' }) : setSongModal({ mode: 'create' })}
+            className="bg-[#1db954] hover:bg-[#1ed760] text-black px-5 py-2 rounded-full text-sm font-bold transition"
+          >
+            + Додати {tab === 'albums' ? 'альбом' : 'пісню'}
+          </button>
+        )}
       </div>
 
-      {/* ── Content ── */}
-      {loadingData ? (
-        <div className="flex items-center justify-center py-20 text-neutral-400 text-sm">
-          Завантаження...
-        </div>
-      ) : tab === 'albums' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {albums.length === 0 ? (
-            <EmptyState
-              label="Альбомів поки немає"
-              sub="Натисніть «Додати альбом», щоб створити перший"
-            />
-          ) : (
-            albums.map((album) => (
-              <div
-                key={album._id}
-                className="bg-[#181818] hover:bg-[#1f1f1f] transition rounded-xl p-4 flex items-center gap-4 group"
-              >
-                <img
-                  src={imgSrc(album.image)}
-                  alt={album.name}
-                  className="w-14 h-14 rounded-lg object-cover shrink-0 shadow-lg"
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).src =
-                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="56" height="56"%3E%3Crect width="56" height="56" fill="%23282828"/%3E%3C/svg%3E'
-                  }}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-sm truncate">{album.name}</p>
-                  <p className="text-neutral-400 text-xs truncate mt-0.5">{album.desc || 'Без опису'}</p>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <span
-                      className="w-3 h-3 rounded-full border border-white/20 shrink-0"
-                      style={{ background: album.bgColor }}
-                    />
-                    <span className="text-neutral-500 text-xs font-mono">{album.bgColor}</span>
-                  </div>
-                </div>
-                <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition">
-                  <IconBtn
-                    title="Редагувати"
-                    onClick={() => setAlbumModal({ mode: 'edit', item: album })}
-                  >
-                    <PencilIcon />
-                  </IconBtn>
-                  <IconBtn
-                    title="Видалити"
-                    danger
-                    onClick={() => setDeleteTarget({ type: 'album', id: album._id, name: album.name })}
-                  >
-                    <TrashIcon />
-                  </IconBtn>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-[#282828]">
-          {songs.length === 0 ? (
-            <EmptyState label="Пісень поки немає" sub="Натисніть «Додати пісню», щоб додати першу" />
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#282828]">
-                  {['', 'Назва', 'Виконавець', 'Жанр', 'Альбом', 'Дж.', ''].map((h, i) => (
-                    <th
-                      key={i}
-                      className="text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 px-4 py-3 first:w-12 last:w-20"
-                    >
-                      {h}
-                    </th>
+      {/* ── Dynamic Tabs Content ── */}
+      <div className="flex-1">
+        {loadingData || (tab === 'users' && usersLoading) ? (
+          <div className="flex items-center justify-center py-20 text-neutral-400 text-sm animate-pulse">
+            Завантаження даних...
+          </div>
+        ) : (
+          <div>
+            {/* 1. ALBUMS TAB */}
+            {tab === 'albums' && (
+              albums.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-sm">Альбомів не знайдено</div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {albums.map((album) => (
+                    <div key={album._id} className="bg-[#181818] hover:bg-[#282828] p-4 rounded-xl transition group relative">
+                      <img src={imgSrc(album.image)} alt={album.name} className="w-full aspect-square object-cover rounded-md mb-3 shadow-lg" />
+                      <h3 className="text-white font-bold text-sm truncate">{album.name}</h3>
+                      <p className="text-neutral-400 text-xs truncate mt-1">{album.desc || 'Немає опису'}</p>
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                        <button onClick={() => setAlbumModal({ mode: 'edit', item: album })} className="bg-black/80 p-2 rounded-full text-white text-xs">✏️</button>
+                        <button onClick={() => setDeleteTarget({ type: 'album', id: album._id, name: album.name })} className="bg-red-600/90 p-2 rounded-full text-white text-xs">🗑️</button>
+                      </div>
+                    </div>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {songs.map((song, idx) => (
-                  <tr
-                    key={song._id}
-                    className="border-b border-[#1a1a1a] last:border-0 hover:bg-[#1f1f1f] transition group"
-                  >
-                    <td className="px-4 py-3 text-neutral-500 text-xs w-8">{idx + 1}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={imgSrc(song.image)}
-                          alt={song.name}
-                          className="w-9 h-9 rounded object-cover shrink-0"
-                          onError={(e) => {
-                            ;(e.target as HTMLImageElement).src =
-                              'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36"%3E%3Crect width="36" height="36" fill="%23282828"/%3E%3C/svg%3E'
-                          }}
-                        />
-                        <div className="min-w-0">
-                          <p className="text-white font-medium truncate max-w-45">{song.name}</p>
-                          <p className="text-neutral-500 text-xs">{song.duration}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-neutral-300 truncate max-w-30">{song.artist || '—'}</td>
-                    <td className="px-4 py-3">
-                      {song.genre ? (
-                        <span className="bg-[#282828] text-neutral-300 text-xs font-medium px-2 py-0.5 rounded-full">
-                          {song.genre}
-                        </span>
-                      ) : (
-                        <span className="text-neutral-600">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-neutral-400 truncate max-w-30">{albumName(song.album)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          song.source === 'itunes'
-                            ? 'bg-purple-500/20 text-purple-300'
-                            : 'bg-[#1db954]/15 text-[#1db954]'
-                        }`}
-                      >
-                        {song.source}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition">
-                        <IconBtn
-                          title="Редагувати"
-                          onClick={() => setSongModal({ mode: 'edit', item: song })}
-                        >
-                          <PencilIcon />
-                        </IconBtn>
-                        <IconBtn
-                          title="Видалити"
-                          danger
-                          onClick={() => setDeleteTarget({ type: 'song', id: song._id, name: song.name })}
-                        >
-                          <TrashIcon />
-                        </IconBtn>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+                </div>
+              )
+            )}
 
-      {/* ── Modals ── */}
+            {/* 2. SONGS TAB */}
+            {tab === 'songs' && (
+              songs.length === 0 ? (
+                <div className="text-center py-12 text-neutral-500 text-sm">Пісень не знайдено</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-neutral-400 text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-neutral-800 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                        <th className="py-3 px-4">Назва</th>
+                        <th className="py-3 px-4">Виконавець</th>
+                        <th className="py-3 px-4">Жанр</th>
+                        <th className="py-3 px-4">Альбом</th>
+                        <th className="py-3 px-4">Дж.</th>
+                        <th className="py-3 px-4 text-right">Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {songs.map((song) => (
+                        <tr key={song._id} className="border-b border-neutral-900 hover:bg-[#1a1a1a] transition group">
+                          <td className="py-3 px-4 flex items-center gap-3">
+                            <img src={imgSrc(song.image)} alt={song.name} className="w-10 h-10 object-cover rounded shadow" />
+                            <div>
+                              <p className="text-white font-medium truncate max-w-45">{song.name}</p>
+                              <p className="text-xs text-neutral-500 mt-0.5">{song.duration}</p>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-white font-medium">{song.artist || '—'}</td>
+                          <td className="py-3 px-4">
+                            <span className="bg-neutral-800 text-neutral-300 text-xs font-medium px-2 py-0.5 rounded-full">{song.genre || '—'}</span>
+                          </td>
+                          <td className="py-3 px-4 text-neutral-300">
+                            {albums.find(a => a._id === song.album)?.name || '—'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${song.source === 'itunes' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'bg-green-600/20 text-green-400 border border-green-500/30'}`}>
+                              {song.source}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                            <button onClick={() => setSongModal({ mode: 'edit', item: song })} className="text-neutral-400 hover:text-white mr-3 font-semibold text-xs">Редагувати</button>
+                            <button onClick={() => setDeleteTarget({ type: 'song', id: song._id, name: song.name })} className="text-red-500 hover:text-red-400 font-semibold text-xs">Видалити</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+
+            {/* 3. USERS TAB */}
+            {tab === 'users' && (
+              users.length === 0 ? (
+                <div className="flex flex-col items-center justify-center bg-[#121212] rounded-xl p-12 text-center border border-neutral-800/40">
+                  <div className="w-12 h-12 rounded-full border border-neutral-800 flex items-center justify-center text-neutral-500 text-xl mb-4">ⓘ</div>
+                  <p className="text-white font-bold text-base">Користувачів немає</p>
+                  <p className="text-neutral-500 text-xs mt-1">Жоден користувач ще не зареєструвався</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-neutral-400 text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-neutral-800 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                        <th className="py-3 px-4">Користувач</th>
+                        <th className="py-3 px-4">Email</th>
+                        <th className="py-3 px-4">Роль</th>
+                        <th className="py-3 px-4 text-right">Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((u) => (
+                        <tr key={u.id} className="border-b border-neutral-900 hover:bg-[#1a1a1a] transition group">
+                          <td className="py-3 px-4 text-white font-medium">{u.username}</td>
+                          <td className="py-3 px-4">{u.email}</td>
+                          <td className="py-3 px-4">
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${u.role === 'admin' ? 'bg-[#1db954]/20 text-[#1db954]' : 'bg-neutral-800 text-neutral-400'}`}>
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap opacity-0 group-hover:opacity-100 transition">
+                            {u.id !== user.id ? (
+                              <button onClick={() => setUserDeleteTarget({ id: u.id, name: u.username })} className="text-red-500 hover:text-red-400 font-semibold text-xs">Видалити</button>
+                            ) : (
+                              <span className="text-xs text-neutral-600 italic">Це ви</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Modals Layer ── */}
       {albumModal && (
         <AlbumModal
           mode={albumModal.mode}
           initial={albumModal.item}
-          token={token!}
+          token={token}
           onClose={() => setAlbumModal(null)}
-          onSaved={(msg) => {
-            showToast(msg)
-            fetchAlbums()
-          }}
+          onSaved={(msg) => { showToast(msg); fetchAlbums(); }}
         />
       )}
 
@@ -774,89 +1036,30 @@ export default function AdminPanel() {
         <SongModal
           mode={songModal.mode}
           initial={songModal.item}
-          token={token!}
+          token={token}
           albums={albums}
           onClose={() => setSongModal(null)}
-          onSaved={(msg) => {
-            showToast(msg)
-            fetchSongs()
-            refreshSongs() // ← Оновлюємо плеер і головну
-          }}
+          onSaved={(msg) => { showToast(msg); fetchSongs(); refreshSongs(); }}
         />
       )}
 
       {deleteTarget && (
         <ConfirmModal
-          title={`Видалити «${deleteTarget.name}»? Цю дію не можна скасувати.`}
+          title={`Ви впевнені, що хочете видалити ${deleteTarget.type === 'album' ? 'альбом' : 'пісню'} "${deleteTarget.name}"?`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />
       )}
 
+      {userDeleteTarget && (
+        <ConfirmModal
+          title={`Ви впевнені, що хочете видалити користувача "${userDeleteTarget.name}"?`}
+          onConfirm={handleDeleteUser}
+          onCancel={() => setUserDeleteTarget(null)}
+        />
+      )}
+
       {toast && <Toast msg={toast.msg} ok={toast.ok} />}
     </div>
-  )
-}
-
-// ─── Micro-components ────────────────────────────────────────────────────────
-
-function EmptyState({ label, sub }: { label: string; sub: string }) {
-  return (
-    <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-14 h-14 rounded-full bg-[#282828] flex items-center justify-center mb-4">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="9" stroke="#404040" strokeWidth="1.5" />
-          <path d="M12 8v4M12 16h.01" stroke="#404040" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </div>
-      <p className="text-white font-semibold text-sm mb-1">{label}</p>
-      <p className="text-neutral-500 text-xs">{sub}</p>
-    </div>
-  )
-}
-
-function IconBtn({
-  children,
-  title,
-  danger = false,
-  onClick,
-}: {
-  children: React.ReactNode
-  title: string
-  danger?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      className={`w-8 h-8 rounded-full flex items-center justify-center transition
-        ${danger
-          ? 'text-neutral-500 hover:text-red-400 hover:bg-red-400/10'
-          : 'text-neutral-500 hover:text-white hover:bg-white/10'
-        }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-function PencilIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" />
-      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-    </svg>
   )
 }

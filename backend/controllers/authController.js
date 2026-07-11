@@ -152,4 +152,37 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe, updateProfile };
+// GET /api/auth/users — admin only: list all users
+const getUsers = async (req, res, next) => {
+  try {
+    const users = await User.find({}).sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      data: users.map(u => ({
+        id: u._id,
+        username: u.username,
+        email: u.email,
+        role: u.role,
+        createdAt: u.createdAt,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/auth/users/:id — admin only: delete a user (cannot delete self)
+const deleteUser = async (req, res, next) => {
+  try {
+    if (String(req.params.id) === String(req.user.id)) {
+      return res.status(400).json({ success: false, message: 'Не можна видалити власний акаунт' });
+    }
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'Користувача не знайдено' });
+    res.json({ success: true, message: 'Користувача видалено' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, getMe, updateProfile, getUsers, deleteUser };

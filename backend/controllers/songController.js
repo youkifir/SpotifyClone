@@ -290,10 +290,48 @@ const getSongLyrics = async (req, res, next) => {
   }
 };
 
+// GET /api/songs/itunes-preview?q=...
+// Admin-only: searches iTunes and returns results WITHOUT saving to the database.
+// Used in the admin panel so the admin can pick which tracks to import.
+const searchItunesPreview = async (req, res, next) => {
+  try {
+    const q = (req.query.q || '').trim();
+
+    if (!q) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required',
+        errors: [],
+      });
+    }
+
+    const tracks = await searchItunes(q, 20);
+
+    // Mark which tracks are already in the DB so the UI can show "Already added"
+    const externalIds = tracks.map((t) => t.externalId);
+    const existing = await Song.find({ externalId: { $in: externalIds } }).select('externalId');
+    const existingSet = new Set(existing.map((s) => s.externalId));
+
+    const results = tracks.map((t) => ({
+      ...t,
+      alreadyAdded: existingSet.has(t.externalId),
+    }));
+
+    res.json({
+      success: true,
+      message: 'iTunes search completed',
+      data: results,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getSongs,
   getSongById,
   searchSongs,
+  searchItunesPreview,
   createSong,
   getGenres,
   updateSong,
