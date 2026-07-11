@@ -1,20 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const { getSongs, getSongById, searchSongs, createSong, getGenres, updateSong, deleteSong, getSongLyrics } = require('../controllers/songController');
-const { protect, isAdmin } = require('../middleware/auth');
+const {
+  getSongs, getSongById, searchSongs, createSong,
+  getGenres, updateSong, deleteSong, getSongLyrics,
+} = require('../controllers/songController');
+const { protect, isAdmin, isMusician } = require('../middleware/auth');
 
-// ВАЖНО: /search и /genres должны идти раньше /:id, иначе Express подумает,
-// что это id песни
 router.get('/search', searchSongs);
 router.get('/genres', getGenres);
 router.get('/', getSongs);
 router.get('/:id', getSongById);
-router.get('/:id/lyrics', getSongLyrics); // текст песни, публично доступен всем
+router.get('/:id/lyrics', getSongLyrics);
 
-// Создавать, редактировать и удалять песни (в т.ч. загружать полные треки,
-// а не 30-секундные превью из iTunes) может только админ
-router.post('/', protect, isAdmin, createSong);
-router.put('/:id', protect, isAdmin, updateSong);
-router.delete('/:id', protect, isAdmin, deleteSong);
+// POST /api/songs/:id/play — фронтенд викликає коли починає грати пісню
+router.post('/:id/play', async (req, res, next) => {
+  try {
+    const song = await require('../models/Song').findByIdAndUpdate(
+      req.params.id,
+      { $inc: { playCount: 1 } },
+      { new: true }
+    );
+    if (!song) return res.status(404).json({ success: false, message: 'Song not found', errors: [] });
+    res.json({ success: true, message: 'Play counted', data: { playCount: song.playCount } });
+  } catch (err) { next(err); }
+});
+
+// Музикант може додавати і редагувати ТІЛЬКИ свої пісні, адмін — будь-які
+router.post('/', protect, isMusician, createSong);
+router.put('/:id', protect, isMusician, updateSong);
+router.delete('/:id', protect, isMusician, deleteSong);
 
 module.exports = router;

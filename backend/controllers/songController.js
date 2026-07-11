@@ -165,7 +165,10 @@ const searchSongs = async (req, res, next) => {
 // POST /api/songs
 const createSong = async (req, res, next) => {
   try {
-    const song = await Song.create(req.body);
+    const song = await Song.create({
+      ...req.body,
+      uploadedBy: req.user?.id || null,
+    });
 
     res.status(201).json({
       success: true,

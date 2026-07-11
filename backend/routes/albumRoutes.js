@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { getAlbums, getAlbumById, createAlbum, updateAlbum, deleteAlbum } = require('../controllers/albumController');
-const { protect, isAdmin } = require('../middleware/auth');
+const { protect, isMusician, isAdmin } = require('../middleware/auth');
 
 router.get('/', getAlbums);
 router.get('/:id', getAlbumById);
 
-router.post('/', protect, isAdmin, createAlbum);
-router.put('/:id', protect, isAdmin, updateAlbum);
-router.delete('/:id', protect, isAdmin, deleteAlbum);
+// Музикант може створювати альбоми і редагувати свої, адмін — будь-які
+router.post('/', protect, isMusician, createAlbum);
+router.put('/:id', protect, isMusician, updateAlbum);
+router.delete('/:id', protect, isAdmin, deleteAlbum); // видаляти може тільки адмін
 
 module.exports = router;
