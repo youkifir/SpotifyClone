@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+
+@layer components {
+  .admin-input {
+    @apply w-full bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 py-2.5
+           text-sm text-white placeholder-neutral-600
+           focus:outline-none focus:border-[#1db954] focus:bg-[#242424]
+           transition-colors;
+  }
+ 
+  select.admin-input option {
+    background: #1f1f1f;
+    color: white;
+  }
+}
