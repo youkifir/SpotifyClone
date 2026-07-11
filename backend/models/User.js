@@ -15,8 +15,6 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'],
     },
-    // select: false prevents the password hash from being returned by default
-    // in find() and findById() queries. Request it explicitly with .select('+password').
     password: {
       type: String,
       required: [true, 'Password is required'],
@@ -24,8 +22,22 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['user', 'admin'],
+      enum: ['user', 'musician', 'admin'],
       default: 'user',
+    },
+    // Заявка на роль музиканта:
+    // pending  — подана, чекає рішення адміна
+    // approved — адмін схвалив (роль змінена на musician)
+    // rejected — адмін відхилив
+    // null     — заявки не було
+    musicianRequest: {
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected', null],
+        default: null,
+      },
+      message: { type: String, default: '' }, // причина відмови від адміна
+      requestedAt: { type: Date, default: null },
     },
   },
   { timestamps: true }
