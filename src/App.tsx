@@ -9,6 +9,7 @@ import AlbumPage from './pages/AlbumPage'
 import AuthPage from './pages/AuthPage'
 import AdminPanel from './pages/AdminPanel'
 import ProfilePage from './pages/ProfilePage'
+import PlaylistPage from './pages/PlaylistPage'
 import { PlayerContextProvider } from './context/PlayerContext'
 import { useAuth } from './context/AuthContext'
 
@@ -35,12 +36,13 @@ function App() {
 
           <div className="flex-1 min-w-0 bg-[#121212] rounded-lg text-white p-3 sm:p-4 overflow-y-auto custom-scrollbar">
             <Routes>
-              <Route path="/"          element={token ? <Home />       : <Navigate to="/login" />} />
-              <Route path="/album/:id" element={token ? <AlbumPage />  : <Navigate to="/login" />} />
-              <Route path="/admin"     element={token ? <AdminPanel />  : <Navigate to="/login" />} />
-              <Route path="/profile"   element={token ? <ProfilePage /> : <Navigate to="/login" />} />
+              <Route path="/" element={token ? <Home /> : <Navigate to="/login" />} />
+              <Route path="/album/:id" element={token ? <AlbumPage /> : <Navigate to="/login" />} />
+              <Route path="/playlist/:id" element={token ? <PlaylistPage /> : <Navigate to="/login" />} />
+              <Route path="/admin" element={token ? <AdminPanel /> : <Navigate to="/login" />} />
+              <Route path="/profile" element={token ? <ProfilePage /> : <Navigate to="/login" />} />
 
-              <Route path="/login"    element={!token ? <AuthPage isLoginMode={true}  /> : <Navigate to="/" />} />
+              <Route path="/login" element={!token ? <AuthPage isLoginMode={true} /> : <Navigate to="/" />} />
               <Route path="/register" element={!token ? <AuthPage isLoginMode={false} /> : <Navigate to="/" />} />
             </Routes>
           </div>
