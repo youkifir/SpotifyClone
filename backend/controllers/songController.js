@@ -409,6 +409,26 @@ const getArtistSongs = async (req, res, next) => {
   }
 };
 
+// GET /api/songs/my — повертає треки поточного музиканта (за uploadedBy)
+// Адмін бачить всі треки
+const getMySongs = async (req, res, next) => {
+  try {
+    const filter = req.user?.role === 'admin'
+      ? {}
+      : { uploadedBy: req.user.id };
+
+    const songs = await Song.find(filter).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      message: 'Songs retrieved successfully',
+      data: songs,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getSongs,
   getSongById,
@@ -420,4 +440,5 @@ module.exports = {
   deleteSong,
   getSongLyrics,
   getArtistSongs,
+  getMySongs,
 };

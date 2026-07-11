@@ -25,6 +25,67 @@ interface LikedSong {
   duration: string
 }
 
+// ─── Musician Request Button ──────────────────────────────────────────────────
+
+function MusicianRequestButton({ token }: { token: string | null }) {
+  const [status, setStatus] = useState<'idle' | 'pending' | 'loading' | 'sent'>('idle')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!token) return
+    fetch('http://localhost:5000/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => {
+        const u = data.data || data
+        if (u?.musicianRequest?.status === 'pending') setStatus('pending')
+        else if (u?.musicianRequest?.status === 'approved') setStatus('sent')
+      })
+      .catch(() => {})
+  }, [token])
+
+  const sendRequest = async () => {
+    if (!token || status !== 'idle') return
+    setStatus('loading')
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/request-musician', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка')
+      setStatus('pending')
+    } catch (err: any) {
+      setError(err.message)
+      setStatus('idle')
+      setTimeout(() => setError(''), 3000)
+    }
+  }
+
+  if (status === 'sent') return null
+
+  return (
+    <div className="mt-3">
+      {error && <p className="text-red-400 text-xs mb-1">{error}</p>}
+      {status === 'pending' ? (
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
+          ⏳ Заявка на розгляді
+        </span>
+      ) : (
+        <button
+          onClick={sendRequest}
+          disabled={status === 'loading'}
+          className="text-xs font-semibold px-3 py-1.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 hover:bg-purple-500/25 transition flex items-center gap-1.5 disabled:opacity-50"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+          </svg>
+          {status === 'loading' ? 'Відправляємо...' : 'Стати музикантом'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function ProfilePage() {
   const { user, token, login: ctxLogin } = useAuth()
   const { playWithId, addSongs, track, playStatus } = usePlayer()
@@ -136,14 +197,17 @@ export default function ProfilePage() {
             <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
               user?.role === 'admin'
                 ? 'bg-[#1db954]/20 text-[#1db954] border border-[#1db954]/30'
+                : user?.role === 'musician'
+                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                 : 'bg-[#282828] text-neutral-400'
             }`}>
-              {user?.role === 'admin' ? 'Адміністратор' : 'Користувач'}
+              {user?.role === 'admin' ? '🛡 Адміністратор' : user?.role === 'musician' ? '🎵 Музикант' : 'Користувач'}
             </span>
             <span className="text-neutral-500 text-xs">
               З нами з {formatDate((user as any)?.createdAt)}
             </span>
           </div>
+          {user?.role === 'user' && <MusicianRequestButton token={token} />}
         </div>
       </div>
 

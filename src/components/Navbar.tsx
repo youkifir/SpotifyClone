@@ -122,6 +122,19 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                 </button>
               )}
 
+              {/* Студія музиканта — для музиканта та адміна */}
+              {(user?.role === 'musician' || user?.role === 'admin') && (
+                <button
+                  onClick={() => { setMenuOpen(false); navigate('/musician') }}
+                  className='w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-400 hover:bg-purple-500/10 transition text-left'
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                  Моя студія
+                </button>
+              )}
+
               {/* Профіль */}
               <button
                 onClick={() => { setMenuOpen(false); navigate('/profile') }}
