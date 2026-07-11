@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { assets } from '../assets/assets'
 import { usePlayer } from '../context/usePlayer'
 import ArtistPopup from './ArtistProup'
+import { useLike } from '../hooks/Uselike'
 
 interface Song {
   id: number | string
@@ -18,8 +19,10 @@ interface SongListProps {
 
 function SongList({ songs }: SongListProps) {
   const { track, playStatus, playWithId } = usePlayer()
+  const { isLiked, toggleLike } = useLike()
   const [popupArtist, setPopupArtist] = useState<string | null>(null)
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+  const [animatingId, setAnimatingId] = useState<string | number | null>(null)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleArtistMouseEnter = (e: React.MouseEvent<HTMLSpanElement>, artist: string) => {
@@ -39,6 +42,13 @@ function SongList({ songs }: SongListProps) {
     setAnchorEl(null)
   }
 
+  const handleLike = (e: React.MouseEvent, songId: string | number) => {
+    e.stopPropagation()
+    toggleLike(songId)
+    setAnimatingId(songId)
+    setTimeout(() => setAnimatingId(null), 400)
+  }
+
   return (
     <div>
       <div className="grid grid-cols-[16px_4fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-neutral-400 text-sm border-b border-[#2a2a2a]">
@@ -52,6 +62,8 @@ function SongList({ songs }: SongListProps) {
         {songs.map((song, index) => {
           const isActive = track.id === song.id
           const isActivePlaying = isActive && playStatus
+          const liked = isLiked(song.id)
+          const isAnimating = animatingId === song.id
 
           return (
             <div
@@ -69,6 +81,7 @@ function SongList({ songs }: SongListProps) {
                   className={`w-3 h-3 absolute inset-0 m-auto ${isActivePlaying ? 'block' : 'hidden group-hover:block'}`}
                 />
               </span>
+
               <div className="flex items-center gap-3 min-w-0">
                 <img src={song.image} alt={song.name} className="w-10 h-10 rounded object-cover shrink-0" />
                 <div className="min-w-0">
@@ -85,6 +98,7 @@ function SongList({ songs }: SongListProps) {
                   )}
                 </div>
               </div>
+
               <div className="hidden sm:flex items-center min-w-0">
                 {song.artist ? (
                   <span
@@ -99,19 +113,34 @@ function SongList({ songs }: SongListProps) {
                   <span className="text-sm truncate">{song.desc}</span>
                 )}
               </div>
-              <img
-                src={assets.like_icon}
-                alt="Подобається"
-                onClick={(e) => e.stopPropagation()}
-                className="w-4 h-4 self-center opacity-0 group-hover:opacity-70 hover:opacity-100! hover:scale-110 transition"
-              />
+
+              {/* Кнопка лайку */}
+              <button
+                onClick={(e) => handleLike(e, song.id)}
+                className={`self-center w-5 h-5 flex items-center justify-center transition-all ${
+                  liked
+                    ? 'opacity-100 scale-100'
+                    : 'opacity-0 group-hover:opacity-60 hover:opacity-100!'
+                } ${isAnimating ? 'scale-125' : 'hover:scale-110'}`}
+                aria-label={liked ? 'Прибрати з улюблених' : 'Додати до улюблених'}
+              >
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24"
+                  fill={liked ? '#1db954' : 'none'}
+                  stroke={liked ? '#1db954' : 'currentColor'}
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  className="transition-all duration-200"
+                >
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </button>
+
               <span className="self-center text-sm justify-self-end">{song.duration}</span>
             </div>
           )
         })}
       </div>
 
-      {/* Artist popup */}
       {popupArtist && (
         <ArtistPopup
           artistName={popupArtist}

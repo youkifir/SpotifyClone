@@ -22,22 +22,19 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['user', 'musician', 'admin'],
+      enum: ['user', 'admin', 'musician'],
       default: 'user',
     },
-    // Заявка на роль музиканта:
-    // pending  — подана, чекає рішення адміна
-    // approved — адмін схвалив (роль змінена на musician)
-    // rejected — адмін відхилив
-    // null     — заявки не було
-    musicianRequest: {
-      status: {
-        type: String,
-        enum: ['pending', 'approved', 'rejected', null],
-        default: null,
+    likedSongs: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Song',
       },
-      message: { type: String, default: '' }, // причина відмови від адміна
-      requestedAt: { type: Date, default: null },
+    ],
+    musicianRequest: {
+      status: { type: String, enum: ['pending', 'approved', 'rejected'], default: null },
+      message: { type: String, default: '' },
+      requestedAt: { type: Date },
     },
   },
   { timestamps: true }

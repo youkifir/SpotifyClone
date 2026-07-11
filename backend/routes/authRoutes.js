@@ -1,26 +1,26 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe } = require('../controllers/authController');
-const { protect } = require('../middleware/auth');
-const User = require('../models/User');
-=======
-const { register, login, getMe, updateProfile, getUsers, deleteUser } = require('../controllers/authController');
+const {
+  register, login, getMe, updateProfile,
+  getLikedSongs, toggleLike,
+  getUsers, deleteUser,
+} = require('../controllers/authController');
 const { protect, isAdmin } = require('../middleware/auth');
-
+const User = require('../models/User');
 
 router.post('/register', register);
 router.post('/login', login);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 
+// Лайки
+router.get('/likes', protect, getLikedSongs);
+router.post('/likes/:songId', protect, toggleLike);
 
-// POST /api/auth/request-musician
-// Звичайний юзер подає заявку на роль музиканта.
-// Адмін побачить її в /api/admin/musician-requests
+// Запит на музиканта
 router.post('/request-musician', protect, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-
     if (user.role === 'musician') {
       return res.status(400).json({ success: false, message: 'You are already a musician', errors: [] });
     }
@@ -30,10 +30,8 @@ router.post('/request-musician', protect, async (req, res, next) => {
     if (user.musicianRequest?.status === 'pending') {
       return res.status(409).json({ success: false, message: 'You already have a pending request', errors: [] });
     }
-
     user.musicianRequest = { status: 'pending', message: '', requestedAt: new Date() };
     await user.save();
-
     res.json({
       success: true,
       message: 'Your request has been submitted. Wait for admin approval.',
@@ -44,11 +42,8 @@ router.post('/request-musician', protect, async (req, res, next) => {
   }
 });
 
-module.exports = router;
-=======
-// Admin-only user management
+// Admin
 router.get('/users', protect, isAdmin, getUsers);
 router.delete('/users/:id', protect, isAdmin, deleteUser);
 
 module.exports = router;
-
