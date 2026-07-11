@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { assets } from '../assets/assets'
 import { usePlayer } from '../context/usePlayer'
 import ArtistPopup from './ArtistProup'
 import { useLike } from '../hooks/Uselike'
+import AddToPlaylistMenu from './AddToPlaylistMenu'
 
 interface Song {
   id: number | string
@@ -25,6 +26,10 @@ function SongList({ songs }: SongListProps) {
   const [animatingId, setAnimatingId] = useState<string | number | null>(null)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Стан меню "Додати до плейліста"
+  const [menuSongId, setMenuSongId] = useState<string | number | null>(null)
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
+
   const handleArtistMouseEnter = (e: React.MouseEvent<HTMLSpanElement>, artist: string) => {
     const el = e.currentTarget
     hoverTimer.current = setTimeout(() => {
@@ -37,7 +42,7 @@ function SongList({ songs }: SongListProps) {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
   }
 
-  const closePopup = () => {
+  const closeArtistPopup = () => {
     setPopupArtist(null)
     setAnchorEl(null)
   }
@@ -49,15 +54,34 @@ function SongList({ songs }: SongListProps) {
     setTimeout(() => setAnimatingId(null), 400)
   }
 
+  const handleOpenMenu = (e: React.MouseEvent<HTMLButtonElement>, songId: string | number) => {
+    e.stopPropagation()
+    if (menuSongId === songId) {
+      setMenuSongId(null)
+      setMenuAnchor(null)
+    } else {
+      setMenuSongId(songId)
+      setMenuAnchor(e.currentTarget)
+    }
+  }
+
+  const closeMenu = useCallback(() => {
+    setMenuSongId(null)
+    setMenuAnchor(null)
+  }, [])
+
   return (
     <div>
-      <div className="grid grid-cols-[16px_4fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-neutral-400 text-sm border-b border-[#2a2a2a]">
+      {/* Заголовок таблиці — додаємо колонку для кнопок дій */}
+      <div className="grid grid-cols-[16px_4fr_2fr_auto_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-neutral-400 text-sm border-b border-[#2a2a2a]">
         <span>#</span>
         <span>Назва</span>
         <span className="hidden sm:block">Опис / Автор</span>
         <span></span>
+        <span></span>
         <img src={assets.clock_icon} alt="Тривалість" className="w-4 h-4 justify-self-end" />
       </div>
+
       <div className="mt-2">
         {songs.map((song, index) => {
           const isActive = track.id === song.id
@@ -69,10 +93,11 @@ function SongList({ songs }: SongListProps) {
             <div
               key={song.id}
               onClick={() => playWithId(song.id)}
-              className={`grid grid-cols-[16px_4fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group ${
+              className={`grid grid-cols-[16px_4fr_2fr_auto_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group ${
                 isActive ? 'text-[#1db954]' : 'text-neutral-300'
               }`}
             >
+              {/* Номер / Play */}
               <span className="self-center text-sm relative w-4 h-4">
                 <span className={`${isActivePlaying ? 'hidden' : 'group-hover:hidden'}`}>{index + 1}</span>
                 <img
@@ -82,6 +107,7 @@ function SongList({ songs }: SongListProps) {
                 />
               </span>
 
+              {/* Фото + Назва + Артист */}
               <div className="flex items-center gap-3 min-w-0">
                 <img src={song.image} alt={song.name} className="w-10 h-10 rounded object-cover shrink-0" />
                 <div className="min-w-0">
@@ -99,6 +125,7 @@ function SongList({ songs }: SongListProps) {
                 </div>
               </div>
 
+              {/* Опис (десктоп) */}
               <div className="hidden sm:flex items-center min-w-0">
                 {song.artist ? (
                   <span
@@ -114,7 +141,7 @@ function SongList({ songs }: SongListProps) {
                 )}
               </div>
 
-              {/* Кнопка лайку */}
+              {/* Кнопка лайку ♥ */}
               <button
                 onClick={(e) => handleLike(e, song.id)}
                 className={`self-center w-5 h-5 flex items-center justify-center transition-all ${
@@ -135,17 +162,44 @@ function SongList({ songs }: SongListProps) {
                 </svg>
               </button>
 
+              {/* Кнопка ⋮ — додати до плейліста */}
+              <button
+                onClick={(e) => handleOpenMenu(e, song.id)}
+                className={`self-center w-5 h-5 flex items-center justify-center rounded-full transition-all
+                  opacity-0 group-hover:opacity-60 hover:opacity-100! hover:bg-white/10
+                  ${menuSongId === song.id ? 'opacity-100! bg-white/10' : ''}`}
+                aria-label="Додати до плейліста"
+                title="Додати до плейліста"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="5" r="1.5" />
+                  <circle cx="12" cy="12" r="1.5" />
+                  <circle cx="12" cy="19" r="1.5" />
+                </svg>
+              </button>
+
+              {/* Тривалість */}
               <span className="self-center text-sm justify-self-end">{song.duration}</span>
             </div>
           )
         })}
       </div>
 
+      {/* Popup артиста */}
       {popupArtist && (
         <ArtistPopup
           artistName={popupArtist}
           anchorEl={anchorEl}
-          onClose={closePopup}
+          onClose={closeArtistPopup}
+        />
+      )}
+
+      {/* Меню "Додати до плейліста" */}
+      {menuSongId !== null && (
+        <AddToPlaylistMenu
+          songId={menuSongId}
+          anchorEl={menuAnchor}
+          onClose={closeMenu}
         />
       )}
     </div>

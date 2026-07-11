@@ -26,6 +26,7 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
 
   const [name, setName] = useState('')
   const [imagePreview, setImagePreview] = useState<string>('')
+  const [isPublic, setIsPublic] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -34,6 +35,7 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
   const resetAndClose = () => {
     setName('')
     setImagePreview('')
+    setIsPublic(false)
     setError('')
     setLoading(false)
     onClose()
@@ -81,6 +83,7 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
         body: JSON.stringify({
           name: name.trim(),
           image: imagePreview,
+          isPublic,
         }),
       })
 
@@ -153,6 +156,27 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
               className="w-full bg-[#242424] border border-zinc-700 rounded-md p-3 text-sm text-white focus:outline-none focus:border-green-500 transition-colors"
               placeholder="Мій плейлист"
             />
+          </div>
+
+          {/* Перемикач публічності */}
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <p className="text-sm font-medium text-white">Публічний плейлист</p>
+              <p className="text-xs text-zinc-400">Колеги побачать його у своїй бібліотеці</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPublic((v) => !v)}
+              className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+                isPublic ? 'bg-green-500' : 'bg-zinc-600'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                  isPublic ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           <div className="flex gap-3 mt-2">

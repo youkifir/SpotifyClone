@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useCallback } from 'react'
 import { assets } from '../assets/assets'
 import { usePlayer } from '../context/usePlayer'
 import ArtistPopup from './ArtistProup'
 import { useLike } from '../hooks/Uselike'
+import AddToPlaylistMenu from './AddToPlaylistMenu'
 
 const formatTime = ({ minute, second }: { minute: number; second: number }) =>
   `${minute}:${second.toString().padStart(2, '0')}`
@@ -35,6 +36,13 @@ export const Player: React.FC = () => {
   const artistAnchorRef = useRef<HTMLSpanElement>(null)
   const [showArtistPopup, setShowArtistPopup] = useState(false)
   const [likeAnimating, setLikeAnimating] = useState(false)
+  const [playlistMenuOpen, setPlaylistMenuOpen] = useState(false)
+  const [playlistMenuAnchor, setPlaylistMenuAnchor] = useState<HTMLElement | null>(null)
+
+  const closePlaylistMenu = useCallback(() => {
+    setPlaylistMenuOpen(false)
+    setPlaylistMenuAnchor(null)
+  }, [])
 
   const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = seekBgRef.current
@@ -154,6 +162,21 @@ export const Player: React.FC = () => {
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
             </button>
+
+            {/* Кнопка "Додати до плейліста" */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setPlaylistMenuAnchor(e.currentTarget); setPlaylistMenuOpen(true) }}
+              className={`shrink-0 flex items-center justify-center w-5 h-5 transition-all hover:scale-110 ${
+                playlistMenuOpen ? 'text-[#1db954]' : 'text-[#b3b3b3] hover:text-white'
+              }`}
+              aria-label="Додати до плейліста"
+              title="Додати до плейліста"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
           </div>
 
           {/* Центр: контролери */}
@@ -227,6 +250,14 @@ export const Player: React.FC = () => {
           artistName={(track as any).artist}
           anchorEl={artistAnchorRef.current}
           onClose={() => setShowArtistPopup(false)}
+        />
+      )}
+
+      {playlistMenuOpen && (
+        <AddToPlaylistMenu
+          songId={track.id}
+          anchorEl={playlistMenuAnchor}
+          onClose={closePlaylistMenu}
         />
       )}
     </>

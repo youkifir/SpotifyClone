@@ -3,6 +3,8 @@ import { assets } from '../assets/assets'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { onLikeChanged } from '../hooks/Uselike'
+import CreatePlaylistModal from './CreatePlaylistModal'
+import type { Playlist as CreatedPlaylist } from './CreatePlaylistModal'
 
 const API = 'http://localhost:5000'
 
@@ -12,6 +14,7 @@ interface Playlist {
   image: string
   isLikedSongs?: boolean
   songs: any[]
+  owner?: { _id?: string; username?: string; name?: string } | string
 }
 
 interface SidebarProps {
@@ -22,6 +25,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { token } = useAuth()
   const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [sharedPlaylists, setSharedPlaylists] = useState<Playlist[]>([])
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const fetchPlaylists = useCallback(async () => {
     if (!token) return
@@ -41,20 +46,99 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     }
   }, [token])
 
-  // Завантажуємо при монтуванні / зміні токена
+  const fetchSharedPlaylists = useCallback(async () => {
+    if (!token) return
+    try {
+      const res = await fetch(`${API}/api/playlists/shared`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSharedPlaylists(Array.isArray(data) ? data : (data.data || []))
+      }
+    } catch (e) {
+      console.error('Sidebar: помилка завантаження спільних плейлистів', e)
+    }
+  }, [token])
+
   useEffect(() => {
     fetchPlaylists()
-  }, [fetchPlaylists])
+    fetchSharedPlaylists()
+  }, [fetchPlaylists, fetchSharedPlaylists])
 
-  // Слухаємо подію лайку — оновлюємо список щоб "Liked Songs" з'явився одразу
+  // Слухаємо подію лайку
   useEffect(() => {
     return onLikeChanged(fetchPlaylists)
   }, [fetchPlaylists])
 
+  const handlePlaylistCreated = (newPlaylist: CreatedPlaylist) => {
+    setPlaylists((prev) => {
+      const withNew = [newPlaylist as unknown as Playlist, ...prev]
+      withNew.sort((a, b) => (b.isLikedSongs ? 1 : 0) - (a.isLikedSongs ? 1 : 0))
+      return withNew
+    })
+  }
+
   const getImage = (playlist: Playlist) => {
     if (playlist.isLikedSongs) return null
     if (!playlist.image) return null
-    return playlist.image.startsWith('http') ? playlist.image : `${API}/${playlist.image}`
+    // base64 data URL — повертаємо як є
+    if (playlist.image.startsWith('data:')) return playlist.image
+    // повна http URL — повертаємо як є
+    if (playlist.image.startsWith('http')) return playlist.image
+    // відносний шлях — додаємо API базу
+    return `${API}/${playlist.image}`
+  }
+
+  const getOwnerName = (playlist: Playlist) => {
+    if (!playlist.owner) return ''
+    if (typeof playlist.owner === 'string') return ''
+    return playlist.owner.name || playlist.owner.username || ''
+  }
+
+  const PlaylistItem = ({ playlist, isShared = false }: { playlist: Playlist; isShared?: boolean }) => {
+    const img = getImage(playlist)
+    return (
+      <Link
+        key={playlist._id}
+        to={`/playlist/${playlist._id}`}
+        onClick={onClose}
+        className='flex items-center gap-3 p-2 rounded-md hover:bg-[#1a1a1a] transition-colors group cursor-pointer'
+      >
+        {/* Обкладинка */}
+        {playlist.isLikedSongs ? (
+          <div
+            className='w-12 h-12 rounded shrink-0 flex items-center justify-center'
+            style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}
+          >
+            <svg width='20' height='20' viewBox='0 0 24 24' fill='white'>
+              <path d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' />
+            </svg>
+          </div>
+        ) : img ? (
+          <img className='w-12 h-12 rounded object-cover shrink-0' src={img} alt={playlist.name} />
+        ) : (
+          <div className='w-12 h-12 rounded shrink-0 bg-[#282828] flex items-center justify-center'>
+            <svg width='20' height='20' viewBox='0 0 24 24' fill='#b3b3b3'>
+              <path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z' />
+            </svg>
+          </div>
+        )}
+
+        <div className='min-w-0 flex-1'>
+          <p className='font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors'>
+            {playlist.name}
+          </p>
+          <p className='text-xs text-neutral-400 truncate'>
+            {isShared && getOwnerName(playlist)
+              ? `${getOwnerName(playlist)} • `
+              : ''}
+            Плейлист • {playlist.songs?.length ?? 0}{' '}
+            {playlist.songs?.length === 1 ? 'пісня' : 'пісень'}
+          </p>
+        </div>
+      </Link>
+    )
   }
 
   return (
@@ -81,7 +165,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
             </div>
             <div className='flex items-center gap-4 px-1'>
               <img className='w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.arrow_icon} alt='Arrow' />
-              <img className='w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.plus_icon} alt='Plus' />
+              {/* Кнопка + відкриває модал створення плейлиста */}
+              <img
+                className='w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition'
+                src={assets.plus_icon}
+                alt='Plus'
+                onClick={() => setIsModalOpen(true)}
+                title='Створити плейлист'
+              />
               <button
                 onClick={onClose}
                 aria-label='Закрити бібліотеку'
@@ -97,57 +188,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
               <div className='p-4 bg-[#242424] hover:bg-[#2a2a2a] transition-colors rounded-lg flex flex-col items-start gap-1'>
                 <h1 className='font-bold text-base text-white'>Create your first playlist</h1>
                 <p className='text-sm text-white font-light opacity-90'>it's easy we will help you</p>
-                <button className='bg-white text-black text-sm font-bold px-4 py-1.5 rounded-full mt-4 hover:scale-105 hover:bg-neutral-200 transition'>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className='bg-white text-black text-sm font-bold px-4 py-1.5 rounded-full mt-4 hover:scale-105 hover:bg-neutral-200 transition'
+                >
                   Create Playlist
                 </button>
               </div>
             ) : (
-              playlists.map((playlist) => {
-                const img = getImage(playlist)
-                return (
-                  <Link
-                    key={playlist._id}
-                    to={`/playlist/${playlist._id}`}
-                    onClick={onClose}
-                    className='flex items-center gap-3 p-2 rounded-md hover:bg-[#1a1a1a] transition-colors group cursor-pointer'
-                  >
-                    {/* Обкладинка */}
-                    {playlist.isLikedSongs ? (
-                      <div
-                        className='w-12 h-12 rounded shrink-0 flex items-center justify-center'
-                        style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}
-                      >
-                        <svg width='20' height='20' viewBox='0 0 24 24' fill='white'>
-                          <path d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' />
-                        </svg>
-                      </div>
-                    ) : img ? (
-                      <img className='w-12 h-12 rounded object-cover shrink-0' src={img} alt={playlist.name} />
-                    ) : (
-                      <div className='w-12 h-12 rounded shrink-0 bg-[#282828] flex items-center justify-center'>
-                        <svg width='20' height='20' viewBox='0 0 24 24' fill='#b3b3b3'>
-                          <path d='M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z' />
-                        </svg>
-                      </div>
-                    )}
+              playlists.map((playlist) => (
+                <PlaylistItem key={playlist._id} playlist={playlist} />
+              ))
+            )}
 
-                    <div className='min-w-0 flex-1'>
-                      <p className='font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors'>
-                        {playlist.name}
-                      </p>
-                      <p className='text-xs text-neutral-400 truncate'>
-                        Плейлист • {playlist.songs?.length ?? 0}{' '}
-                        {playlist.songs?.length === 1 ? 'пісня' : 'пісень'}
-                      </p>
-                    </div>
-                  </Link>
-                )
-              })
+            {/* Плейлисти колег (публічні) */}
+            {sharedPlaylists.length > 0 && (
+              <>
+                <div className='mt-3 mb-1 px-2'>
+                  <p className='text-xs text-neutral-500 font-semibold uppercase tracking-wider'>Від колег</p>
+                </div>
+                {sharedPlaylists.map((playlist) => (
+                  <PlaylistItem key={playlist._id} playlist={playlist} isShared={true} />
+                ))}
+              </>
             )}
           </div>
 
         </div>
       </div>
+
+      {/* Модал створення плейлиста */}
+      <CreatePlaylistModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCreated={handlePlaylistCreated}
+      />
     </>
   )
 }

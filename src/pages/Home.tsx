@@ -65,6 +65,7 @@ function Home() {
                 desc={song.desc}
                 onClick={() => playWithId(song.id)}
                 isActive={track && track.id === song.id && playStatus}
+                songId={song.id}
               />
             ))
           )}
