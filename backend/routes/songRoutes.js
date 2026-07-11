@@ -1,13 +1,22 @@
 const express = require('express');
 const router = express.Router();
+
 const {
   getSongs, getSongById, searchSongs, createSong,
   getGenres, updateSong, deleteSong, getSongLyrics,
 } = require('../controllers/songController');
 const { protect, isAdmin, isMusician } = require('../middleware/auth');
+=======
+const { getSongs, getSongById, searchSongs, searchItunesPreview, createSong, getGenres, updateSong, deleteSong, getSongLyrics, getArtistSongs } = require('../controllers/songController');
+const { protect, isAdmin } = require('../middleware/auth');
+
 
 router.get('/search', searchSongs);
 router.get('/genres', getGenres);
+// Admin-only iTunes preview search (returns results without saving to DB)
+router.get('/itunes-preview', protect, isAdmin, searchItunesPreview);
+// Artist page — must be before /:id
+router.get('/artist/:name', getArtistSongs);
 router.get('/', getSongs);
 router.get('/:id', getSongById);
 router.get('/:id/lyrics', getSongLyrics);
