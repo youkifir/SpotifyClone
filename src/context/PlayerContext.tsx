@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -43,6 +44,7 @@ interface PlayerContextType {
   changeVolume: (ratio: number) => void
   toggleShuffle: () => void
   toggleLoop: () => void
+  refreshSongs: () => Promise<void>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -55,12 +57,15 @@ const toParts = (seconds: number): TimeParts => {
   return { minute, second }
 }
 
+const resolveUrl = (file: string) =>
+  file?.startsWith('http') ? file : `http://localhost:5000/${file}`
+
 export const PlayerContextProvider = ({ children }: { children: ReactNode }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Изначально списки пустые, пока бэкенд не ответит
   const [songsData, setSongsData] = useState<Song[]>([])
-  const [track, setTrack] = useState<Song | null>(null)
+  // Зберігаємо лише ID поточного треку — щоб зміна списку не тригерила useEffect
+  const [trackId, setTrackId] = useState<Song['id'] | null>(null)
 
   const [playStatus, setPlayStatus] = useState(false)
   const [currentTime, setCurrentTime] = useState<TimeParts>({ minute: 0, second: 0 })
@@ -71,120 +76,60 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const [loop, setLoop] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
 
-  // Загружаем песни с бэкенда при монтировании
-  useEffect(() => {
-    const fetchSongs = async () => {
-      try {
-        const response = await fetch('http://localhost:5000/api/songs')
-        if (response.ok) {
-          const resData = await response.json()
-          // Проверяем формат ответа бэка: если массив обернут в data, берем его, иначе сам массив
-          const fetchedSongs = Array.isArray(resData) ? resData : (resData.data || [])
+  // Поточний трек — обчислюється з songsData + trackId (без зайвих ре-рендерів)
+  const track = songsData.find((s) => s.id === trackId) ?? null
 
-          // Нормализуем _id от MongoDB в id для фронтенда, чтобы не было конфликтов в верстке
-          const normalizedSongs = fetchedSongs.map((song: any) => ({
-            ...song,
-            id: song.id || song._id // если бэк отдал _id, пишем его в id
-          }))
+  const fetchSongs = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/songs')
+      if (!response.ok) return
+      const resData = await response.json()
+      const raw = Array.isArray(resData) ? resData : (resData.data || [])
 
-          setSongsData(normalizedSongs)
+      const normalized: Song[] = raw.map((song: any) => ({
+        ...song,
+        id: song.id ?? song._id,
+      }))
 
-          if (normalizedSongs.length > 0) {
-            setTrack(normalizedSongs[0])
-          }
-        }
-      } catch (error) {
-        console.error('Помилка завантаження пісень:', error)
-      }
+      setSongsData(normalized)
+
+      // Встановлюємо ID першого треку тільки якщо ще нічого не вибрано
+      setTrackId((prev) => {
+        if (prev !== null) return prev
+        return normalized.length > 0 ? normalized[0].id : null
+      })
+    } catch (error) {
+      console.error('Помилка завантаження пісень:', error)
     }
-
-    fetchSongs()
   }, [])
 
-  const play = () => {
-    const audio = audioRef.current
-    if (!audio || !track) return
-    audio.play()
-    setPlayStatus(true)
-  }
+  useEffect(() => {
+    fetchSongs()
+  }, [fetchSongs])
 
-  const pause = () => {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.pause()
-    setPlayStatus(false)
-  }
-
-  const playWithId = (id: Song['id']) => {
-    if (songsData.length === 0) return
-    const song = songsData.find((s) => s.id === id)
-    if (!song) return
-
-    if (track && track.id === id) {
-      if (playStatus) {
-        pause()
-      } else {
-        play()
-      }
-      return
-    }
-    setTrack(song)
-  }
-
-  const changeTrack = (direction: 1 | -1) => {
-    if (!track || songsData.length === 0) return
-    const index = songsData.findIndex((s) => s.id === track.id)
-    if (index === -1) return
-
-    if (shuffle) {
-      let randomIndex = Math.floor(Math.random() * songsData.length)
-      while (randomIndex === index && songsData.length > 1) {
-        randomIndex = Math.floor(Math.random() * songsData.length)
-      }
-      setTrack(songsData[randomIndex])
-      return
-    }
-
-    let nextIndex = index + direction
-    if (nextIndex < 0) nextIndex = songsData.length - 1
-    if (nextIndex >= songsData.length) nextIndex = 0
-    setTrack(songsData[nextIndex])
-  }
-
-  const next = () => changeTrack(1)
-  const previous = () => changeTrack(-1)
-
-  const seekTo = (ratio: number) => {
-    const audio = audioRef.current
-    if (!audio || !audio.duration) return
-    audio.currentTime = ratio * audio.duration
-  }
-
-  const changeVolume = (ratio: number) => {
-    const clamped = Math.min(1, Math.max(0, ratio))
-    setVolumeState(clamped)
-    if (audioRef.current) audioRef.current.volume = clamped
-  }
-
-  const toggleShuffle = () => setShuffle((s) => !s)
-  const toggleLoop = () => setLoop((l) => !l)
-
+  // Завантажуємо аудіо тільки коли змінюється trackId (не весь об'єкт треку)
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio || !track) return
+    if (!audio || trackId === null) return
 
-    // Склеиваем URL, если бэк отдает относительный путь (например, "uploads/song.mp3")
-    const fileUrl = track.file.startsWith('http') ? track.file : `http://localhost:5000/${track.file}`
+    // Знаходимо трек у поточному списку
+    const song = songsData.find((s) => s.id === trackId)
+    if (!song || !song.file) return
+
+    const fileUrl = resolveUrl(song.file)
+
+    // Якщо той самий src — не перезавантажуємо
+    if (audio.src === fileUrl) return
 
     audio.src = fileUrl
     audio.load()
     audio.volume = volume
 
-    // Запускаем трек (но отлавливаем ошибку блокировки браузера, если юзер еще никуда не кликнул)
     audio.play()
       .then(() => setPlayStatus(true))
       .catch(() => setPlayStatus(false))
-  }, [track])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackId])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -203,7 +148,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
         audio.currentTime = 0
         audio.play()
       } else {
-        next()
+        nextTrack()
       }
     }
 
@@ -215,21 +160,86 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
       audio.removeEventListener('ended', handleEnded)
     }
-  }, [track, loop, shuffle])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackId, loop, shuffle, songsData])
 
-  // Если песни еще загружаются или база пуста, даем дефолтную пустую структуру для трека, чтобы фронт не падал
-  const currentTrack = track || {
+  const play = () => {
+    const audio = audioRef.current
+    if (!audio || !track) return
+    audio.play()
+    setPlayStatus(true)
+  }
+
+  const pause = () => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.pause()
+    setPlayStatus(false)
+  }
+
+  const playWithId = (id: Song['id']) => {
+    if (songsData.length === 0) return
+
+    if (trackId === id) {
+      // Той самий трек — toggle play/pause
+      if (playStatus) pause()
+      else play()
+      return
+    }
+    setTrackId(id)
+  }
+
+  const nextTrack = () => {
+    if (songsData.length === 0) return
+    const index = songsData.findIndex((s) => s.id === trackId)
+
+    if (shuffle) {
+      let r = Math.floor(Math.random() * songsData.length)
+      while (r === index && songsData.length > 1) r = Math.floor(Math.random() * songsData.length)
+      setTrackId(songsData[r].id)
+      return
+    }
+
+    const next = (index + 1) % songsData.length
+    setTrackId(songsData[next].id)
+  }
+
+  const previous = () => {
+    if (songsData.length === 0) return
+    const index = songsData.findIndex((s) => s.id === trackId)
+    const prev = (index - 1 + songsData.length) % songsData.length
+    setTrackId(songsData[prev].id)
+  }
+
+  const next = nextTrack
+
+  const seekTo = (ratio: number) => {
+    const audio = audioRef.current
+    if (!audio || !audio.duration) return
+    audio.currentTime = ratio * audio.duration
+  }
+
+  const changeVolume = (ratio: number) => {
+    const clamped = Math.min(1, Math.max(0, ratio))
+    setVolumeState(clamped)
+    if (audioRef.current) audioRef.current.volume = clamped
+  }
+
+  const toggleShuffle = () => setShuffle((s) => !s)
+  const toggleLoop = () => setLoop((l) => !l)
+
+  const currentTrack: Song = track ?? {
     id: '',
     name: 'Немає треків',
     image: '',
     file: '',
     desc: '',
-    duration: '0:00'
+    duration: '0:00',
   }
 
   const value: PlayerContextType = {
     audioRef,
-    songsData, // Сохранили старое название
+    songsData,
     track: currentTrack,
     playStatus,
     currentTime,
@@ -249,6 +259,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     changeVolume,
     toggleShuffle,
     toggleLoop,
+    refreshSongs: fetchSongs,
   }
 
   return (

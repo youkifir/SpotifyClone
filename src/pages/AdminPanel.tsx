@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { usePlayer } from '../context/usePlayer'
 import { Navigate } from 'react-router-dom'
 
 const API = 'http://localhost:5000'
@@ -40,6 +41,21 @@ const authHeaders = (token: string) => ({
   'Content-Type': 'application/json',
   Authorization: `Bearer ${token}`,
 })
+
+// ─── File Upload Helper ───────────────────────────────────────────────────────
+
+async function uploadFile(file: File, token: string): Promise<string> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API}/api/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message || 'Помилка завантаження файлу')
+  return data.data.url
+}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -107,6 +123,7 @@ function AlbumModal({
     desc: initial?.desc ?? '',
     bgColor: initial?.bgColor ?? '#333333',
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -118,11 +135,16 @@ function AlbumModal({
     setError('')
     setLoading(true)
     try {
+      let imageUrl = form.image
+      if (imageFile) {
+        imageUrl = await uploadFile(imageFile, token)
+      }
+
       const url = mode === 'create' ? `${API}/api/albums` : `${API}/api/albums/${initial!._id}`
       const res = await fetch(url, {
         method: mode === 'create' ? 'POST' : 'PUT',
         headers: authHeaders(token),
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, image: imageUrl }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка')
@@ -161,15 +183,26 @@ function AlbumModal({
               className="admin-input"
             />
           </Field>
-          <Field label="URL обкладинки" required>
-            <input
-              required
-              value={form.image}
-              onChange={set('image')}
-              placeholder="https://... або /images/img1.jpg"
-              className="admin-input"
-            />
+
+          <Field label="Обкладинка">
+            <div className="flex flex-col gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                className="admin-input text-sm file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#1db954]/20 file:text-[#1db954] hover:file:bg-[#1db954]/30"
+              />
+              <p className="text-neutral-500 text-xs">або вкажіть URL:</p>
+              <input
+                value={form.image}
+                onChange={set('image')}
+                placeholder="https://... або /images/img1.jpg"
+                className="admin-input"
+                disabled={!!imageFile}
+              />
+            </div>
           </Field>
+
           <Field label="Опис">
             <textarea
               value={form.desc}
@@ -246,7 +279,10 @@ function SongModal({
     album: initial?.album ?? '',
     source: initial?.source ?? 'local',
   })
+  const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState('')
   const [error, setError] = useState('')
 
   const set =
@@ -254,12 +290,42 @@ function SongModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }))
 
+  // Автоматически вычисляем длительность из аудио файла
+  const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    setAudioFile(file)
+    if (file) {
+      const audio = new Audio()
+      const url = URL.createObjectURL(file)
+      audio.src = url
+      audio.onloadedmetadata = () => {
+        const mins = Math.floor(audio.duration / 60)
+        const secs = Math.floor(audio.duration % 60)
+        setForm(f => ({ ...f, duration: `${mins}:${secs.toString().padStart(2, '0')}` }))
+        URL.revokeObjectURL(url)
+      }
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const body = { ...form, album: form.album || null }
+      let imageUrl = form.image
+      let fileUrl = form.file
+
+      if (imageFile) {
+        setUploadProgress('Завантаження обкладинки...')
+        imageUrl = await uploadFile(imageFile, token)
+      }
+      if (audioFile) {
+        setUploadProgress('Завантаження аудіо...')
+        fileUrl = await uploadFile(audioFile, token)
+      }
+
+      setUploadProgress('Збереження...')
+      const body = { ...form, image: imageUrl, file: fileUrl, album: form.album || null }
       const url = mode === 'create' ? `${API}/api/songs` : `${API}/api/songs/${initial!._id}`
       const res = await fetch(url, {
         method: mode === 'create' ? 'POST' : 'PUT',
@@ -274,6 +340,7 @@ function SongModal({
       setError(err.message)
     } finally {
       setLoading(false)
+      setUploadProgress('')
     }
   }
 
@@ -303,12 +370,44 @@ function SongModal({
             </Field>
           </div>
 
-          <Field label="URL обкладинки" required>
-            <input required value={form.image} onChange={set('image')} placeholder="https://..." className="admin-input" />
+          {/* Обкладинка */}
+          <Field label="Обкладинка">
+            <div className="flex flex-col gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                className="admin-input text-sm file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#1db954]/20 file:text-[#1db954] hover:file:bg-[#1db954]/30"
+              />
+              <p className="text-neutral-500 text-xs">або вкажіть URL обкладинки:</p>
+              <input
+                value={form.image}
+                onChange={set('image')}
+                placeholder="https://..."
+                className="admin-input"
+                disabled={!!imageFile}
+              />
+            </div>
           </Field>
 
-          <Field label="URL аудіофайлу" required>
-            <input required value={form.file} onChange={set('file')} placeholder="https://... або /songs/song1.mp3" className="admin-input" />
+          {/* Аудіо файл */}
+          <Field label="Аудіофайл" required>
+            <div className="flex flex-col gap-2">
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={handleAudioChange}
+                className="admin-input text-sm file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#1db954]/20 file:text-[#1db954] hover:file:bg-[#1db954]/30"
+              />
+              <p className="text-neutral-500 text-xs">або вкажіть URL аудіо:</p>
+              <input
+                value={form.file}
+                onChange={set('file')}
+                placeholder="https://... або /songs/song1.mp3"
+                className="admin-input"
+                disabled={!!audioFile}
+              />
+            </div>
           </Field>
 
           <div className="grid grid-cols-2 gap-4">
@@ -341,7 +440,10 @@ function SongModal({
             <textarea value={form.desc} onChange={set('desc')} placeholder="Короткий опис..." rows={2} className="admin-input resize-none" />
           </Field>
 
-          <div className="flex gap-3 justify-end mt-2">
+          <div className="flex gap-3 justify-end mt-2 items-center">
+            {loading && uploadProgress && (
+              <span className="text-[#1db954] text-xs animate-pulse">{uploadProgress}</span>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -351,7 +453,7 @@ function SongModal({
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!form.file && !audioFile)}
               className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-50"
             >
               {loading ? 'Збереження...' : 'Зберегти'}
@@ -380,23 +482,18 @@ function Field({ label, required, children }: { label: string; required?: boolea
 
 export default function AdminPanel() {
   const { user, token } = useAuth()
+  const { refreshSongs } = usePlayer()
 
   const [tab, setTab] = useState<Tab>('albums')
   const [albums, setAlbums] = useState<Album[]>([])
   const [songs, setSongs] = useState<Song[]>([])
   const [loadingData, setLoadingData] = useState(false)
 
-  // Modal state
   const [albumModal, setAlbumModal] = useState<{ mode: ModalMode; item?: Album } | null>(null)
   const [songModal, setSongModal] = useState<{ mode: ModalMode; item?: Song } | null>(null)
-
-  // Confirm delete
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'album' | 'song'; id: string; name: string } | null>(null)
-
-  // Toast
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
-  // Redirect non-admins
   if (!user || user.role !== 'admin') return <Navigate to="/" replace />
 
   const showToast = (msg: string, ok = true) => {
@@ -427,11 +524,16 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`${API}/api/${type === 'album' ? 'albums' : 'songs'}/${id}`, {
         method: 'DELETE',
-        headers: authHeaders(token),
+        headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) throw new Error('Помилка видалення')
       showToast(type === 'album' ? 'Альбом видалено!' : 'Пісню видалено!')
-      type === 'album' ? fetchAlbums() : fetchSongs()
+      if (type === 'album') {
+        fetchAlbums()
+      } else {
+        fetchSongs()
+        refreshSongs() // Обновляем плеер
+      }
     } catch (err: any) {
       showToast(err.message, false)
     } finally {
@@ -514,7 +616,6 @@ export default function AdminPanel() {
           Завантаження...
         </div>
       ) : tab === 'albums' ? (
-        /* Albums grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {albums.length === 0 ? (
             <EmptyState
@@ -567,7 +668,6 @@ export default function AdminPanel() {
           )}
         </div>
       ) : (
-        /* Songs table */
         <div className="overflow-x-auto rounded-xl border border-[#282828]">
           {songs.length === 0 ? (
             <EmptyState label="Пісень поки немає" sub="Натисніть «Додати пісню», щоб додати першу" />
@@ -680,6 +780,7 @@ export default function AdminPanel() {
           onSaved={(msg) => {
             showToast(msg)
             fetchSongs()
+            refreshSongs() // ← Оновлюємо плеер і головну
           }}
         />
       )}
