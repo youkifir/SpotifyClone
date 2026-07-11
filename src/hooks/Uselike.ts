@@ -3,8 +3,6 @@ import { useAuth } from '../context/AuthContext'
 
 const API = 'http://localhost:5000'
 
-// Глобальний EventEmitter щоб Sidebar міг перезавантажити плейлисти
-// після того як юзер лайкнув першу пісню
 const likeEventTarget = new EventTarget()
 export const LIKED_SONGS_CHANGED = 'liked-songs-changed'
 
@@ -44,7 +42,7 @@ export function useLike() {
     if (!token) return
     const id = String(songId)
 
-    // Оптимістичне оновлення
+    // Оптимістичне оновлення UI
     let wasLiked = false
     setLikedIds((prev) => {
       const next = new Set(prev)
@@ -61,10 +59,9 @@ export function useLike() {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) {
-        // Сповіщаємо Sidebar що плейлист "Liked Songs" змінився
         emitLikeChanged()
       } else {
-        // Відкатуємо
+        // Відкатуємо при помилці
         setLikedIds((prev) => {
           const next = new Set(prev)
           if (wasLiked) next.add(id)

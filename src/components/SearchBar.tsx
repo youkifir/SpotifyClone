@@ -1,36 +1,30 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePlayer } from '../context/usePlayer'
+import { useLike } from '../hooks/Uselike'
 import type { Song } from '../context/PlayerContext'
 
-interface ItunesTrack {
-  trackId: number
-  trackName: string
-  artistName: string
-  collectionName: string
-  artworkUrl100: string
-  previewUrl: string
-  trackTimeMillis: number
-  primaryGenreName: string
+const API = 'http://localhost:5000'
+
+// Тип з бекенду (MongoDB)
+interface ApiSong {
+  _id: string
+  name: string
+  artist?: string
+  image: string
+  file: string
+  desc?: string
+  duration: string
 }
 
-function msToDuration(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
-function itunesToSong(track: ItunesTrack): Song {
+function apiSongToSong(s: ApiSong): Song {
   return {
-    id: `itunes-${track.trackId}`,
-    name: track.trackName,
-    artist: track.artistName,
-    image: track.artworkUrl100
-      ? track.artworkUrl100.replace('100x100bb', '512x512bb')
-      : '',
-    file: track.previewUrl,
-    desc: track.collectionName || track.primaryGenreName || '',
-    duration: track.trackTimeMillis ? msToDuration(track.trackTimeMillis) : '0:30',
+    id: s._id,
+    name: s.name,
+    artist: s.artist || '',
+    image: s.image?.startsWith('http') ? s.image : `${API}/${s.image}`,
+    file: s.file?.startsWith('http') ? s.file : `${API}/${s.file}`,
+    desc: s.desc || '',
+    duration: s.duration || '0:00',
   }
 }
 
@@ -40,18 +34,20 @@ interface SearchBarProps {
 
 export default function SearchBar({ onClose }: SearchBarProps) {
   const { playWithId, addSongs, track, playStatus } = usePlayer()
+  const { isLiked, toggleLike } = useLike()
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Song[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [animatingId, setAnimatingId] = useState<string | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Дебаунс пошуку — чекаємо 400мс після останнього символу
+  // Пошук через бекенд — треки одразу мають реальні MongoDB _id
   const search = useCallback(async (q: string) => {
     const trimmed = q.trim()
     if (!trimmed) {
@@ -64,22 +60,21 @@ export default function SearchBar({ onClose }: SearchBarProps) {
     setError(null)
 
     try {
-      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(trimmed)}&media=music&entity=song&limit=8`
-      const res = await fetch(url)
+      const res = await fetch(`${API}/api/songs/search?q=${encodeURIComponent(trimmed)}`)
       if (!res.ok) throw new Error(`Статус ${res.status}`)
       const data = await res.json()
 
-      const songs: Song[] = data.results
-        .filter((t: ItunesTrack) => t.previewUrl)
-        .map((t: ItunesTrack) => itunesToSong(t))
+      // Бекенд повертає { data: { songs: [...], topArtist: ... } }
+      const raw: ApiSong[] = (data.data?.songs || data.data || [])
+      const songs: Song[] = raw.slice(0, 8).map(apiSongToSong)
 
       setResults(songs)
       setIsOpen(true)
 
-      // Додаємо знайдені треки в глобальний контекст, щоб їх можна було програти
+      // Додаємо в глобальний контекст щоб плеєр міг їх відтворити
       if (songs.length > 0) addSongs(songs)
     } catch (e) {
-      setError('Не вдалося підключитись до iTunes')
+      setError('Не вдалося виконати пошук')
       setResults([])
     } finally {
       setLoading(false)
@@ -120,6 +115,13 @@ export default function SearchBar({ onClose }: SearchBarProps) {
       setIsOpen(false)
       if (onClose) onClose()
     }
+  }
+
+  const handleLike = (e: React.MouseEvent, songId: string) => {
+    e.stopPropagation()
+    toggleLike(songId)
+    setAnimatingId(songId)
+    setTimeout(() => setAnimatingId(null), 400)
   }
 
   return (
@@ -182,7 +184,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
               {/* Заголовок */}
               <div className="px-4 pt-3 pb-1 flex items-center justify-between">
                 <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-                  Результати iTunes
+                  Результати пошуку
                 </span>
                 <span className="text-xs text-neutral-500">
                   {results.length} {results.length === 1 ? 'трек' : results.length < 5 ? 'треки' : 'треків'}
@@ -194,6 +196,8 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                 {results.map((song) => {
                   const isActive = track.id === song.id
                   const isPlaying = isActive && playStatus
+                  const liked = isLiked(song.id)
+                  const isAnimating = animatingId === String(song.id)
 
                   return (
                     <li
@@ -218,7 +222,6 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                           isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                         }`}>
                           {isPlaying ? (
-                            // Анімовані хвилі (паузити)
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
                               <rect x="3" y="4" width="4" height="16" rx="1"/>
                               <rect x="10" y="4" width="4" height="16" rx="1"/>
@@ -249,15 +252,35 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                       <span className="text-xs text-neutral-500 shrink-0 tabular-nums">
                         {song.duration}
                       </span>
+
+                      {/* Кнопка лайку */}
+                      <button
+                        onClick={(e) => handleLike(e, String(song.id))}
+                        className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-all ${
+                          liked
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
+                        } ${isAnimating ? 'scale-125' : 'hover:scale-110'}`}
+                        aria-label={liked ? 'Прибрати з улюблених' : 'Додати до улюблених'}
+                      >
+                        <svg
+                          width="15" height="15" viewBox="0 0 24 24"
+                          fill={liked ? '#1db954' : 'none'}
+                          stroke={liked ? '#1db954' : '#b3b3b3'}
+                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                          className="transition-all duration-200"
+                        >
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                      </button>
                     </li>
                   )
                 })}
               </ul>
 
-              {/* Підказка — це 30-сек превью */}
               <div className="px-4 py-2 border-t border-[#3e3e3e]">
                 <p className="text-[10px] text-neutral-500">
-                  30-секундне прев'ю через iTunes · Натисни для відтворення
+                  Натисни для відтворення · Серце — додати до улюблених
                 </p>
               </div>
             </>
