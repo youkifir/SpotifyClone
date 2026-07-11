@@ -15,6 +15,7 @@ export interface Song {
   desc: string
   duration: string
   lyrics?: string
+  artist?: string
 }
 
 interface TimeParts {

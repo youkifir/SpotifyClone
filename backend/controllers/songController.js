@@ -327,6 +327,85 @@ const searchItunesPreview = async (req, res, next) => {
   }
 };
 
+// GET /api/songs/artist/:name
+// Returns all songs by a given artist: first checks the local DB,
+// then fetches from iTunes API and saves new tracks to the DB.
+const getArtistSongs = async (req, res, next) => {
+  try {
+    const artistName = decodeURIComponent(req.params.name || '').trim();
+
+    if (!artistName) {
+      return res.status(400).json({ success: false, message: 'Artist name is required' });
+    }
+
+    // 1. Local songs
+    const localSongs = await Song.find({
+      artist: { $regex: `^${artistName}$`, $options: 'i' },
+    }).sort({ createdAt: 1 });
+
+    let combined = [...localSongs];
+
+    // 2. Fetch from iTunes and save new tracks
+    try {
+      const itunesTracks = await searchItunes(artistName, 25);
+
+      // Keep only tracks whose artist matches exactly (iTunes may return similar artists)
+      const filtered = itunesTracks.filter(
+        (t) => t.artist && t.artist.toLowerCase() === artistName.toLowerCase()
+      );
+
+      if (filtered.length > 0) {
+        const existingIds = new Set(
+          (
+            await Song.find({
+              externalId: { $in: filtered.map((t) => t.externalId) },
+            })
+          ).map((s) => s.externalId)
+        );
+
+        const newTracks = filtered.filter((t) => !existingIds.has(t.externalId));
+        if (newTracks.length > 0) {
+          try {
+            await Song.insertMany(newTracks, { ordered: false });
+          } catch (insertErr) {
+            // ordered:false means partial inserts succeed; ignore duplicate key errors
+            if (insertErr.code !== 11000 && !(insertErr.writeErrors?.every?.((e) => e.code === 11000))) {
+              console.error('insertMany error:', insertErr.message);
+            }
+          }
+        }
+
+        const itunesSongs = await Song.find({
+          externalId: { $in: filtered.map((t) => t.externalId) },
+        });
+
+        combined = [...combined, ...itunesSongs];
+      }
+    } catch (itunesErr) {
+      console.error('⚠️ iTunes API unavailable:', itunesErr.message);
+    }
+
+    // Deduplicate by _id
+    const unique = Array.from(
+      new Map(combined.map((s) => [String(s._id), s])).values()
+    );
+
+    // Artist image: first available cover
+    const artistImage = unique[0]?.image || '';
+
+    res.json({
+      success: true,
+      data: {
+        artist: artistName,
+        image: artistImage,
+        songs: unique,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getSongs,
   getSongById,
@@ -337,4 +416,5 @@ module.exports = {
   updateSong,
   deleteSong,
   getSongLyrics,
+  getArtistSongs,
 };

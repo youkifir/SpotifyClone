@@ -1,6 +1,7 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 import { assets } from '../assets/assets'
 import { usePlayer } from '../context/usePlayer'
+import ArtistPopup from './ArtistProup'
 
 const formatTime = ({ minute, second }: { minute: number; second: number }) =>
   `${minute}:${second.toString().padStart(2, '0')}`
@@ -28,6 +29,8 @@ export const Player: React.FC = () => {
 
   const seekBgRef = useRef<HTMLDivElement>(null)
   const volumeBgRef = useRef<HTMLDivElement>(null)
+  const artistAnchorRef = useRef<HTMLSpanElement>(null)
+  const [showArtistPopup, setShowArtistPopup] = useState(false)
 
   const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = seekBgRef.current
@@ -53,6 +56,7 @@ export const Player: React.FC = () => {
   const trackImageUrl = track.image?.startsWith('http') ? track.image : `http://localhost:5000/${track.image}`
 
   return (
+    <>
     <div className='h-[10%] min-h-16 bg-black text-white flex flex-col justify-center'>
 
       {/* --- Мобільна компактна панель (нижче lg) --- */}
@@ -102,7 +106,17 @@ export const Player: React.FC = () => {
           <img className='w-12 h-12 rounded object-cover shrink-0' src={trackImageUrl} alt={track.name} />
           <div className='min-w-0'>
             <p className='font-medium text-sm truncate'>{track.name}</p>
-            <p className='text-xs opacity-70 truncate'>{track.desc?.slice(0, 25)}</p>
+            {(track as any).artist ? (
+              <span
+                ref={artistAnchorRef}
+                onClick={(e) => { e.stopPropagation(); setShowArtistPopup(true) }}
+                className='text-xs opacity-70 hover:opacity-100 hover:underline cursor-pointer truncate block transition-opacity'
+              >
+                {(track as any).artist}
+              </span>
+            ) : (
+              <p className='text-xs opacity-70 truncate'>{track.desc?.slice(0, 25)}</p>
+            )}
           </div>
           <img className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition shrink-0' src={assets.like_icon} alt="Like" />
         </div>
@@ -170,6 +184,16 @@ export const Player: React.FC = () => {
         </div>
       </div>
     </div>
+
+    {/* Artist popup triggered from bottom player bar */}
+    {showArtistPopup && (track as any).artist && (
+      <ArtistPopup
+        artistName={(track as any).artist}
+        anchorEl={artistAnchorRef.current}
+        onClose={() => setShowArtistPopup(false)}
+      />
+    )}
+  </>
   )
 }
 

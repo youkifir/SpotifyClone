@@ -551,7 +551,6 @@ function LocalSongForm({
 function ItunesSongSearch({
   token,
   albums,
-  onClose,
   onSaved,
 }: {
   token: string | null
