@@ -46,6 +46,7 @@ interface PlayerContextType {
   toggleShuffle: () => void
   toggleLoop: () => void
   refreshSongs: () => Promise<void>
+  addSongs: (songs: Song[]) => void
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -63,9 +64,10 @@ const resolveUrl = (file: string) =>
 
 export const PlayerContextProvider = ({ children }: { children: ReactNode }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // true тільки якщо юзер сам натиснув play/трек — не при першому завантаженні
+  const shouldAutoPlay = useRef(false)
 
   const [songsData, setSongsData] = useState<Song[]>([])
-  // Зберігаємо лише ID поточного треку — щоб зміна списку не тригерила useEffect
   const [trackId, setTrackId] = useState<Song['id'] | null>(null)
 
   const [playStatus, setPlayStatus] = useState(false)
@@ -77,7 +79,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const [loop, setLoop] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
 
-  // Поточний трек — обчислюється з songsData + trackId (без зайвих ре-рендерів)
   const track = songsData.find((s) => s.id === trackId) ?? null
 
   const fetchSongs = useCallback(async () => {
@@ -94,7 +95,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
 
       setSongsData(normalized)
 
-      // Встановлюємо ID першого треку тільки якщо ще нічого не вибрано
       setTrackId((prev) => {
         if (prev !== null) return prev
         return normalized.length > 0 ? normalized[0].id : null
@@ -104,31 +104,41 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     }
   }, [])
 
+  // Додає нові треки в глобальний список (без дублікатів).
+  // Використовується сторінкою артиста, щоб треки можна було програти.
+  const addSongs = useCallback((newSongs: Song[]) => {
+    setSongsData((prev) => {
+      const existingIds = new Set(prev.map((s) => String(s.id)))
+      const toAdd = newSongs.filter((s) => !existingIds.has(String(s.id)))
+      if (toAdd.length === 0) return prev
+      return [...prev, ...toAdd]
+    })
+  }, [])
+
   useEffect(() => {
     fetchSongs()
   }, [fetchSongs])
 
-  // Завантажуємо аудіо тільки коли змінюється trackId (не весь об'єкт треку)
   useEffect(() => {
     const audio = audioRef.current
     if (!audio || trackId === null) return
 
-    // Знаходимо трек у поточному списку
     const song = songsData.find((s) => s.id === trackId)
     if (!song || !song.file) return
 
     const fileUrl = resolveUrl(song.file)
 
-    // Якщо той самий src — не перезавантажуємо
     if (audio.src === fileUrl) return
 
     audio.src = fileUrl
     audio.load()
     audio.volume = volume
 
-    audio.play()
-      .then(() => setPlayStatus(true))
-      .catch(() => setPlayStatus(false))
+    if (shouldAutoPlay.current) {
+      audio.play()
+        .then(() => setPlayStatus(true))
+        .catch(() => setPlayStatus(false))
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackId])
 
@@ -182,17 +192,19 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     if (songsData.length === 0) return
 
     if (trackId === id) {
-      // Той самий трек — toggle play/pause
       if (playStatus) pause()
       else play()
       return
     }
+    shouldAutoPlay.current = true
     setTrackId(id)
   }
 
   const nextTrack = () => {
     if (songsData.length === 0) return
     const index = songsData.findIndex((s) => s.id === trackId)
+
+    shouldAutoPlay.current = true
 
     if (shuffle) {
       let r = Math.floor(Math.random() * songsData.length)
@@ -209,6 +221,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     if (songsData.length === 0) return
     const index = songsData.findIndex((s) => s.id === trackId)
     const prev = (index - 1 + songsData.length) % songsData.length
+    shouldAutoPlay.current = true
     setTrackId(songsData[prev].id)
   }
 
@@ -261,6 +274,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     toggleShuffle,
     toggleLoop,
     refreshSongs: fetchSongs,
+    addSongs,
   }
 
   return (

@@ -6,7 +6,6 @@ function Home() {
   const { track, playStatus, playWithId, songsData } = usePlayer()
   const [albumsData, setAlbumsData] = useState<any[]>([])
 
-  // Загружаем альбомы напрямую с бэкенда при монтировании компонента
   useEffect(() => {
     const fetchAlbums = async () => {
       try {
@@ -15,7 +14,6 @@ function Home() {
           const resData = await response.json()
           const fetchedAlbums = Array.isArray(resData) ? resData : (resData.data || [])
 
-          // Нормализуем _id в id для совместимости с роутингом и Card
           const normalizedAlbums = fetchedAlbums.map((album: any) => ({
             ...album,
             id: album.id || album._id
@@ -29,6 +27,8 @@ function Home() {
 
     fetchAlbums()
   }, [])
+
+  const popularSongs = songsData.slice(0, 6)
 
   return (
     <div className="pt-2 sm:pt-4 flex flex-col gap-6 sm:gap-8">
@@ -54,10 +54,10 @@ function Home() {
       <section>
         <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-3 sm:mb-4">Популярні треки</h2>
         <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2 -mx-1 px-1">
-          {!songsData || songsData.length === 0 ? (
+          {popularSongs.length === 0 ? (
             <p className="text-zinc-400 text-sm pl-1">Немає доступних треків</p>
           ) : (
-            songsData.map((song) => (
+            popularSongs.map((song) => (
               <Card
                 key={song.id}
                 image={song.image.startsWith('http') ? song.image : `http://localhost:5000/${song.image}`}
