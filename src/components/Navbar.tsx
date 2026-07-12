@@ -91,10 +91,14 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
         <div className='relative' ref={menuRef}>
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className='w-9 h-9 rounded-full bg-[#282828] hover:scale-105 transition cursor-pointer flex items-center justify-center font-bold text-xs border border-[#3e3e3e] hover:border-[#1db954] text-white uppercase shrink-0'
+            className='w-9 h-9 rounded-full overflow-hidden bg-[#282828] hover:scale-105 transition cursor-pointer flex items-center justify-center font-bold text-xs border border-[#3e3e3e] hover:border-[#1db954] text-white uppercase shrink-0'
             aria-label="Профіль"
           >
-            {avatarLetter}
+            {user?.avatar ? (
+              <img src={user.avatar} alt="Аватар" className="w-full h-full object-cover" />
+            ) : (
+              avatarLetter
+            )}
           </button>
 
           {/* Дропдаун меню */}

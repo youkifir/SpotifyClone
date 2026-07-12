@@ -31,6 +31,10 @@ const userSchema = new mongoose.Schema(
         ref: 'Song',
       },
     ],
+    avatar: {
+      type: String,
+      default: null,
+    },
     musicianRequest: {
       status: { type: String, enum: ['pending', 'approved', 'rejected'], default: null },
       message: { type: String, default: '' },

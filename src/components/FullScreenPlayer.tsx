@@ -292,7 +292,7 @@ export const FullScreenPlayer: React.FC = () => {
   )
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-8 lg:p-10 text-white transition-all duration-300 select-none overflow-y-auto md:overflow-hidden">
+    <div className="fixed inset-0 bg-linear-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-8 lg:p-10 text-white transition-all duration-300 select-none overflow-y-auto md:overflow-hidden">
 
       {/* Шапка плеера */}
       <div className="flex justify-between items-center w-full max-w-6xl mx-auto mb-4 md:mb-8 shrink-0">

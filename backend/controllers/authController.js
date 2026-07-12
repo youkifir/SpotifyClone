@@ -89,7 +89,37 @@ const getMe = async (req, res, next) => {
       username: user.username,
       email: user.email,
       role: user.role,
+      avatar: user.avatar || null,
       createdAt: user.createdAt,
+      musicianRequest: user.musicianRequest,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUT /api/auth/avatar
+const updateAvatar = async (req, res, next) => {
+  try {
+    // avatar може бути base64 рядком або null (для видалення)
+    const { avatar } = req.body;
+    if (avatar !== null && typeof avatar !== 'string') {
+      return res.status(400).json({ success: false, message: 'Невірний формат аватара' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Зберігаємо як base64 або шлях (залежно від реалізації)
+    user.avatar = avatar;
+    await user.save();
+
+    const newToken = generateToken(user);
+    res.json({
+      success: true,
+      message: 'Аватар оновлено',
+      token: newToken,
+      user: { id: user._id, username: user.username, email: user.email, role: user.role, avatar: user.avatar, createdAt: user.createdAt },
     });
   } catch (err) {
     next(err);
@@ -141,7 +171,7 @@ const updateProfile = async (req, res, next) => {
       success: true,
       message: 'Профіль оновлено',
       token: newToken,
-      user: { id: user._id, username: user.username, email: user.email, role: user.role, createdAt: user.createdAt },
+      user: { id: user._id, username: user.username, email: user.email, role: user.role, avatar: user.avatar || null, createdAt: user.createdAt },
     });
   } catch (err) {
     next(err);
@@ -238,4 +268,4 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe, updateProfile, getLikedSongs, toggleLike, getUsers, deleteUser };
+module.exports = { register, login, getMe, updateProfile, updateAvatar, getLikedSongs, toggleLike, getUsers, deleteUser };
