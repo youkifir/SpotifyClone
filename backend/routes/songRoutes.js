@@ -13,6 +13,28 @@ router.get('/itunes-preview', protect, isMusician, searchItunesPreview);
 router.get('/my', protect, isMusician, getMySongs);
 router.get('/artist/:name', getArtistSongs);
 router.get('/', getSongs);
+
+// GET /api/songs/lrclib?track_name=...&artist_name=...
+// Proxy to lrclib.net to avoid CORS issues from the browser
+router.get('/lrclib', async (req, res) => {
+  try {
+    const { track_name, artist_name } = req.query
+    if (!track_name) return res.status(400).json({ error: 'track_name required' })
+
+    const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(track_name)}&artist_name=${encodeURIComponent(artist_name || '')}`
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'SpotifyClone/1.0' }
+    })
+
+    if (!response.ok) return res.status(response.status).json({ error: 'lrclib error' })
+
+    const data = await response.json()
+    res.json(data)
+  } catch (err) {
+    res.status(502).json({ error: 'Proxy error', detail: err.message })
+  }
+})
+
 router.get('/:id', getSongById);
 router.get('/:id/lyrics', getSongLyrics);
 

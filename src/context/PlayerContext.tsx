@@ -159,12 +159,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
           currentBlobUrl.current = null
         }
 
-        let blobUrl: string
-        if (token) {
-          blobUrl = await fetchSecureAudio(song.id, token)
-        } else {
-          blobUrl = song.file?.startsWith("http") ? song.file : `${API_BASE}/${song.file}`
-        }
+        // Always load via secure proxy - direct URL never reaches the browser
+        const blobUrl = await fetchSecureAudio(song.id, token)
 
         if (cancelled) {
           URL.revokeObjectURL(blobUrl)
@@ -177,9 +173,16 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
         audio.volume = volume
 
         if (shouldAutoPlay.current) {
-          audio.play()
-            .then(() => setPlayStatus(true))
-            .catch(() => setPlayStatus(false))
+          const playPromise = audio.play()
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => setPlayStatus(true))
+              .catch((err: Error) => {
+                if (err.name !== 'AbortError') {
+                  setPlayStatus(false)
+                }
+              })
+          }
         }
       } catch (err) {
         console.error("Помилка завантаження аудіо:", err)
