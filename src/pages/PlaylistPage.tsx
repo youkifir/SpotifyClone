@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
@@ -7,6 +7,7 @@ import EditPlaylistModal from '../components/EditPlaylistModal'
 import AddSongsModal, { type ApiSong } from '../components/AddSongsModal'
 import { durationToSeconds } from '../utils/parseDuration'
 import type { Playlist } from '../components/CreatePlaylistModal'
+import type { Song } from '../context/PlayerContext'
 
 interface PlaylistDetail extends Omit<Playlist, 'songs'> {
   songs: ApiSong[]
@@ -25,7 +26,7 @@ const resolveUrl = (path: string) => {
 function PlaylistPage() {
   const { id } = useParams()
   const { token } = useAuth()
-  const { track, playStatus, playWithId, play, refreshSongs } = usePlayer()
+  const { track, playStatus, playWithId, play, pause, refreshSongs, setQueue, clearQueue, addSongs } = usePlayer()
 
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -130,6 +131,28 @@ function PlaylistPage() {
     return sorted.map((item) => item.song)
   }, [playlist, search, sortKey, sortDir, albumNames])
 
+  // Конвертуємо ApiSong → Song для плеєра
+  const toPlayerSong = useCallback((s: ApiSong): Song => ({
+    id: s._id,
+    name: s.name,
+    image: resolveUrl(s.image),
+    file: s.file || '',
+    desc: s.desc || '',
+    duration: s.duration || '0:00',
+    artist: s.artist,
+    lyrics: (s as any).lyrics,
+  }), [])
+
+  // Встановлюємо чергу щоразу коли змінюється плейліст / сортування
+  useEffect(() => {
+    if (!playlist || visibleSongs.length === 0) return
+    const playerSongs = visibleSongs.map(toPlayerSong)
+    addSongs(playerSongs)   // гарантуємо що треки є в songsData
+    setQueue(playerSongs)
+    return () => { clearQueue() }  // скидаємо чергу при виході зі сторінки
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playlist?._id, visibleSongs])
+
   const handleRemoveSong = async (songId: string) => {
     if (!token || !id) return
     setRemovingId(songId)
@@ -164,9 +187,11 @@ function PlaylistPage() {
 
   const handlePlayAll = () => {
     if (visibleSongs.length === 0) return
+    const playerSongs = visibleSongs.map(toPlayerSong)
+    setQueue(playerSongs)
     const isCurrentInPlaylist = visibleSongs.some((s) => s._id === track.id)
     if (isCurrentInPlaylist) {
-      play()
+      playStatus ? pause() : play()
     } else {
       playWithId(visibleSongs[0]._id)
     }

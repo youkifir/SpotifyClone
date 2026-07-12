@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
 import { useLike } from '../hooks/Uselike'
@@ -107,7 +107,77 @@ export default function ProfilePage() {
   const [likedSongs, setLikedSongs] = useState<LikedSong[]>([])
   const [loadingLikes, setLoadingLikes] = useState(false)
 
+  // Avatar state
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar ?? null)
+  const [loadingAvatar, setLoadingAvatar] = useState(false)
+  const [errorAvatar, setErrorAvatar] = useState('')
+  const [successAvatar, setSuccessAvatar] = useState('')
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
   const avatarLetter = user?.username?.charAt(0).toUpperCase() ?? 'U'
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setErrorAvatar('Оберіть файл зображення (JPG, PNG, WebP)')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorAvatar('Розмір файлу не повинен перевищувати 5MB')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string
+      setAvatarPreview(result)
+      setErrorAvatar('')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSaveAvatar = async () => {
+    if (!avatarPreview || avatarPreview === user?.avatar) return
+    setLoadingAvatar(true)
+    setErrorAvatar('')
+    try {
+      const res = await fetch(`${API}/api/auth/avatar`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ avatar: avatarPreview }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка')
+      ctxLogin(data.token, data.user)
+      showSuccess(setSuccessAvatar, 'Аватар оновлено!')
+    } catch (err: any) {
+      setErrorAvatar(err.message)
+    } finally {
+      setLoadingAvatar(false)
+    }
+  }
+
+  const handleRemoveAvatar = async () => {
+    setLoadingAvatar(true)
+    setErrorAvatar('')
+    try {
+      const res = await fetch(`${API}/api/auth/avatar`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ avatar: null }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка')
+      ctxLogin(data.token, data.user)
+      setAvatarPreview(null)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+      showSuccess(setSuccessAvatar, 'Аватар видалено!')
+    } catch (err: any) {
+      setErrorAvatar(err.message)
+    } finally {
+      setLoadingAvatar(false)
+    }
+  }
 
   const showSuccess = (setter: (v: string) => void, msg: string) => {
     setter(msg)
@@ -186,14 +256,43 @@ export default function ProfilePage() {
 
       {/* Шапка */}
       <div className="flex items-center gap-5 p-6 bg-linear-to-br from-[#1db954]/20 to-[#121212] rounded-xl border border-[#1db954]/10">
-        <div className="w-20 h-20 rounded-full bg-[#1db954] flex items-center justify-center text-black font-black text-3xl shrink-0 shadow-lg">
-          {avatarLetter}
+        {/* Аватар */}
+        <div className="relative shrink-0 group">
+          <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg">
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="Аватар" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-[#1db954] flex items-center justify-center text-black font-black text-3xl">
+                {avatarLetter}
+              </div>
+            )}
+          </div>
+          {/* Оверлей при наведенні */}
+          <button
+            onClick={() => avatarInputRef.current?.click()}
+            className="absolute inset-0 rounded-full bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            title="Змінити аватар"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span className="text-white text-[9px] font-semibold mt-0.5">Змінити</span>
+          </button>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleAvatarFileChange}
+          />
         </div>
-        <div>
+
+        <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">Профіль</p>
           <h1 className="text-2xl sm:text-3xl font-black text-white">{user?.username}</h1>
           <p className="text-neutral-400 text-sm mt-0.5">{user?.email}</p>
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
               user?.role === 'admin'
                 ? 'bg-[#1db954]/20 text-[#1db954] border border-[#1db954]/30'
@@ -208,6 +307,39 @@ export default function ProfilePage() {
             </span>
           </div>
           {user?.role === 'user' && <MusicianRequestButton token={token} />}
+
+          {/* Кнопки збереження/видалення аватара */}
+          {(avatarPreview !== (user?.avatar ?? null)) && (
+            <div className="flex items-center gap-2 mt-3">
+              <button
+                onClick={handleSaveAvatar}
+                disabled={loadingAvatar}
+                className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#1db954] text-black hover:bg-[#1ed760] transition disabled:opacity-50"
+              >
+                {loadingAvatar ? 'Збереження...' : 'Зберегти аватар'}
+              </button>
+              <button
+                onClick={() => {
+                  setAvatarPreview(user?.avatar ?? null)
+                  if (avatarInputRef.current) avatarInputRef.current.value = ''
+                }}
+                className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[#282828] text-neutral-400 hover:text-white hover:bg-[#333] transition"
+              >
+                Скасувати
+              </button>
+            </div>
+          )}
+          {avatarPreview && avatarPreview === (user?.avatar ?? null) && (
+            <button
+              onClick={handleRemoveAvatar}
+              disabled={loadingAvatar}
+              className="mt-3 text-xs font-semibold px-3 py-1.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition disabled:opacity-50"
+            >
+              {loadingAvatar ? '...' : 'Видалити аватар'}
+            </button>
+          )}
+          {errorAvatar && <p className="text-red-400 text-xs mt-2">{errorAvatar}</p>}
+          {successAvatar && <p className="text-[#1db954] text-xs mt-2">{successAvatar}</p>}
         </div>
       </div>
 

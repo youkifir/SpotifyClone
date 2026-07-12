@@ -9,6 +9,7 @@ import AdminPanel from './pages/AdminPanel'
 import ProfilePage from './pages/ProfilePage'
 import ArtistPage from './pages/ArtistPage'
 import MusicianPage from './pages/MusicianPage'
+import SearchPage from './pages/SearchPage'
 import { PlayerContextProvider } from './context/PlayerContext'
 import { useAuth } from './context/AuthContext'
 import { Sidebar } from './components/Sidebar'
@@ -31,7 +32,7 @@ function App() {
   if (!token) {
     return (
       <div className="h-screen w-screen bg-[#09090b] relative flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-tr from-green-500/10 via-transparent to-zinc-500/5 blur-[120px] pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-tr from-green-500/10 via-transparent to-zinc-500/5 blur-[120px] pointer-events-none" />
         <div className="z-10 w-full h-full flex items-center justify-center backdrop-blur-md">
           <Routes>
             <Route path="/login" element={<AuthPage isLoginMode={true} />} />
@@ -65,6 +66,7 @@ function App() {
               <Route path="/admin" element={<AdminPanel />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/musician" element={<MusicianPage />} />
+              <Route path="/search" element={<SearchPage />} />  {/* ← НОВИЙ МАРШРУТ */}
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/usePlayer'
 import { useLike } from '../hooks/Uselike'
 import type { Song } from '../context/PlayerContext'
@@ -33,6 +34,7 @@ interface SearchBarProps {
 }
 
 export default function SearchBar({ onClose }: SearchBarProps) {
+  const navigate = useNavigate()
   const { playWithId, addSongs, track, playStatus } = usePlayer()
   const { isLiked, toggleLike } = useLike()
 
@@ -110,10 +112,23 @@ export default function SearchBar({ onClose }: SearchBarProps) {
     inputRef.current?.focus()
   }
 
+  // Navigate to full search results page
+  const goToSearchPage = () => {
+    const trimmed = query.trim()
+    if (trimmed) {
+      setIsOpen(false)
+      navigate(`/search?q=${encodeURIComponent(trimmed)}`)
+      if (onClose) onClose()
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       setIsOpen(false)
       if (onClose) onClose()
+    }
+    if (e.key === 'Enter') {
+      goToSearchPage()
     }
   }
 
@@ -130,8 +145,13 @@ export default function SearchBar({ onClose }: SearchBarProps) {
       <div className={`flex items-center gap-2 bg-[#1f1f1f] h-11 rounded-full px-4 border transition ${
         isOpen ? 'border-white' : 'border-transparent hover:border-[#3e3e3e]'
       } hover:bg-[#2a2a2a]`}>
-        {/* Іконка пошуку / спіннер */}
-        <div className="shrink-0 w-5 h-5 flex items-center justify-center">
+        {/* Іконка пошуку / спіннер — кліком переходимо до повної сторінки */}
+        <button
+          onClick={goToSearchPage}
+          className="shrink-0 w-5 h-5 flex items-center justify-center"
+          aria-label="Перейти до результатів пошуку"
+          tabIndex={-1}
+        >
           {loading ? (
             <svg className="animate-spin text-[#b3b3b3]" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
@@ -143,7 +163,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           )}
-        </div>
+        </button>
 
         <input
           ref={inputRef}
@@ -214,7 +234,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                           alt={song.name}
                           className="w-10 h-10 rounded object-cover"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src =
+                            ;(e.target as HTMLImageElement).src =
                               'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="%23333"/></svg>'
                           }}
                         />
@@ -259,7 +279,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                         className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-all ${
                           liked
                             ? 'opacity-100'
-                            : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'
+                            : 'opacity-0 group-hover:opacity-60 hover:opacity-100!'
                         } ${isAnimating ? 'scale-125' : 'hover:scale-110'}`}
                         aria-label={liked ? 'Прибрати з улюблених' : 'Додати до улюблених'}
                       >
@@ -278,10 +298,17 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                 })}
               </ul>
 
-              <div className="px-4 py-2 border-t border-[#3e3e3e]">
-                <p className="text-[10px] text-neutral-500">
-                  Натисни для відтворення · Серце — додати до улюблених
+              {/* Посилання на повну сторінку пошуку */}
+              <div
+                onClick={goToSearchPage}
+                className="px-4 py-2.5 border-t border-[#3e3e3e] flex items-center justify-between cursor-pointer hover:bg-[#333] transition-colors group"
+              >
+                <p className="text-xs text-neutral-400 group-hover:text-white transition-colors">
+                  Показати всі результати для «{query.trim()}»
                 </p>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </div>
             </>
           )}

@@ -27,6 +27,7 @@ interface PlayerContextType {
   audioRef: React.RefObject<HTMLAudioElement | null>
   songsData: Song[]
   track: Song
+  _hasTrack: boolean
   playStatus: boolean
   currentTime: TimeParts
   currentSeconds: number   // точний час у секундах з дробовою частиною (для синхронізації тексту)
@@ -48,6 +49,8 @@ interface PlayerContextType {
   toggleLoop: () => void
   refreshSongs: () => Promise<void>
   addSongs: (songs: Song[]) => void
+  setQueue: (songs: Song[]) => void
+  clearQueue: () => void
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -88,10 +91,20 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const [currentSeconds, setCurrentSeconds] = useState(0)
   const [totalTime, setTotalTime] = useState<TimeParts>({ minute: 0, second: 0 })
   const [progress, setProgress] = useState(0)
-  const [volume, setVolumeState] = useState(0.7)
+  const [volume, setVolumeState] = useState(() => {
+    const saved = localStorage.getItem('playerVolume')
+    return saved !== null ? parseFloat(saved) : 0.7
+  })
   const [shuffle, setShuffle] = useState(false)
   const [loop, setLoop] = useState(false)
   const [isFullScreen, setIsFullScreen] = useState(false)
+
+  // Активна черга — якщо встановлена, next/previous/shuffle ходять по ній.
+  // null = режим «всі пісні» (songsData)
+  const [queue, setQueueState] = useState<Song[] | null>(null)
+
+  // Поточний список для навігації: черга або всі пісні
+  const activeList = queue ?? songsData
 
   const track = songsData.find((s) => s.id === trackId) ?? null
 
@@ -108,11 +121,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
       }))
 
       setSongsData(normalized)
-
-      setTrackId((prev) => {
-        if (prev !== null) return prev
-        return normalized.length > 0 ? normalized[0].id : null
-      })
     } catch (error) {
       console.error('Помилка завантаження пісень:', error)
     }
@@ -151,12 +159,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
           currentBlobUrl.current = null
         }
 
-        let blobUrl: string
-        if (token) {
-          blobUrl = await fetchSecureAudio(song.id, token)
-        } else {
-          blobUrl = song.file?.startsWith("http") ? song.file : `${API_BASE}/${song.file}`
-        }
+        // Always load via secure proxy - direct URL never reaches the browser
+        const blobUrl = await fetchSecureAudio(song.id, token)
 
         if (cancelled) {
           URL.revokeObjectURL(blobUrl)
@@ -169,9 +173,16 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
         audio.volume = volume
 
         if (shouldAutoPlay.current) {
-          audio.play()
-            .then(() => setPlayStatus(true))
-            .catch(() => setPlayStatus(false))
+          const playPromise = audio.play()
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => setPlayStatus(true))
+              .catch((err: Error) => {
+                if (err.name !== 'AbortError') {
+                  setPlayStatus(false)
+                }
+              })
+          }
         }
       } catch (err) {
         console.error("Помилка завантаження аудіо:", err)
@@ -244,28 +255,28 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   }
 
   const nextTrack = () => {
-    if (songsData.length === 0) return
-    const index = songsData.findIndex((s) => s.id === trackId)
+    if (activeList.length === 0) return
+    const index = activeList.findIndex((s) => s.id === trackId)
 
     shouldAutoPlay.current = true
 
     if (shuffle) {
-      let r = Math.floor(Math.random() * songsData.length)
-      while (r === index && songsData.length > 1) r = Math.floor(Math.random() * songsData.length)
-      setTrackId(songsData[r].id)
+      let r = Math.floor(Math.random() * activeList.length)
+      while (r === index && activeList.length > 1) r = Math.floor(Math.random() * activeList.length)
+      setTrackId(activeList[r].id)
       return
     }
 
-    const next = (index + 1) % songsData.length
-    setTrackId(songsData[next].id)
+    const next = (index + 1) % activeList.length
+    setTrackId(activeList[next].id)
   }
 
   const previous = () => {
-    if (songsData.length === 0) return
-    const index = songsData.findIndex((s) => s.id === trackId)
-    const prev = (index - 1 + songsData.length) % songsData.length
+    if (activeList.length === 0) return
+    const index = activeList.findIndex((s) => s.id === trackId)
+    const prev = (index - 1 + activeList.length) % activeList.length
     shouldAutoPlay.current = true
-    setTrackId(songsData[prev].id)
+    setTrackId(activeList[prev].id)
   }
 
   const next = nextTrack
@@ -279,11 +290,22 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const changeVolume = (ratio: number) => {
     const clamped = Math.min(1, Math.max(0, ratio))
     setVolumeState(clamped)
+    localStorage.setItem('playerVolume', String(clamped))
     if (audioRef.current) audioRef.current.volume = clamped
   }
 
   const toggleShuffle = () => setShuffle((s) => !s)
   const toggleLoop = () => setLoop((l) => !l)
+
+  // Встановити чергу (наприклад, пісні плейліста).
+  // Треки також додаються в songsData щоб аудіо міг завантажитись.
+  const setQueue = (songs: Song[]) => {
+    addSongs(songs)
+    setQueueState(songs)
+  }
+
+  // Скинути чергу — повернутись до режиму «всі пісні»
+  const clearQueue = () => setQueueState(null)
 
   const currentTrack: Song = track ?? {
     id: '',
@@ -298,6 +320,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     audioRef,
     songsData,
     track: currentTrack,
+    _hasTrack: track !== null,
     playStatus,
     currentTime,
     currentSeconds,
@@ -319,6 +342,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     toggleLoop,
     refreshSongs: fetchSongs,
     addSongs,
+    setQueue,
+    clearQueue,
   }
 
   return (
