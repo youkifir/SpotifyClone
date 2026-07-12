@@ -43,6 +43,8 @@ export const Player: React.FC = () => {
   const [playlistMenuAnchor, setPlaylistMenuAnchor] = useState<HTMLElement | null>(null)
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const [isDevicesOpen, setIsDevicesOpen] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
+  const prevVolumeRef = useRef(volume || 0.7)
 
   // Состояния для перетаскивания (громкость и таймлайн трека)
   const [isDraggingVolume, setIsDraggingVolume] = useState(false)
@@ -114,6 +116,23 @@ export const Player: React.FC = () => {
 
   const stop = (e: React.MouseEvent) => e.stopPropagation()
 
+  const handleToggleMute = () => {
+    if (isMuted) {
+      changeVolume(prevVolumeRef.current)
+      setIsMuted(false)
+    } else {
+      prevVolumeRef.current = volume > 0 ? volume : 0.7
+      changeVolume(0)
+      setIsMuted(true)
+    }
+  }
+
+  // Якщо юзер рухає слайдер гучності — автоматично знімаємо mute
+  useEffect(() => {
+    if (volume > 0 && isMuted) setIsMuted(false)
+    if (volume === 0 && !isMuted) setIsMuted(true)
+  }, [volume])
+
   if (!track) return null
 
   const trackImageUrl = track.image?.startsWith('http')
@@ -132,7 +151,7 @@ export const Player: React.FC = () => {
           <div
             ref={seekBgRef}
             onMouseDown={handleSeekMouseDown}
-            className='w-full bg-neutral-700 h-[3px] cursor-pointer relative'
+            className='w-full bg-neutral-700 h-0.75 cursor-pointer relative'
           >
             <div className='h-full bg-white transition-[width]' style={{ width: `${progress * 100}%` }} />
           </div>
@@ -179,7 +198,7 @@ export const Player: React.FC = () => {
         <div className='hidden lg:flex justify-between items-center h-full gap-4'>
 
           {/* Лево: инфо о треке */}
-          <div className='flex items-center gap-4 w-1/4 min-w-[200px] flex-nowrap'>
+          <div className='flex items-center gap-4 w-1/4 min-w-50 flex-nowrap'>
             {_hasTrack && (
               <img className='w-14 h-14 rounded object-cover shrink-0 shadow-md' src={trackImageUrl} alt={track.name} />
             )}
@@ -274,7 +293,7 @@ export const Player: React.FC = () => {
           </div>
 
           {/* Право: громкость и кнопки дополнительных режимов */}
-          <div className='flex items-center gap-3 w-1/4 justify-end shrink-0 min-w-[180px]'>
+          <div className='flex items-center gap-3 w-1/4 justify-end shrink-0 min-w-45'>
             <img
               onClick={() => setIsQueueOpen((o) => !o)}
               className={`w-4 cursor-pointer transition hover:scale-110 ${isQueueOpen ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
@@ -300,7 +319,28 @@ export const Player: React.FC = () => {
               />
               <DevicesMenu isOpen={isDevicesOpen} onClose={() => setIsDevicesOpen(false)} />
             </div>
-            <img className='w-4 opacity-70' src={assets.volume_icon} alt="Volume" />
+            <button
+              onClick={handleToggleMute}
+              className="w-4 h-4 flex items-center justify-center opacity-70 hover:opacity-100 hover:scale-110 transition shrink-0"
+              aria-label={isMuted ? 'Увімкнути звук' : 'Вимкнути звук'}
+            >
+              {isMuted || volume === 0 ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+                </svg>
+              ) : volume < 0.5 ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              )}
+            </button>
             
             <div ref={volumeBgRef} onMouseDown={handleVolumeMouseDown} className='w-20 bg-neutral-800 h-1 rounded-full cursor-pointer group relative flex items-center mr-1 select-none'>
               <div className='h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative flex items-center' style={{ width: `${volume * 100}%` }}>

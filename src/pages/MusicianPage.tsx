@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
 import { Navigate } from 'react-router-dom'
+import { useLanguage } from '../context/LanguageContext'
 
 const API = 'http://localhost:5000'
 
@@ -98,16 +99,17 @@ function Toast({ msg, ok }: { msg: string; ok: boolean }) {
 function ConfirmModal({ title, onConfirm, onCancel }: {
   title: string; onConfirm: () => void; onCancel: () => void
 }) {
+  const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <div className="bg-[#282828] rounded-xl p-6 w-full max-w-sm shadow-2xl">
         <p className="text-white font-semibold text-base mb-6">{title}</p>
         <div className="flex gap-3 justify-end">
           <button onClick={onCancel} className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition">
-            Скасувати
+            {t('cancelBtn')}
           </button>
           <button onClick={onConfirm} className="px-4 py-2 rounded-full text-sm font-bold bg-red-500 hover:bg-red-400 text-white transition">
-            Видалити
+            {t('deleteBtn')}
           </button>
         </div>
       </div>
@@ -137,6 +139,7 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
   onClose: () => void
   onSaved: (msg: string) => void
 }) {
+  const { t } = useLanguage()
   const isEdit = !!initial
   const [form, setForm] = useState({
     name: initial?.name ?? '',
@@ -186,10 +189,10 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка')
       const pl = playlists.find(p => p._id === playlistId)
-      onSaved(`«${savedSongName}» додано до «${pl?.name ?? 'плейлиста'}»!`)
+      onSaved(`«${savedSongName}» → «${pl?.name ?? '...'}»`)
       onClose()
-    } catch (err: any) {
-      onSaved(`«${savedSongName}» збережено (плейлист: помилка)`)
+    } catch {
+      onSaved(`«${savedSongName}» ${t('trackUploaded')}`)
       onClose()
     } finally {
       setAddingToPlaylist(false)
@@ -225,15 +228,15 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
       let fileUrl = form.file
 
       if (imageFile) {
-        setProgress('Завантаження обкладинки...')
+        setProgress(t('uploadingCover'))
         imageUrl = await uploadFile(imageFile, token)
       }
       if (audioFile) {
-        setProgress('Завантаження аудіо...')
+        setProgress(t('uploadingAudio'))
         fileUrl = await uploadFile(audioFile, token)
       }
 
-      setProgress('Збереження...')
+      setProgress(t('savingDots'))
       const body = { ...form, image: imageUrl, file: fileUrl, album: form.album || null, source: 'local' }
       const url = isEdit ? `${API}/api/songs/${initial!._id}` : `${API}/api/songs`
       const res = await fetch(url, {
@@ -244,10 +247,9 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка збереження')
       if (isEdit) {
-        onSaved('Трек оновлено!')
+        onSaved(t('trackUpdated'))
         onClose()
       } else {
-        // After upload — show playlist choice
         const newSongId = data.data?._id ?? data.data?.id
         setSavedSongId(newSongId ?? null)
         setSavedSongName(form.name)
@@ -269,10 +271,10 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-neutral-800">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-0.5">
-              {isEdit ? 'Редагування' : 'Новий трек'}
+              {isEdit ? t('editingTrack') : t('newTrack')}
             </p>
             <h3 className="text-white font-bold text-lg">
-              {isEdit ? initial!.name : 'Завантажити трек'}
+              {isEdit ? initial!.name : t('uploadTrack')}
             </h3>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition">
@@ -289,22 +291,22 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Назва треку" required>
-                <input required value={form.name} onChange={set('name')} placeholder="Назва" className="musician-input" />
+              <Field label={t('trackNameLabel')} required>
+                <input required value={form.name} onChange={set('name')} placeholder={t('trackNamePlaceholder')} className="musician-input" />
               </Field>
-              <Field label="Виконавець">
-                <input value={form.artist} onChange={set('artist')} placeholder="Ваше ім'я" className="musician-input" />
+              <Field label={t('artistLabel')}>
+                <input value={form.artist} onChange={set('artist')} placeholder={t('artistPlaceholder')} className="musician-input" />
               </Field>
             </div>
 
-            <Field label="Обкладинка">
+            <Field label={t('coverLabel')}>
               <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-neutral-700 hover:border-[#1db954]/50 cursor-pointer transition group">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-neutral-500 group-hover:text-[#1db954] transition shrink-0">
                     <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
                   </svg>
                   <span className="text-sm text-neutral-400 group-hover:text-neutral-200 transition truncate">
-                    {imageFile ? imageFile.name : 'Вибрати зображення...'}
+                    {imageFile ? imageFile.name : t('chooseImage')}
                   </span>
                   <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] ?? null)} className="hidden" />
                 </label>
@@ -314,35 +316,35 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
               </div>
             </Field>
 
-            <Field label="Аудіофайл" required={!isEdit}>
+            <Field label={t('audioLabel')} required={!isEdit}>
               <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed border-neutral-700 hover:border-[#1db954]/50 cursor-pointer transition group">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-neutral-500 group-hover:text-[#1db954] transition shrink-0">
                   <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
                 </svg>
                 <span className="text-sm text-neutral-400 group-hover:text-neutral-200 transition truncate">
-                  {audioFile ? audioFile.name : isEdit ? "Замінити аудіофайл (необов'язково)" : 'Вибрати аудіофайл...'}
+                  {audioFile ? audioFile.name : isEdit ? t('replaceAudio') : t('chooseAudio')}
                 </span>
                 <input type="file" accept="audio/*" onChange={handleAudio} className="hidden" />
               </label>
               {audioFile && (
-                <p className="text-xs text-neutral-500 mt-1">Тривалість: {form.duration}</p>
+                <p className="text-xs text-neutral-500 mt-1">{t('durationLabel')} {form.duration}</p>
               )}
             </Field>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Жанр">
+              <Field label={t('genreLabel')}>
                 <input value={form.genre} onChange={set('genre')} placeholder="Pop, Rock, Hip-Hop..." className="musician-input" />
               </Field>
-              <Field label="Альбом">
+              <Field label={t('albumLabel')}>
                 <select value={form.album} onChange={set('album')} className="musician-input">
-                  <option value="">— Без альбому —</option>
+                  <option value="">{t('noAlbum')}</option>
                   {albums.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
                 </select>
               </Field>
             </div>
 
-            <Field label="Опис">
-              <textarea value={form.desc} onChange={set('desc')} placeholder="Розкажи про трек..." rows={2} className="musician-input resize-none" />
+            <Field label={t('descLabel')}>
+              <textarea value={form.desc} onChange={set('desc')} placeholder={t('descPlaceholder')} rows={2} className="musician-input resize-none" />
             </Field>
 
             <div className="flex items-center gap-3 justify-end pt-2">
@@ -350,7 +352,7 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
                 <span className="text-[#1db954] text-xs animate-pulse">{progress}</span>
               )}
               <button type="button" onClick={onClose} className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-700 hover:border-neutral-500 transition">
-                Скасувати
+                {t('cancelBtn')}
               </button>
               <button
                 type="submit"
@@ -362,10 +364,10 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
                     <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
                     </svg>
-                    Завантаження...
+                    {t('uploadingDots')}
                   </>
                 ) : (
-                  isEdit ? 'Зберегти зміни' : 'Опублікувати'
+                  isEdit ? t('saveChangesBtn') : t('publishBtn')
                 )}
               </button>
             </div>
@@ -380,15 +382,15 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
             <div className="px-5 pt-5 pb-4 border-b border-neutral-800">
               <div className="flex items-center gap-2 mb-1">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="#1db954"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954]">Трек завантажено!</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954]">{t('trackUploaded')}</p>
               </div>
               <p className="text-white font-bold text-base">«{savedSongName}»</p>
-              <p className="text-neutral-500 text-xs mt-0.5">Додати до плейлиста?</p>
+              <p className="text-neutral-500 text-xs mt-0.5">{t('addToPlaylistQ')}</p>
             </div>
             <div className="px-5 py-4 flex flex-col gap-3">
               {/* Skip */}
               <button
-                onClick={() => { onSaved(`«${savedSongName}» завантажено!`); onClose() }}
+                onClick={() => { onSaved(`«${savedSongName}» ${t('trackUploaded')}`); onClose() }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#282828] hover:bg-[#333] transition text-left"
               >
                 <div className="w-9 h-9 rounded-lg bg-neutral-800 flex items-center justify-center shrink-0">
@@ -397,13 +399,13 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">Просто зберегти</p>
-                  <p className="text-xs text-neutral-500">Без плейлиста</p>
+                  <p className="text-sm font-semibold text-white">{t('justSave')}</p>
+                  <p className="text-xs text-neutral-500">{t('withoutPlaylist')}</p>
                 </div>
               </button>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 px-1">Або вибери плейлист</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 px-1">{t('choosePlaylist')}</p>
                 {loadingPlaylists ? (
                   <div className="py-3 flex justify-center">
                     <svg className="animate-spin w-5 h-5 text-neutral-600" viewBox="0 0 24 24" fill="none">
@@ -411,7 +413,7 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
                     </svg>
                   </div>
                 ) : playlists.length === 0 ? (
-                  <p className="text-xs text-neutral-600 text-center py-2">Немає плейлистів. Спочатку створи.</p>
+                  <p className="text-xs text-neutral-600 text-center py-2">{t('noPlaylists')}</p>
                 ) : (
                   <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
                     {playlists.map(pl => (
@@ -430,7 +432,7 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate group-hover:text-[#1db954] transition">{pl.name}</p>
-                          <p className="text-xs text-neutral-600">{pl.songs?.length ?? 0} треків</p>
+                          <p className="text-xs text-neutral-600">{pl.songs?.length ?? 0} {t('tracksCount').toLowerCase()}</p>
                         </div>
                         {addingToPlaylist ? (
                           <svg className="animate-spin w-3.5 h-3.5 text-neutral-500 shrink-0" viewBox="0 0 24 24" fill="none">
@@ -461,12 +463,12 @@ function ItunesModal({ token, onClose, onImported }: {
   onClose: () => void
   onImported: (msg: string) => void
 }) {
+  const { t } = useLanguage()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ItunesTrack[]>([])
   const [searching, setSearching] = useState(false)
   const [importing, setImporting] = useState<string | null>(null)
   const [error, setError] = useState('')
-  // Add-choice popup state
   const [addChoiceTrack, setAddChoiceTrack] = useState<ItunesTrack | null>(null)
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [loadingPlaylists, setLoadingPlaylists] = useState(false)
@@ -541,7 +543,7 @@ function ItunesModal({ token, onClose, onImported }: {
     try {
       await importTrack(addChoiceTrack)
       setResults(prev => prev.map(r => r.externalId === addChoiceTrack.externalId ? { ...r, alreadyAdded: true } : r))
-      onImported(`«${addChoiceTrack.name}» додано!`)
+      onImported(`«${addChoiceTrack.name}» ${t('addBtn')}!`)
       setAddChoiceTrack(null)
     } catch (err: any) {
       setPlaylistError(err.message)
@@ -565,7 +567,7 @@ function ItunesModal({ token, onClose, onImported }: {
       if (!res.ok) throw new Error(data.message || 'Помилка додавання до плейлиста')
       setResults(prev => prev.map(r => r.externalId === addChoiceTrack.externalId ? { ...r, alreadyAdded: true } : r))
       const pl = playlists.find(p => p._id === playlistId)
-      onImported(`«${addChoiceTrack.name}» додано до «${pl?.name ?? 'плейлиста'}»!`)
+      onImported(`«${addChoiceTrack.name}» → «${pl?.name ?? '...'}»`)
       setAddChoiceTrack(null)
     } catch (err: any) {
       setPlaylistError(err.message)
@@ -583,7 +585,7 @@ function ItunesModal({ token, onClose, onImported }: {
             <p className="text-xs font-semibold uppercase tracking-widest text-[#fc3c44] mb-0.5">Apple Music</p>
             <h3 className="text-white font-bold text-lg flex items-center gap-2">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#fc3c44"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>
-              Додати пісню з iTunes
+              {t('itunesModalTitle')}
             </h3>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition">
@@ -598,7 +600,7 @@ function ItunesModal({ token, onClose, onImported }: {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && search()}
-              placeholder="Назва або виконавець..."
+              placeholder={t('itunesSearchPlaceholder')}
               className="musician-input flex-1"
               autoFocus
             />
@@ -614,7 +616,7 @@ function ItunesModal({ token, onClose, onImported }: {
               ) : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               )}
-              Шукати
+              {t('itunesSearch')}
             </button>
           </div>
           {error && (
@@ -629,7 +631,7 @@ function ItunesModal({ token, onClose, onImported }: {
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-3 text-neutral-700">
                 <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/>
               </svg>
-              Введіть запит і натисніть «Шукати»
+              {t('itunesHint')}
             </div>
           )}
           {results.map(track => (
@@ -660,12 +662,12 @@ function ItunesModal({ token, onClose, onImported }: {
                 ) : track.alreadyAdded ? (
                   <>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    Вже є
+                    {t('alreadyAdded')}
                   </>
                 ) : (
                   <>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Додати
+                    {t('addBtn')}
                   </>
                 )}
               </button>
@@ -674,7 +676,7 @@ function ItunesModal({ token, onClose, onImported }: {
         </div>
 
         <div className="px-6 py-4 border-t border-neutral-800 shrink-0">
-          <p className="text-xs text-neutral-600 text-center">Треки з iTunes — 30-секундне превью · Джерело: Apple Music Search API</p>
+          <p className="text-xs text-neutral-600 text-center">{t('itunesFooter')}</p>
         </div>
       </div>
 
@@ -714,8 +716,8 @@ function ItunesModal({ token, onClose, onImported }: {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">Просто додати</p>
-                  <p className="text-xs text-neutral-500">До моєї бібліотеки треків</p>
+                  <p className="text-sm font-semibold text-white">{t('justAdd')}</p>
+                  <p className="text-xs text-neutral-500">{t('toMyLibrary')}</p>
                 </div>
                 {importing && (
                   <svg className="animate-spin w-4 h-4 ml-auto text-[#1db954]" viewBox="0 0 24 24" fill="none">
@@ -726,7 +728,7 @@ function ItunesModal({ token, onClose, onImported }: {
 
               {/* Add to playlist */}
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 px-1">Або додати до плейлиста</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 px-1">{t('addToPlaylist')}</p>
                 {loadingPlaylists ? (
                   <div className="py-4 text-center">
                     <svg className="animate-spin w-5 h-5 mx-auto text-neutral-600" viewBox="0 0 24 24" fill="none">
@@ -734,7 +736,7 @@ function ItunesModal({ token, onClose, onImported }: {
                     </svg>
                   </div>
                 ) : playlists.length === 0 ? (
-                  <p className="text-xs text-neutral-600 text-center py-3">Немає плейлистів. Спочатку створи плейлист.</p>
+                  <p className="text-xs text-neutral-600 text-center py-3">{t('noPlaylistsYet')}</p>
                 ) : (
                   <div className="flex flex-col gap-1 max-h-44 overflow-y-auto">
                     {playlists.map(pl => (
@@ -753,7 +755,7 @@ function ItunesModal({ token, onClose, onImported }: {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate group-hover:text-[#1db954] transition">{pl.name}</p>
-                          <p className="text-xs text-neutral-600 truncate">{pl.songs?.length ?? 0} треків</p>
+                          <p className="text-xs text-neutral-600 truncate">{pl.songs?.length ?? 0} {t('tracksCount').toLowerCase()}</p>
                         </div>
                         {addingToPlaylist ? (
                           <svg className="animate-spin w-3.5 h-3.5 text-neutral-500 shrink-0" viewBox="0 0 24 24" fill="none">
@@ -785,6 +787,7 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
   onClose: () => void
   onCreated: (msg: string) => void
 }) {
+  const { t } = useLanguage()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isPublic, setIsPublic] = useState(true)
@@ -799,11 +802,10 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
   }
 
   const handleCreate = async () => {
-    if (!name.trim()) { setError('Введіть назву плейлиста'); return }
+    if (!name.trim()) { setError(t('enterPlaylistName')); return }
     setLoading(true)
     setError('')
     try {
-      // 1. Create playlist
       const res = await fetch(`${API}/api/playlists`, {
         method: 'POST',
         headers: authHeaders(token),
@@ -813,7 +815,6 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
       if (!res.ok) throw new Error(data.message || 'Помилка створення')
       const playlistId = data.data._id
 
-      // 2. Add selected songs
       for (const songId of selectedSongs) {
         await fetch(`${API}/api/playlists/${playlistId}/songs`, {
           method: 'POST',
@@ -822,7 +823,7 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
         })
       }
 
-      onCreated(`Плейлист «${name}» створено!`)
+      onCreated(`«${name}» ${t('createBtn')}!`)
       onClose()
     } catch (err: any) {
       setError(err.message)
@@ -837,8 +838,8 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-neutral-800 shrink-0">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-0.5">Новий плейлист</p>
-            <h3 className="text-white font-bold text-lg">Створити плейлист</h3>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-0.5">{t('newPlaylistLabel')}</p>
+            <h3 className="text-white font-bold text-lg">{t('createPlaylistTitle')}</h3>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -850,21 +851,21 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
             <div className="bg-red-500/15 border border-red-500/40 text-red-400 p-3 rounded-xl text-sm">{error}</div>
           )}
 
-          <Field label="Назва плейлиста" required>
+          <Field label={t('playlistNameLabel')} required>
             <input
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Моя музика..."
+              placeholder={t('playlistNamePlaceholder')}
               className="musician-input"
               autoFocus
             />
           </Field>
 
-          <Field label="Опис">
+          <Field label={t('descLabel')}>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Короткий опис..."
+              placeholder={t('playlistDescPlaceholder')}
               rows={2}
               className="musician-input resize-none"
             />
@@ -873,8 +874,8 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
           {/* Public toggle */}
           <div className="flex items-center justify-between bg-[#0f0f0f] border border-neutral-800 rounded-xl px-4 py-3">
             <div>
-              <p className="text-sm font-semibold text-white">Публічний плейлист</p>
-              <p className="text-xs text-neutral-500 mt-0.5">Інші користувачі зможуть переглядати</p>
+              <p className="text-sm font-semibold text-white">{t('publicPlaylist')}</p>
+              <p className="text-xs text-neutral-500 mt-0.5">{t('publicPlaylistHint')}</p>
             </div>
             <button
               onClick={() => setIsPublic(v => !v)}
@@ -888,7 +889,7 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
           {songs.length > 0 && (
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-2">
-                Додати треки ({selectedSongs.length} вибрано)
+                {t('addTracksLabel')} ({selectedSongs.length} {t('selectedCount')})
               </label>
               <div className="flex flex-col gap-0.5 max-h-52 overflow-y-auto rounded-xl border border-neutral-800 bg-[#0f0f0f] p-1">
                 {songs.map(song => {
@@ -917,7 +918,7 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
 
         <div className="flex gap-3 justify-end px-6 py-4 border-t border-neutral-800 shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-700 hover:border-neutral-500 transition">
-            Скасувати
+            {t('cancelBtn')}
           </button>
           <button
             onClick={handleCreate}
@@ -929,9 +930,9 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
                 <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
                 </svg>
-                Створення...
+                {t('creatingDots')}
               </>
-            ) : 'Створити'}
+            ) : t('createBtn')}
           </button>
         </div>
       </div>
@@ -962,6 +963,7 @@ function StatCard({ label, value, icon, color = 'text-white' }: {
 export default function MusicianPage() {
   const { user, token } = useAuth()
   const { playWithId, addSongs, track, playStatus } = usePlayer()
+  const { t } = useLanguage()
 
   const [songs, setSongs] = useState<Song[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
@@ -973,7 +975,6 @@ export default function MusicianPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [sortBy, setSortBy] = useState<'date' | 'plays'>('date')
 
-  // Redirect if not musician/admin
   if (!user || (user.role !== 'musician' && user.role !== 'admin')) {
     return <Navigate to="/" replace />
   }
@@ -1017,7 +1018,7 @@ export default function MusicianPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) throw new Error('Помилка видалення')
-      showToast('Трек видалено!')
+      showToast(t('trackDeleted'))
       fetchMySongs()
     } catch (err: any) {
       showToast(err.message, false)
@@ -1045,12 +1046,11 @@ export default function MusicianPage() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">Студія музиканта</p>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">Мої треки</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">{t('musicianStudio')}</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white">{t('myTracks')}</h1>
         </div>
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
-          {/* Create Playlist */}
           <button
             onClick={() => setPlaylistModal(true)}
             className="flex items-center gap-2 bg-[#282828] hover:bg-[#3a3a3a] text-white px-4 py-2.5 rounded-full text-sm font-bold transition active:scale-95 border border-neutral-700"
@@ -1059,9 +1059,8 @@ export default function MusicianPage() {
               <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
               <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
             </svg>
-            Плейлист
+            {t('createPlaylistBtn')}
           </button>
-          {/* Add from iTunes */}
           <button
             onClick={() => setItunesModal(true)}
             className="flex items-center gap-2 bg-[#282828] hover:bg-[#3a3a3a] text-white px-4 py-2.5 rounded-full text-sm font-bold transition active:scale-95 border border-neutral-700"
@@ -1071,13 +1070,12 @@ export default function MusicianPage() {
             </svg>
             <span>iTunes</span>
           </button>
-          {/* Upload track */}
           <button
             onClick={() => setUploadModal({})}
             className="flex items-center gap-2 bg-[#1db954] hover:bg-[#1ed760] text-black px-5 py-2.5 rounded-full text-sm font-bold transition active:scale-95"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Завантажити трек
+            {t('uploadTrack')}
           </button>
         </div>
       </div>
@@ -1085,24 +1083,24 @@ export default function MusicianPage() {
       {/* ── Stats Strip ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
-          label="Треків"
+          label={t('tracksCount')}
           value={songs.length}
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>}
         />
         <StatCard
-          label="Прослуховувань"
+          label={t('playsCount')}
           value={totalPlays.toLocaleString('uk-UA')}
           color="text-[#1db954]"
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>}
         />
         <StatCard
-          label="Альбомів"
+          label={t('albumsCount')}
           value={albums.length}
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/></svg>}
         />
         <StatCard
-          label="Топ трек"
-          value={topSong ? `${topSong.playCount ?? 0} plays` : '—'}
+          label={t('topTrack')}
+          value={topSong ? `${topSong.playCount ?? 0} ${t('plays')}` : '—'}
           color="text-yellow-400"
           icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
         />
@@ -1118,9 +1116,9 @@ export default function MusicianPage() {
           <div className="absolute inset-0 border border-[#1db954]/20 rounded-2xl pointer-events-none" />
           <img src={imgSrc(topSong.image)} alt={topSong.name} className="w-16 h-16 rounded-xl object-cover shadow-lg shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1db954] mb-0.5">🏆 Найпопулярніший трек</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1db954] mb-0.5">{t('mostPopularTrack')}</p>
             <p className="text-white font-bold text-lg truncate">{topSong.name}</p>
-            <p className="text-neutral-400 text-sm">{topSong.playCount.toLocaleString('uk-UA')} прослуховувань</p>
+            <p className="text-neutral-400 text-sm">{topSong.playCount.toLocaleString('uk-UA')} {t('plays')}</p>
           </div>
           <div className="w-11 h-11 rounded-full bg-[#1db954] flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-lg shrink-0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="black"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -1131,7 +1129,7 @@ export default function MusicianPage() {
       {/* ── Track List ── */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-white font-bold text-base">Усі треки</h2>
+          <h2 className="text-white font-bold text-base">{t('allTracks')}</h2>
           <div className="flex bg-[#181818] rounded-full p-1 gap-1">
             {(['date', 'plays'] as const).map(s => (
               <button
@@ -1139,14 +1137,14 @@ export default function MusicianPage() {
                 onClick={() => setSortBy(s)}
                 className={`px-3 py-1 rounded-full text-xs font-bold transition ${sortBy === s ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'}`}
               >
-                {s === 'date' ? 'Нові' : 'Популярні'}
+                {s === 'date' ? t('sortNew') : t('sortPopular')}
               </button>
             ))}
           </div>
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-neutral-500 text-sm animate-pulse">Завантаження...</div>
+          <div className="py-16 text-center text-neutral-500 text-sm animate-pulse">{t('loadingDots')}</div>
         ) : sorted.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-4 text-center">
             <div className="w-16 h-16 rounded-full bg-[#181818] flex items-center justify-center text-neutral-600">
@@ -1155,8 +1153,8 @@ export default function MusicianPage() {
               </svg>
             </div>
             <div>
-              <p className="text-white font-semibold">Поки немає треків</p>
-              <p className="text-neutral-500 text-sm mt-1">Завантаж свій перший трек або додай з iTunes</p>
+              <p className="text-white font-semibold">{t('noTracksYet')}</p>
+              <p className="text-neutral-500 text-sm mt-1">{t('noTracksHint')}</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -1170,7 +1168,7 @@ export default function MusicianPage() {
                 onClick={() => setUploadModal({})}
                 className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] text-black hover:bg-[#1ed760] transition"
               >
-                + Завантажити трек
+                {t('uploadTrackBtn')}
               </button>
             </div>
           </div>
@@ -1179,10 +1177,10 @@ export default function MusicianPage() {
             {/* Header row */}
             <div className="grid grid-cols-[auto_1fr_auto_auto_auto] sm:grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-3 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60">
               <span className="w-8 text-center">#</span>
-              <span>Назва</span>
-              <span className="hidden sm:block w-16 text-center">Жанр</span>
+              <span>{t('trackName')}</span>
+              <span className="hidden sm:block w-16 text-center">{t('genreLabel')}</span>
               <span className="w-16 text-right">Plays</span>
-              <span className="w-14 text-right hidden sm:block">Дата</span>
+              <span className="w-14 text-right hidden sm:block">{t('registrationDate')}</span>
               <span className="w-16" />
             </div>
 
@@ -1257,7 +1255,7 @@ export default function MusicianPage() {
                     <button
                       onClick={() => setUploadModal({ song })}
                       className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition"
-                      title="Редагувати"
+                      title={t('saveChangesBtn')}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -1267,7 +1265,7 @@ export default function MusicianPage() {
                     <button
                       onClick={() => setDeleteTarget({ id: song._id, name: song.name })}
                       className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-500/20 text-neutral-400 hover:text-red-400 transition"
-                      title="Видалити"
+                      title={t('deleteBtn')}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
@@ -1311,7 +1309,7 @@ export default function MusicianPage() {
 
       {deleteTarget && (
         <ConfirmModal
-          title={`Видалити трек "${deleteTarget.name}"?`}
+          title={`${t('confirmDeleteTrack')} "${deleteTarget.name}"?`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />

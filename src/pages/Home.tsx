@@ -100,6 +100,7 @@ interface Artist {
 
 function ArtistCard({ artist }: { artist: Artist }) {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const imgSrc = artist.image?.startsWith('http') ? artist.image : `${API}/${artist.image}`
 
   return (
@@ -128,7 +129,7 @@ function ArtistCard({ artist }: { artist: Artist }) {
       </div>
 
       <p className="text-sm font-semibold text-white truncate text-center">{artist.name}</p>
-      <p className="text-xs text-neutral-400 mt-0.5 text-center">Виконавець</p>
+      <p className="text-xs text-neutral-400 mt-0.5 text-center">{t('artistLabel2')}</p>
     </div>
   )
 }
@@ -165,7 +166,7 @@ function Home() {
   return (
     <div className="pt-2 sm:pt-4 flex flex-col gap-6 sm:gap-8">
 
-      <ScrollSection title={t('playlists')} isEmpty={albumsData.length === 0} emptyText="Немає доступних плейлистів">
+      <ScrollSection title={t('playlists')} isEmpty={albumsData.length === 0} emptyText={t('noAvailablePlaylists')}>
         {albumsData.map((album) => (
           <Card
             key={album.id}
@@ -177,7 +178,7 @@ function Home() {
         ))}
       </ScrollSection>
 
-      <ScrollSection title={t('popularTracks')} isEmpty={shuffledSongs.length === 0} emptyText="Немає доступних треків">
+      <ScrollSection title={t('popularTracks')} isEmpty={shuffledSongs.length === 0} emptyText={t('noAvailableTracks')}>
         {shuffledSongs.map((song, i) => (
           <Card
             key={`${song.id}-${i}`}
@@ -191,7 +192,7 @@ function Home() {
         ))}
       </ScrollSection>
 
-      <ScrollSection title="Популярні виконавці" isEmpty={artists.length === 0} emptyText="Немає виконавців">
+      <ScrollSection title={t('popularArtists')} isEmpty={artists.length === 0} emptyText={t('noArtists')}>
         {artists.map((artist) => (
           <ArtistCard key={artist.name} artist={artist} />
         ))}
