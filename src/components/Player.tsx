@@ -4,6 +4,8 @@ import { usePlayer } from '../context/usePlayer'
 import ArtistPopup from './ArtistProup'
 import { useLike } from '../hooks/Uselike'
 import AddToPlaylistMenu from './AddToPlaylistMenu'
+import QueuePanel from './QueuePanel'
+import DevicesMenu from './DevicesMenu'
 
 const formatTime = ({ minute, second }: { minute: number; second: number }) =>
   `${minute}:${second.toString().padStart(2, '0')}`
@@ -39,6 +41,8 @@ export const Player: React.FC = () => {
   const [likeAnimating, setLikeAnimating] = useState(false)
   const [playlistMenuOpen, setPlaylistMenuOpen] = useState(false)
   const [playlistMenuAnchor, setPlaylistMenuAnchor] = useState<HTMLElement | null>(null)
+  const [isQueueOpen, setIsQueueOpen] = useState(false)
+  const [isDevicesOpen, setIsDevicesOpen] = useState(false)
 
   // Состояния для перетаскивания (громкость и таймлайн трека)
   const [isDraggingVolume, setIsDraggingVolume] = useState(false)
@@ -271,10 +275,31 @@ export const Player: React.FC = () => {
 
           {/* Право: громкость и кнопки дополнительных режимов */}
           <div className='flex items-center gap-3 w-1/4 justify-end shrink-0 min-w-[180px]'>
-            <img className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.plays_icon} alt="Plays" />
+            <img
+              onClick={() => setIsQueueOpen((o) => !o)}
+              className={`w-4 cursor-pointer transition hover:scale-110 ${isQueueOpen ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+              style={isQueueOpen ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
+              src={assets.plays_icon}
+              alt="Now playing"
+            />
             <img onClick={() => setIsFullScreen(true)} className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.mic_icon} alt="Lyrics" />
-            <img className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.queue_icon} alt="Queue" />
-            <img className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.speaker_icon} alt="Connect to a device" />
+            <img
+              onClick={() => setIsQueueOpen((o) => !o)}
+              className={`w-4 cursor-pointer transition hover:scale-110 ${isQueueOpen ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+              style={isQueueOpen ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
+              src={assets.queue_icon}
+              alt="Queue"
+            />
+            <div className='relative'>
+              <img
+                onClick={(e) => { e.stopPropagation(); setIsDevicesOpen((o) => !o) }}
+                className={`w-4 cursor-pointer transition hover:scale-110 ${isDevicesOpen ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+                style={isDevicesOpen ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
+                src={assets.speaker_icon}
+                alt="Connect to a device"
+              />
+              <DevicesMenu isOpen={isDevicesOpen} onClose={() => setIsDevicesOpen(false)} />
+            </div>
             <img className='w-4 opacity-70' src={assets.volume_icon} alt="Volume" />
             
             <div ref={volumeBgRef} onMouseDown={handleVolumeMouseDown} className='w-20 bg-neutral-800 h-1 rounded-full cursor-pointer group relative flex items-center mr-1 select-none'>
@@ -304,6 +329,8 @@ export const Player: React.FC = () => {
           onClose={closePlaylistMenu}
         />
       )}
+
+      <QueuePanel isOpen={isQueueOpen} onClose={() => setIsQueueOpen(false)} />
     </>
   )
 }

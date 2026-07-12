@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/usePlayer'
 import { useLike } from '../hooks/Uselike'
+import { useLanguage } from '../context/LanguageContext'
 import type { Song } from '../context/PlayerContext'
 
 const API = 'http://localhost:5000'
@@ -37,6 +38,20 @@ export default function SearchBar({ onClose }: SearchBarProps) {
   const navigate = useNavigate()
   const { playWithId, addSongs, track, playStatus } = usePlayer()
   const { isLiked, toggleLike } = useLike()
+  const { t, language } = useLanguage()
+
+  const getTrackCountLabel = (count: number): string => {
+    if (language === 'en') return `${count} ${count === 1 ? t('searchTrack') : t('searchTracks5plus')}`
+    if (language === 'ru') {
+      if (count === 1) return `${count} ${t('searchTrack')}`
+      if (count >= 2 && count <= 4) return `${count} ${t('searchTracks2to4')}`
+      return `${count} ${t('searchTracks5plus')}`
+    }
+    // uk
+    if (count === 1) return `${count} ${t('searchTrack')}`
+    if (count >= 2 && count <= 4) return `${count} ${t('searchTracks2to4')}`
+    return `${count} ${t('searchTracks5plus')}`
+  }
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Song[]>([])
@@ -76,7 +91,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
       // Додаємо в глобальний контекст щоб плеєр міг їх відтворити
       if (songs.length > 0) addSongs(songs)
     } catch (e) {
-      setError('Не вдалося виконати пошук')
+      setError(t('searchError'))
       setResults([])
     } finally {
       setLoading(false)
@@ -149,7 +164,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
         <button
           onClick={goToSearchPage}
           className="shrink-0 w-5 h-5 flex items-center justify-center"
-          aria-label="Перейти до результатів пошуку"
+          aria-label={t('searchGoToResults')}
           tabIndex={-1}
         >
           {loading ? (
@@ -172,7 +187,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Що хочеш послухати?"
+          placeholder={t('searchPlaceholder')}
           className="flex-1 bg-transparent text-sm text-white placeholder-[#b3b3b3] outline-none min-w-0"
         />
 
@@ -181,7 +196,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
           <button
             onClick={handleClear}
             className="shrink-0 text-[#b3b3b3] hover:text-white transition"
-            aria-label="Очистити"
+            aria-label={t('searchClear')}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -198,16 +213,16 @@ export default function SearchBar({ onClose }: SearchBarProps) {
           {error ? (
             <div className="px-4 py-3 text-sm text-red-400">{error}</div>
           ) : results.length === 0 && !loading ? (
-            <div className="px-4 py-3 text-sm text-neutral-400">Нічого не знайдено</div>
+            <div className="px-4 py-3 text-sm text-neutral-400">{t('searchNotFound')}</div>
           ) : (
             <>
               {/* Заголовок */}
               <div className="px-4 pt-3 pb-1 flex items-center justify-between">
                 <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-                  Результати пошуку
+                  {t('searchResults')}
                 </span>
                 <span className="text-xs text-neutral-500">
-                  {results.length} {results.length === 1 ? 'трек' : results.length < 5 ? 'треки' : 'треків'}
+                  {getTrackCountLabel(results.length)}
                 </span>
               </div>
 
@@ -281,7 +296,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                             ? 'opacity-100'
                             : 'opacity-0 group-hover:opacity-60 hover:opacity-100!'
                         } ${isAnimating ? 'scale-125' : 'hover:scale-110'}`}
-                        aria-label={liked ? 'Прибрати з улюблених' : 'Додати до улюблених'}
+                        aria-label={liked ? t('removeFromFavorites') : t('addToFavorites')}
                       >
                         <svg
                           width="15" height="15" viewBox="0 0 24 24"
@@ -304,7 +319,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                 className="px-4 py-2.5 border-t border-[#3e3e3e] flex items-center justify-between cursor-pointer hover:bg-[#333] transition-colors group"
               >
                 <p className="text-xs text-neutral-400 group-hover:text-white transition-colors">
-                  Показати всі результати для «{query.trim()}»
+                  {t('searchShowAll').replace('{query}', query.trim())}
                 </p>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />

@@ -51,6 +51,10 @@ interface PlayerContextType {
   addSongs: (songs: Song[]) => void
   setQueue: (songs: Song[]) => void
   clearQueue: () => void
+  // Список, за яким зараз рухаються next/previous/shuffle: або явна черга
+  // (наприклад, трек-лист плейлиста), або весь каталог, якщо черга не задана.
+  // Потрібен для панелі "Черга відтворення" зліва від гучності.
+  activeQueue: Song[]
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -82,6 +86,10 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const shouldAutoPlay = useRef(false)
   // Зберігаємо поточний Blob URL щоб звільняти пам'ять
   const currentBlobUrl = useRef<string | null>(null)
+  // Трекер прослуховувань: щоб рахувати тільки після 10 секунд реального прослуховування
+  const playCountedRef = useRef<Set<string | number>>(new Set())
+  const playSecondsRef = useRef(0)
+  const lastTimeRef = useRef(0)
 
   const [songsData, setSongsData] = useState<Song[]>([])
   const [trackId, setTrackId] = useState<Song['id'] | null>(null)
@@ -200,10 +208,32 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     if (!audio) return
 
     const handleTimeUpdate = () => {
-      setCurrentTime(toParts(audio.currentTime))
-      setCurrentSeconds(audio.currentTime)   // точне значення без округлення
+      const currentT = audio.currentTime
+
+      // Підраховуємо реальний час прослуховування (не перемотку)
+      if (lastTimeRef.current > 0) {
+        const delta = currentT - lastTimeRef.current
+        // delta між 0 і 2 сек — нормальне відтворення (не перемотка)
+        if (delta > 0 && delta < 2) {
+          playSecondsRef.current += delta
+        }
+      }
+      lastTimeRef.current = currentT
+
+      // Після 10 секунд реального прослуховування — рахуємо прослуховування
+      if (playSecondsRef.current >= 10 && trackId !== null && !playCountedRef.current.has(trackId)) {
+        playCountedRef.current.add(trackId)
+        const token = localStorage.getItem('token') ?? sessionStorage.getItem('token') ?? ''
+        fetch(`${API_BASE}/api/songs/${trackId}/play`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }).catch(() => {/* ignore errors */})
+      }
+
+      setCurrentTime(toParts(currentT))
+      setCurrentSeconds(currentT)
       setTotalTime(toParts(audio.duration))
-      setProgress(audio.duration ? audio.currentTime / audio.duration : 0)
+      setProgress(audio.duration ? currentT / audio.duration : 0)
     }
     const handleLoadedMetadata = () => {
       setTotalTime(toParts(audio.duration))
@@ -252,6 +282,9 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     }
     shouldAutoPlay.current = true
     setTrackId(id)
+    // Скидаємо лічильник секунд для нового треку
+    playSecondsRef.current = 0
+    lastTimeRef.current = 0
   }
 
   const nextTrack = () => {
@@ -259,6 +292,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     const index = activeList.findIndex((s) => s.id === trackId)
 
     shouldAutoPlay.current = true
+    playSecondsRef.current = 0
+    lastTimeRef.current = 0
 
     if (shuffle) {
       let r = Math.floor(Math.random() * activeList.length)
@@ -276,6 +311,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     const index = activeList.findIndex((s) => s.id === trackId)
     const prev = (index - 1 + activeList.length) % activeList.length
     shouldAutoPlay.current = true
+    playSecondsRef.current = 0
+    lastTimeRef.current = 0
     setTrackId(activeList[prev].id)
   }
 
@@ -344,6 +381,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     addSongs,
     setQueue,
     clearQueue,
+    activeQueue: activeList,
   }
 
   return (
