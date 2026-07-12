@@ -125,28 +125,13 @@ export const FullScreenPlayer: React.FC = () => {
   const [staticStatus, setStaticStatus] = useState<'idle' | 'loading' | 'found' | 'not_found' | 'error'>('idle')
   const [lastTrackId, setLastTrackId] = useState<string | number | null>(null)
 
-  const fetchStaticLyrics = useCallback(async (trackId: string | number) => {
+  const fetchStaticLyrics = useCallback(async (_trackId: string | number) => {
     if ((track as any)?.lyrics) {
       setStaticLyrics((track as any).lyrics)
       setStaticStatus('found')
-      return
-    }
-    setStaticStatus('loading')
-    setStaticLyrics(null)
-    try {
-      const token = localStorage.getItem('token') ?? ''
-      const res = await fetch(`${API}/api/songs/${trackId}/lyrics`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      const data = await res.json()
-      if (res.ok && data.data?.lyrics) {
-        setStaticLyrics(data.data.lyrics)
-        setStaticStatus('found')
-      } else {
-        setStaticStatus('not_found')
-      }
-    } catch {
-      setStaticStatus('error')
+    } else {
+      setStaticLyrics(null)
+      setStaticStatus('not_found')
     }
   }, [track])
 
@@ -227,7 +212,7 @@ export const FullScreenPlayer: React.FC = () => {
       <div
         ref={isMobileLayout ? undefined : lyricsRef}
         onScroll={handleUserScroll}
-        className={`overflow-y-auto flex-1 pr-2 custom-scrollbar ${isMobileLayout ? 'max-h-[55vh] text-center md:text-left' : 'max-h-[65vh]'}`}
+        className={`overflow-y-auto flex-1 pr-2 custom-scrollbar ${isMobileLayout ? 'max-h-[55vh] text-center md:text-left' : ''}`}
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}
       >
         {lrcLoading && (
@@ -307,7 +292,7 @@ export const FullScreenPlayer: React.FC = () => {
   )
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-12 text-white transition-all duration-300 select-none overflow-y-auto md:overflow-hidden">
+    <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-8 lg:p-10 text-white transition-all duration-300 select-none overflow-y-auto md:overflow-hidden">
 
       {/* Шапка плеера */}
       <div className="flex justify-between items-center w-full max-w-6xl mx-auto mb-4 md:mb-8 shrink-0">
@@ -338,10 +323,10 @@ export const FullScreenPlayer: React.FC = () => {
       </div>
 
       {/* ── ДЕСТКОПНАЯ СЕТКА ── */}
-      <div className="hidden md:flex flex-row items-center justify-center gap-12 flex-1 max-w-6xl mx-auto w-full overflow-hidden min-h-0">
-        <div className="flex flex-col items-start text-left gap-6 w-2/5 shrink-0">
+      <div className="hidden md:flex flex-row items-stretch justify-center gap-8 lg:gap-12 flex-1 max-w-6xl mx-auto w-full overflow-hidden min-h-0">
+        <div className="flex flex-col items-start justify-center text-left gap-5 w-2/5 shrink-0">
           <img
-            className="w-72 h-72 lg:w-96 lg:h-96 rounded-lg object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)]"
+            className="w-56 h-56 md:w-64 md:h-64 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-lg object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)]"
             src={trackImageUrl}
             alt={track.name}
           />
