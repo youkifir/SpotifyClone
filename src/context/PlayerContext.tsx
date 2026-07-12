@@ -59,13 +59,25 @@ const toParts = (seconds: number): TimeParts => {
   return { minute, second }
 }
 
-const resolveUrl = (file: string) =>
-  file?.startsWith('http') ? file : `http://localhost:5000/${file}`
+const API_BASE = 'http://localhost:5000'
+
+// Завантажує аудіо через захищений проксі і повертає Blob URL
+// щоб оригінальна iTunes/локальна URL ніколи не потрапляла в браузер
+async function fetchSecureAudio(songId: string | number, token: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/audio/stream/${songId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Не вдалося завантажити аудіо')
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
 
 export const PlayerContextProvider = ({ children }: { children: ReactNode }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   // true тільки якщо юзер сам натиснув play/трек — не при першому завантаженні
   const shouldAutoPlay = useRef(false)
+  // Зберігаємо поточний Blob URL щоб звільняти пам'ять
+  const currentBlobUrl = useRef<string | null>(null)
 
   const [songsData, setSongsData] = useState<Song[]>([])
   const [trackId, setTrackId] = useState<Song['id'] | null>(null)
@@ -124,21 +136,49 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     if (!audio || trackId === null) return
 
     const song = songsData.find((s) => s.id === trackId)
-    if (!song || !song.file) return
+    if (!song) return
 
-    const fileUrl = resolveUrl(song.file)
+    const token = localStorage.getItem('token') ?? sessionStorage.getItem('token') ?? ''
 
-    if (audio.src === fileUrl) return
+    let cancelled = false
 
-    audio.src = fileUrl
-    audio.load()
-    audio.volume = volume
+    const loadAudio = async () => {
+      try {
+        if (currentBlobUrl.current) {
+          URL.revokeObjectURL(currentBlobUrl.current)
+          currentBlobUrl.current = null
+        }
 
-    if (shouldAutoPlay.current) {
-      audio.play()
-        .then(() => setPlayStatus(true))
-        .catch(() => setPlayStatus(false))
+        let blobUrl: string
+        if (token) {
+          blobUrl = await fetchSecureAudio(song.id, token)
+        } else {
+          blobUrl = song.file?.startsWith("http") ? song.file : `${API_BASE}/${song.file}`
+        }
+
+        if (cancelled) {
+          URL.revokeObjectURL(blobUrl)
+          return
+        }
+
+        currentBlobUrl.current = blobUrl
+        audio.src = blobUrl
+        audio.load()
+        audio.volume = volume
+
+        if (shouldAutoPlay.current) {
+          audio.play()
+            .then(() => setPlayStatus(true))
+            .catch(() => setPlayStatus(false))
+        }
+      } catch (err) {
+        console.error("Помилка завантаження аудіо:", err)
+      }
     }
+
+    loadAudio()
+
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackId])
 

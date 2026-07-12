@@ -9,7 +9,7 @@ const { protect, isAdmin, isMusician } = require('../middleware/auth');
 
 router.get('/search', searchSongs);
 router.get('/genres', getGenres);
-router.get('/itunes-preview', protect, isAdmin, searchItunesPreview);
+router.get('/itunes-preview', protect, isMusician, searchItunesPreview);
 router.get('/my', protect, isMusician, getMySongs);
 router.get('/artist/:name', getArtistSongs);
 router.get('/', getSongs);

@@ -18,7 +18,7 @@ interface ArtistSong {
 function ArtistPage() {
   const { name } = useParams<{ name: string }>()
   const navigate = useNavigate()
-  const { playWithId, track, playStatus, play, pause } = usePlayer()
+  const { playWithId, addSongs, track, playStatus, play, pause } = usePlayer()
   const { token } = useAuth()
 
   const [songs, setSongs] = useState<ArtistSong[]>([])
@@ -48,12 +48,12 @@ function ArtistPage() {
         if (!res.success) throw new Error(res.message || 'Помилка сервера')
         const data = res.data
         setArtistImage(data.image || '')
-        setSongs(
-          (data.songs || []).map((s: any) => ({
-            ...s,
-            id: s.id ?? s._id,
-          }))
-        )
+        const normalized = (data.songs || []).map((s: any) => ({
+          ...s,
+          id: s.id ?? s._id,
+        }))
+        setSongs(normalized)
+        addSongs(normalized)
       })
       .catch((e) => {
         console.error('ArtistPage fetch error:', e)

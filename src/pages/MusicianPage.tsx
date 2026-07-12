@@ -28,6 +28,28 @@ interface Album {
   image: string
 }
 
+interface Playlist {
+  _id: string
+  name: string
+  description: string
+  image: string
+  isPublic: boolean
+  songs: Song[]
+}
+
+interface ItunesTrack {
+  name: string
+  artist: string
+  image: string
+  file: string
+  duration: string
+  desc: string
+  genre: string
+  source: 'itunes'
+  externalId: string
+  alreadyAdded?: boolean
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const imgSrc = (url: string) =>
@@ -131,6 +153,48 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
+  // Playlist choice after save
+  const [savedSongId, setSavedSongId] = useState<string | null>(null)
+  const [savedSongName, setSavedSongName] = useState('')
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false)
+  const [addingToPlaylist, setAddingToPlaylist] = useState(false)
+  const [playlistChoiceDone, setPlaylistChoiceDone] = useState(false)
+
+  const fetchPlaylists = async () => {
+    setLoadingPlaylists(true)
+    try {
+      const res = await fetch(`${API}/api/playlists/my`, {
+        headers: { Authorization: `Bearer ${token ?? ''}` },
+      })
+      const data = await res.json()
+      if (res.ok) setPlaylists(data.data ?? [])
+    } catch { /* ignore */ } finally {
+      setLoadingPlaylists(false)
+    }
+  }
+
+  const handleAddToPlaylist = async (playlistId: string) => {
+    if (!savedSongId) return
+    setAddingToPlaylist(true)
+    try {
+      const res = await fetch(`${API}/api/playlists/${playlistId}/songs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ songId: savedSongId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка')
+      const pl = playlists.find(p => p._id === playlistId)
+      onSaved(`«${savedSongName}» додано до «${pl?.name ?? 'плейлиста'}»!`)
+      onClose()
+    } catch (err: any) {
+      onSaved(`«${savedSongName}» збережено (плейлист: помилка)`)
+      onClose()
+    } finally {
+      setAddingToPlaylist(false)
+    }
+  }
 
   const set = (k: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -179,8 +243,17 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка збереження')
-      onSaved(isEdit ? 'Трек оновлено!' : 'Трек завантажено!')
-      onClose()
+      if (isEdit) {
+        onSaved('Трек оновлено!')
+        onClose()
+      } else {
+        // After upload — show playlist choice
+        const newSongId = data.data?._id ?? data.data?.id
+        setSavedSongId(newSongId ?? null)
+        setSavedSongName(form.name)
+        fetchPlaylists()
+        setPlaylistChoiceDone(false)
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -247,7 +320,7 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
                   <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
                 </svg>
                 <span className="text-sm text-neutral-400 group-hover:text-neutral-200 transition truncate">
-                  {audioFile ? audioFile.name : isEdit ? 'Замінити аудіофайл (необов\'язково)' : 'Вибрати аудіофайл...'}
+                  {audioFile ? audioFile.name : isEdit ? "Замінити аудіофайл (необов'язково)" : 'Вибрати аудіофайл...'}
                 </span>
                 <input type="file" accept="audio/*" onChange={handleAudio} className="hidden" />
               </label>
@@ -299,6 +372,569 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
           </form>
         </div>
       </div>
+
+      {/* ── Playlist choice popup (shows after new track is saved) ── */}
+      {savedSongId && !playlistChoiceDone && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-sm border border-neutral-700 overflow-hidden">
+            <div className="px-5 pt-5 pb-4 border-b border-neutral-800">
+              <div className="flex items-center gap-2 mb-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#1db954"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954]">Трек завантажено!</p>
+              </div>
+              <p className="text-white font-bold text-base">«{savedSongName}»</p>
+              <p className="text-neutral-500 text-xs mt-0.5">Додати до плейлиста?</p>
+            </div>
+            <div className="px-5 py-4 flex flex-col gap-3">
+              {/* Skip */}
+              <button
+                onClick={() => { onSaved(`«${savedSongName}» завантажено!`); onClose() }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#282828] hover:bg-[#333] transition text-left"
+              >
+                <div className="w-9 h-9 rounded-lg bg-neutral-800 flex items-center justify-center shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2">
+                    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Просто зберегти</p>
+                  <p className="text-xs text-neutral-500">Без плейлиста</p>
+                </div>
+              </button>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 px-1">Або вибери плейлист</p>
+                {loadingPlaylists ? (
+                  <div className="py-3 flex justify-center">
+                    <svg className="animate-spin w-5 h-5 text-neutral-600" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                    </svg>
+                  </div>
+                ) : playlists.length === 0 ? (
+                  <p className="text-xs text-neutral-600 text-center py-2">Немає плейлистів. Спочатку створи.</p>
+                ) : (
+                  <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+                    {playlists.map(pl => (
+                      <button
+                        key={pl._id}
+                        onClick={() => handleAddToPlaylist(pl._id)}
+                        disabled={addingToPlaylist}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#282828] transition text-left disabled:opacity-50 group"
+                      >
+                        {pl.image ? (
+                          <img src={imgSrc(pl.image)} alt={pl.name} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-[#282828] flex items-center justify-center shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-white truncate group-hover:text-[#1db954] transition">{pl.name}</p>
+                          <p className="text-xs text-neutral-600">{pl.songs?.length ?? 0} треків</p>
+                        </div>
+                        {addingToPlaylist ? (
+                          <svg className="animate-spin w-3.5 h-3.5 text-neutral-500 shrink-0" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" className="group-hover:stroke-[#1db954] transition shrink-0">
+                            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── iTunes Search Modal ──────────────────────────────────────────────────────
+
+function ItunesModal({ token, onClose, onImported }: {
+  token: string | null
+  onClose: () => void
+  onImported: (msg: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<ItunesTrack[]>([])
+  const [searching, setSearching] = useState(false)
+  const [importing, setImporting] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  // Add-choice popup state
+  const [addChoiceTrack, setAddChoiceTrack] = useState<ItunesTrack | null>(null)
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false)
+  const [addingToPlaylist, setAddingToPlaylist] = useState(false)
+  const [playlistError, setPlaylistError] = useState('')
+
+  const search = async () => {
+    if (!query.trim()) return
+    setSearching(true)
+    setError('')
+    setResults([])
+    try {
+      const res = await fetch(`${API}/api/songs/itunes-preview?q=${encodeURIComponent(query)}`, {
+        headers: { Authorization: `Bearer ${token ?? ''}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка пошуку')
+      setResults(data.data ?? [])
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const fetchPlaylists = async () => {
+    setLoadingPlaylists(true)
+    try {
+      const res = await fetch(`${API}/api/playlists/my`, {
+        headers: { Authorization: `Bearer ${token ?? ''}` },
+      })
+      const data = await res.json()
+      if (res.ok) setPlaylists(data.data ?? [])
+    } catch {
+      // ignore
+    } finally {
+      setLoadingPlaylists(false)
+    }
+  }
+
+  const openAddChoice = (track: ItunesTrack) => {
+    setAddChoiceTrack(track)
+    setPlaylistError('')
+    fetchPlaylists()
+  }
+
+  const importTrack = async (track: ItunesTrack): Promise<string> => {
+    const body = {
+      name: track.name,
+      artist: track.artist,
+      image: track.image,
+      file: track.file,
+      duration: track.duration,
+      desc: track.desc,
+      genre: track.genre,
+      source: 'itunes',
+    }
+    const res = await fetch(`${API}/api/songs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Помилка імпорту')
+    return data.data._id as string
+  }
+
+  const handleAddSimply = async () => {
+    if (!addChoiceTrack) return
+    setImporting(addChoiceTrack.externalId)
+    setPlaylistError('')
+    try {
+      await importTrack(addChoiceTrack)
+      setResults(prev => prev.map(r => r.externalId === addChoiceTrack.externalId ? { ...r, alreadyAdded: true } : r))
+      onImported(`«${addChoiceTrack.name}» додано!`)
+      setAddChoiceTrack(null)
+    } catch (err: any) {
+      setPlaylistError(err.message)
+    } finally {
+      setImporting(null)
+    }
+  }
+
+  const handleAddToPlaylist = async (playlistId: string) => {
+    if (!addChoiceTrack) return
+    setAddingToPlaylist(true)
+    setPlaylistError('')
+    try {
+      const songId = await importTrack(addChoiceTrack)
+      const res = await fetch(`${API}/api/playlists/${playlistId}/songs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ songId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка додавання до плейлиста')
+      setResults(prev => prev.map(r => r.externalId === addChoiceTrack.externalId ? { ...r, alreadyAdded: true } : r))
+      const pl = playlists.find(p => p._id === playlistId)
+      onImported(`«${addChoiceTrack.name}» додано до «${pl?.name ?? 'плейлиста'}»!`)
+      setAddChoiceTrack(null)
+    } catch (err: any) {
+      setPlaylistError(err.message)
+    } finally {
+      setAddingToPlaylist(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 overflow-y-auto">
+      <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl my-auto w-full max-w-2xl border border-neutral-800 flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-neutral-800 shrink-0">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#fc3c44] mb-0.5">Apple Music</p>
+            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fc3c44"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>
+              Додати пісню з iTunes
+            </h3>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        {/* Search box */}
+        <div className="px-6 py-4 border-b border-neutral-800 shrink-0">
+          <div className="flex gap-2">
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && search()}
+              placeholder="Назва або виконавець..."
+              className="musician-input flex-1"
+              autoFocus
+            />
+            <button
+              onClick={search}
+              disabled={searching || !query.trim()}
+              className="px-5 py-2 rounded-xl text-sm font-bold bg-[#fc3c44] hover:bg-[#ff4d56] text-white transition disabled:opacity-40 shrink-0 flex items-center gap-2"
+            >
+              {searching ? (
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              )}
+              Шукати
+            </button>
+          </div>
+          {error && (
+            <p className="text-red-400 text-xs mt-2">{error}</p>
+          )}
+        </div>
+
+        {/* Results */}
+        <div className="overflow-y-auto flex-1 px-4 py-3">
+          {results.length === 0 && !searching && (
+            <div className="py-12 text-center text-neutral-500 text-sm">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-3 text-neutral-700">
+                <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/>
+              </svg>
+              Введіть запит і натисніть «Шукати»
+            </div>
+          )}
+          {results.map(track => (
+            <div key={track.externalId} className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-[#282828] transition group">
+              <img src={track.image} alt={track.name} className="w-10 h-10 rounded-lg object-cover shrink-0 shadow" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-white truncate">{track.name}</p>
+                <p className="text-xs text-neutral-500 truncate">{track.artist} · {track.duration}</p>
+              </div>
+              {track.genre && (
+                <span className="text-[10px] bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded-full font-medium hidden sm:block shrink-0">
+                  {track.genre}
+                </span>
+              )}
+              <button
+                onClick={() => !track.alreadyAdded && openAddChoice(track)}
+                disabled={track.alreadyAdded || importing === track.externalId}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
+                  track.alreadyAdded
+                    ? 'bg-neutral-800 text-neutral-500 cursor-default'
+                    : 'bg-[#fc3c44] hover:bg-[#ff4d56] text-white disabled:opacity-50'
+                }`}
+              >
+                {importing === track.externalId ? (
+                  <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                  </svg>
+                ) : track.alreadyAdded ? (
+                  <>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Вже є
+                  </>
+                ) : (
+                  <>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Додати
+                  </>
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-6 py-4 border-t border-neutral-800 shrink-0">
+          <p className="text-xs text-neutral-600 text-center">Треки з iTunes — 30-секундне превью · Джерело: Apple Music Search API</p>
+        </div>
+      </div>
+
+      {/* ── Add Choice Popup ── */}
+      {addChoiceTrack && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4" onClick={() => setAddChoiceTrack(null)}>
+          <div
+            className="bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-sm border border-neutral-700 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-neutral-800">
+              <img src={addChoiceTrack.image} alt={addChoiceTrack.name} className="w-10 h-10 rounded-lg object-cover shrink-0 shadow" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-white truncate">{addChoiceTrack.name}</p>
+                <p className="text-xs text-neutral-500 truncate">{addChoiceTrack.artist}</p>
+              </div>
+              <button onClick={() => setAddChoiceTrack(null)} className="w-7 h-7 flex items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition shrink-0">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div className="px-5 py-4 flex flex-col gap-3">
+              {playlistError && (
+                <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{playlistError}</p>
+              )}
+
+              {/* Simply add */}
+              <button
+                onClick={handleAddSimply}
+                disabled={!!importing || addingToPlaylist}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#282828] hover:bg-[#333] transition text-left disabled:opacity-50"
+              >
+                <div className="w-9 h-9 rounded-lg bg-[#1db954]/15 flex items-center justify-center shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1db954" strokeWidth="2.5">
+                    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Просто додати</p>
+                  <p className="text-xs text-neutral-500">До моєї бібліотеки треків</p>
+                </div>
+                {importing && (
+                  <svg className="animate-spin w-4 h-4 ml-auto text-[#1db954]" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                  </svg>
+                )}
+              </button>
+
+              {/* Add to playlist */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2 px-1">Або додати до плейлиста</p>
+                {loadingPlaylists ? (
+                  <div className="py-4 text-center">
+                    <svg className="animate-spin w-5 h-5 mx-auto text-neutral-600" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                    </svg>
+                  </div>
+                ) : playlists.length === 0 ? (
+                  <p className="text-xs text-neutral-600 text-center py-3">Немає плейлистів. Спочатку створи плейлист.</p>
+                ) : (
+                  <div className="flex flex-col gap-1 max-h-44 overflow-y-auto">
+                    {playlists.map(pl => (
+                      <button
+                        key={pl._id}
+                        onClick={() => handleAddToPlaylist(pl._id)}
+                        disabled={addingToPlaylist || !!importing}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#282828] transition text-left disabled:opacity-50 group"
+                      >
+                        {pl.image ? (
+                          <img src={imgSrc(pl.image)} alt={pl.name} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-[#282828] flex items-center justify-center shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-white truncate group-hover:text-[#1db954] transition">{pl.name}</p>
+                          <p className="text-xs text-neutral-600 truncate">{pl.songs?.length ?? 0} треків</p>
+                        </div>
+                        {addingToPlaylist ? (
+                          <svg className="animate-spin w-3.5 h-3.5 text-neutral-500 shrink-0" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" className="group-hover:stroke-[#1db954] transition shrink-0">
+                            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Create Playlist Modal ────────────────────────────────────────────────────
+
+function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
+  token: string | null
+  songs: Song[]
+  onClose: () => void
+  onCreated: (msg: string) => void
+}) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [isPublic, setIsPublic] = useState(true)
+  const [selectedSongs, setSelectedSongs] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const toggleSong = (id: string) => {
+    setSelectedSongs(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    )
+  }
+
+  const handleCreate = async () => {
+    if (!name.trim()) { setError('Введіть назву плейлиста'); return }
+    setLoading(true)
+    setError('')
+    try {
+      // 1. Create playlist
+      const res = await fetch(`${API}/api/playlists`, {
+        method: 'POST',
+        headers: authHeaders(token),
+        body: JSON.stringify({ name: name.trim(), description, isPublic }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка створення')
+      const playlistId = data.data._id
+
+      // 2. Add selected songs
+      for (const songId of selectedSongs) {
+        await fetch(`${API}/api/playlists/${playlistId}/songs`, {
+          method: 'POST',
+          headers: authHeaders(token),
+          body: JSON.stringify({ songId }),
+        })
+      }
+
+      onCreated(`Плейлист «${name}» створено!`)
+      onClose()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 overflow-y-auto">
+      <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl my-auto w-full max-w-lg border border-neutral-800 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-neutral-800 shrink-0">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-0.5">Новий плейлист</p>
+            <h3 className="text-white font-bold text-lg">Створити плейлист</h3>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto flex-1">
+          {error && (
+            <div className="bg-red-500/15 border border-red-500/40 text-red-400 p-3 rounded-xl text-sm">{error}</div>
+          )}
+
+          <Field label="Назва плейлиста" required>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Моя музика..."
+              className="musician-input"
+              autoFocus
+            />
+          </Field>
+
+          <Field label="Опис">
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Короткий опис..."
+              rows={2}
+              className="musician-input resize-none"
+            />
+          </Field>
+
+          {/* Public toggle */}
+          <div className="flex items-center justify-between bg-[#0f0f0f] border border-neutral-800 rounded-xl px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-white">Публічний плейлист</p>
+              <p className="text-xs text-neutral-500 mt-0.5">Інші користувачі зможуть переглядати</p>
+            </div>
+            <button
+              onClick={() => setIsPublic(v => !v)}
+              className={`w-11 h-6 rounded-full transition-colors relative ${isPublic ? 'bg-[#1db954]' : 'bg-neutral-700'}`}
+            >
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isPublic ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+
+          {/* Song picker */}
+          {songs.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-2">
+                Додати треки ({selectedSongs.length} вибрано)
+              </label>
+              <div className="flex flex-col gap-0.5 max-h-52 overflow-y-auto rounded-xl border border-neutral-800 bg-[#0f0f0f] p-1">
+                {songs.map(song => {
+                  const selected = selectedSongs.includes(song._id)
+                  return (
+                    <button
+                      key={song._id}
+                      onClick={() => toggleSong(song._id)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-left transition ${selected ? 'bg-[#1db954]/15' : 'hover:bg-neutral-800'}`}
+                    >
+                      <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition ${selected ? 'bg-[#1db954] border-[#1db954]' : 'border-neutral-600'}`}>
+                        {selected && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                      </div>
+                      <img src={imgSrc(song.image)} alt={song.name} className="w-8 h-8 rounded object-cover shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium truncate ${selected ? 'text-[#1db954]' : 'text-white'}`}>{song.name}</p>
+                        <p className="text-xs text-neutral-500 truncate">{song.duration}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-neutral-800 shrink-0">
+          <button onClick={onClose} className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-700 hover:border-neutral-500 transition">
+            Скасувати
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={loading || !name.trim()}
+            className="px-6 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-40 flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                </svg>
+                Створення...
+              </>
+            ) : 'Створити'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -331,6 +967,8 @@ export default function MusicianPage() {
   const [albums, setAlbums] = useState<Album[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadModal, setUploadModal] = useState<{ song?: Song } | null>(null)
+  const [itunesModal, setItunesModal] = useState(false)
+  const [playlistModal, setPlaylistModal] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [sortBy, setSortBy] = useState<'date' | 'plays'>('date')
@@ -405,18 +1043,43 @@ export default function MusicianPage() {
     <div className="flex flex-col gap-6 min-h-full pb-4">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">Студія музиканта</p>
           <h1 className="text-2xl sm:text-3xl font-black text-white">Мої треки</h1>
         </div>
-        <button
-          onClick={() => setUploadModal({})}
-          className="flex items-center gap-2 bg-[#1db954] hover:bg-[#1ed760] text-black px-5 py-2.5 rounded-full text-sm font-bold transition active:scale-95"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Завантажити трек
-        </button>
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-2">
+          {/* Create Playlist */}
+          <button
+            onClick={() => setPlaylistModal(true)}
+            className="flex items-center gap-2 bg-[#282828] hover:bg-[#3a3a3a] text-white px-4 py-2.5 rounded-full text-sm font-bold transition active:scale-95 border border-neutral-700"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Плейлист
+          </button>
+          {/* Add from iTunes */}
+          <button
+            onClick={() => setItunesModal(true)}
+            className="flex items-center gap-2 bg-[#282828] hover:bg-[#3a3a3a] text-white px-4 py-2.5 rounded-full text-sm font-bold transition active:scale-95 border border-neutral-700"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="#fc3c44">
+              <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/>
+            </svg>
+            <span>iTunes</span>
+          </button>
+          {/* Upload track */}
+          <button
+            onClick={() => setUploadModal({})}
+            className="flex items-center gap-2 bg-[#1db954] hover:bg-[#1ed760] text-black px-5 py-2.5 rounded-full text-sm font-bold transition active:scale-95"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Завантажити трек
+          </button>
+        </div>
       </div>
 
       {/* ── Stats Strip ── */}
@@ -493,14 +1156,23 @@ export default function MusicianPage() {
             </div>
             <div>
               <p className="text-white font-semibold">Поки немає треків</p>
-              <p className="text-neutral-500 text-sm mt-1">Завантаж свій перший трек, щоб почати</p>
+              <p className="text-neutral-500 text-sm mt-1">Завантаж свій перший трек або додай з iTunes</p>
             </div>
-            <button
-              onClick={() => setUploadModal({})}
-              className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] text-black hover:bg-[#1ed760] transition"
-            >
-              + Завантажити перший трек
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setItunesModal(true)}
+                className="px-4 py-2 rounded-full text-sm font-bold bg-[#282828] text-white hover:bg-[#3a3a3a] transition border border-neutral-700 flex items-center gap-1.5"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#fc3c44"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>
+                iTunes
+              </button>
+              <button
+                onClick={() => setUploadModal({})}
+                className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] text-black hover:bg-[#1ed760] transition"
+              >
+                + Завантажити трек
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5">
@@ -545,7 +1217,14 @@ export default function MusicianPage() {
                       <p className={`text-sm font-semibold truncate ${isPlaying ? 'text-[#1db954]' : 'text-white'}`}>
                         {song.name}
                       </p>
-                      <p className="text-xs text-neutral-500 truncate">{song.duration}</p>
+                      <p className="text-xs text-neutral-500 truncate flex items-center gap-1">
+                        {song.duration}
+                        {song.source === 'itunes' && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-[#fc3c44] font-medium">
+                            · <svg width="8" height="8" viewBox="0 0 24 24" fill="#fc3c44"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></svg>iTunes
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
 
@@ -610,6 +1289,23 @@ export default function MusicianPage() {
           initial={uploadModal.song}
           onClose={() => setUploadModal(null)}
           onSaved={(msg) => { showToast(msg); fetchMySongs() }}
+        />
+      )}
+
+      {itunesModal && (
+        <ItunesModal
+          token={token}
+          onClose={() => setItunesModal(false)}
+          onImported={(msg) => { showToast(msg); fetchMySongs() }}
+        />
+      )}
+
+      {playlistModal && (
+        <CreatePlaylistModal
+          token={token}
+          songs={songs}
+          onClose={() => setPlaylistModal(false)}
+          onCreated={(msg) => showToast(msg)}
         />
       )}
 

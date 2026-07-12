@@ -19,7 +19,7 @@ interface ArtistSong {
 }
 
 function ArtistPopup({ artistName, anchorEl, onClose }: ArtistPopupProps) {
-  const { playWithId, track, playStatus } = usePlayer()
+  const { playWithId, addSongs, track, playStatus } = usePlayer()
   const { token } = useAuth()
   const navigate = useNavigate()
   const [songs, setSongs] = useState<ArtistSong[]>([])
@@ -35,7 +35,9 @@ function ArtistPopup({ artistName, anchorEl, onClose }: ArtistPopupProps) {
       .then((r) => r.json())
       .then((res) => {
         const raw = res.data?.songs || []
-        setSongs(raw.map((s: any) => ({ ...s, id: s.id ?? s._id })))
+        const normalized = raw.map((s: any) => ({ ...s, id: s.id ?? s._id }))
+        setSongs(normalized)
+        addSongs(normalized)
       })
       .catch(() => setSongs([]))
       .finally(() => setLoading(false))
