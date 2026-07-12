@@ -115,7 +115,6 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
   return (
     <div
       className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4"
-      className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4"
       onClick={handleClose}
     >
       <div
@@ -217,5 +216,4 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
   )
 }
 
-export default EditPlaylistModal
 export default EditPlaylistModal

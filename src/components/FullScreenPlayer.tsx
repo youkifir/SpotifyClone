@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { assets } from '../assets/assets'
 import { usePlayer } from '../context/usePlayer'
 import { useLyrics } from '../hooks/useLyrics'
@@ -8,6 +8,7 @@ const formatTime = ({ minute, second }: { minute: number; second: number }) =>
   `${minute}:${second.toString().padStart(2, '0')}`
 
 const SECS_PER_LINE = 3
+const API = 'http://localhost:5000'
 
 export const FullScreenPlayer: React.FC = () => {
   const {
@@ -28,6 +29,8 @@ export const FullScreenPlayer: React.FC = () => {
     seekTo,
     toggleShuffle,
     toggleLoop,
+    volume,       // Добавлено из usePlayer
+    changeVolume, // Добавлено из usePlayer
   } = usePlayer()
 
   const seekBgRef = useRef<HTMLDivElement>(null)
@@ -39,8 +42,8 @@ export const FullScreenPlayer: React.FC = () => {
 
   // ── LRCLIB синхронізований текст ──────────────────────────
   const { lines: lrcLines, loading: lrcLoading } = useLyrics(
-    track.name,
-    (track as any).artist ?? ''
+    track?.name ?? '',
+    (track as any)?.artist ?? ''
   )
   const activeIndex = useActiveLyricIndex(lrcLines, currentSeconds)
 
@@ -58,7 +61,7 @@ export const FullScreenPlayer: React.FC = () => {
   const [lastTrackId, setLastTrackId] = useState<string | number | null>(null)
 
   const fetchStaticLyrics = useCallback(async (trackId: string | number) => {
-    if ((track as any).lyrics) {
+    if ((track as any)?.lyrics) {
       setStaticLyrics((track as any).lyrics)
       setStaticStatus('found')
       return
@@ -84,14 +87,17 @@ export const FullScreenPlayer: React.FC = () => {
 
   useEffect(() => {
     if (!isFullScreen || !track?.id) return
-    if (track.id === lastTrackId) return
-    setLastTrackId(track.id)
+    const trackId = track.id
+    if (trackId === lastTrackId) return
+    setLastTrackId(trackId)
     userScrolledRef.current = false
-    fetchStaticLyrics(track.id)
+    fetchStaticLyrics(trackId)
   }, [isFullScreen, track?.id, lastTrackId, fetchStaticLyrics])
 
   useEffect(() => {
-    return () => { if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current) }
+    return () => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+    }
   }, [])
 
   // ── iTunes fallback: рівномірний скрол без таймкодів ─────
@@ -99,10 +105,10 @@ export const FullScreenPlayer: React.FC = () => {
   const nonEmptyLines = staticLines.filter(l => l.length > 0)
   const totalLines = nonEmptyLines.length
 
-  const trackDurationStr: string = (track as any).duration ?? '0:30'
+  const trackDurationStr: string = (track as any)?.duration ?? '0:30'
   const durationParts = trackDurationStr.split(':').map(Number)
   const fullTrackSec = durationParts.length === 2 ? durationParts[0] * 60 + durationParts[1] : 30
-  const isItunes = (track as any).source === 'itunes'
+  const isItunes = (track as any)?.source === 'itunes'
   const previewSec = 30
   const previewOffsetSec = isItunes && fullTrackSec > previewSec ? (fullTrackSec - previewSec) / 2 : 0
   const startLine = totalLines > 0 && fullTrackSec > 0
@@ -129,7 +135,7 @@ export const FullScreenPlayer: React.FC = () => {
     scrollTimerRef.current = setTimeout(() => { userScrolledRef.current = false }, 4000)
   }
 
-  if (!isFullScreen) return null
+  if (!isFullScreen || !track) return null
 
   const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = seekBgRef.current
@@ -156,14 +162,10 @@ export const FullScreenPlayer: React.FC = () => {
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-12 text-white transition-all duration-300">
 
-      {/* Верхня панель */}
-  return (
-    <div className="fixed inset-0 bg-linear-to-b from-[#222] to-black z-50 flex flex-col p-4 sm:p-6 md:p-12 text-white transition-all duration-300">
-      
       {/* Верхня панель дій */}
       <div className="flex justify-between items-center w-full max-w-6xl mx-auto mb-4 md:mb-8 shrink-0">
-        <button 
-          onClick={() => setIsFullScreen(false)} 
+        <button
+          onClick={() => setIsFullScreen(false)}
           className="text-neutral-400 hover:text-white hover:scale-105 transition flex items-center gap-2 font-medium"
         >
           ✕ Згорнути
@@ -173,17 +175,14 @@ export const FullScreenPlayer: React.FC = () => {
       </div>
 
       {/* Центральний контент */}
-      <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 flex-1 max-w-6xl mx-auto w-full overflow-hidden min-h-0">
-
-        {/* Ліва: обкладинка + назва */}
       <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 flex-1 max-w-6xl mx-auto w-full overflow-hidden min-h-0">
-        
+
         {/* Ліва сторона: Велика обкладинка та деталі */}
         <div className="flex flex-col items-center md:items-start text-center md:text-left gap-4 sm:gap-6 w-full md:w-2/5 shrink-0">
-          <img 
-            className="w-48 h-48 sm:w-64 sm:h-64 lg:w-96 lg:h-96 rounded-lg object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] transition-transform hover:scale-[1.02]" 
-            src={track.image} 
-            alt={track.name} 
+          <img
+            className="w-48 h-48 sm:w-64 sm:h-64 lg:w-96 lg:h-96 rounded-lg object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] transition-transform hover:scale-[1.02]"
+            src={trackImageUrl}
+            alt={track.name}
           />
           <div className="min-w-0 w-full">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight line-clamp-2">{track.name}</h1>
@@ -193,17 +192,17 @@ export const FullScreenPlayer: React.FC = () => {
           </div>
         </div>
 
-        {/* Права: текст пісні */}
+        {/* Права сторона: Текст пісні (синхронізований або статичний) */}
         <div className="flex-1 w-full h-full min-h-0 flex flex-col">
           <div className="flex items-center gap-2 mb-4 shrink-0">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2">
-              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+              <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
             </svg>
             <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Текст пісні</h2>
             {lrcLoading && (
               <span className="ml-2 flex items-center gap-1.5 text-xs text-neutral-500">
                 <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" />
                 </svg>
                 Завантаження...
               </span>
@@ -229,7 +228,7 @@ export const FullScreenPlayer: React.FC = () => {
               </div>
             )}
 
-            {/* ✅ LRCLIB — синхронізований текст з таймкодами */}
+            {/* ✅ LRCLIB — синхронізований текст */}
             {hasLrc && (
               <div className="flex flex-col gap-2 pb-20">
                 {lrcLines!.map((line, i) => {
@@ -246,7 +245,7 @@ export const FullScreenPlayer: React.FC = () => {
                         fontWeight: isActive ? 800 : 500,
                         color: isActive ? '#ffffff'
                           : isPast ? 'rgba(255,255,255,0.25)'
-                          : 'rgba(255,255,255,0.45)',
+                            : 'rgba(255,255,255,0.45)',
                         transform: isActive ? 'scale(1.02)' : 'scale(1)',
                         transformOrigin: 'left center',
                         textShadow: isActive ? '0 0 24px rgba(29,185,84,0.5)' : 'none',
@@ -280,11 +279,10 @@ export const FullScreenPlayer: React.FC = () => {
                     <p
                       key={i}
                       ref={isActive ? activeLineRef : undefined}
-                      className={`text-xl sm:text-2xl md:text-3xl font-black leading-snug tracking-tight cursor-default select-text transition-all duration-500 py-0.5 ${
-                        isActive ? 'text-white scale-[1.02] origin-left'
+                      className={`text-xl sm:text-2xl md:text-3xl font-black leading-snug tracking-tight cursor-default select-text transition-all duration-500 py-0.5 ${isActive ? 'text-white scale-[1.02] origin-left'
                           : isPast ? 'text-neutral-600'
-                          : 'text-neutral-500 hover:text-neutral-300'
-                      }`}
+                            : 'text-neutral-500 hover:text-neutral-300'
+                        }`}
                     >
                       {line}
                     </p>
@@ -309,24 +307,10 @@ export const FullScreenPlayer: React.FC = () => {
               <p className="text-2xl font-black text-neutral-600">...</p>
             )}
           </div>
-            <h1 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight line-clamp-2">{track.name}</h1>
-            <p className="text-neutral-400 text-sm sm:text-base md:text-lg mt-2 line-clamp-2">{track.desc}</p>
-          </div>
         </div>
-
-        {/* Права сторона: Текст пісні */}
-        <div className="flex-1 w-full h-full overflow-y-auto max-h-[30vh] md:max-h-[70vh] pr-2 sm:pr-4 custom-scrollbar flex flex-col justify-start min-h-0">
-          <h2 className="text-lg sm:text-xl font-bold mb-4 text-neutral-400">Текст пісні</h2>
-          <p className="text-lg sm:text-xl md:text-3xl font-bold whitespace-pre-line leading-relaxed tracking-tight text-neutral-200 selection:bg-[#1db954]">
-            {track.lyrics || "Текст пісні для цього треку відсутній."}
-          </p>
-        </div>
-
-      {/* Керування */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-3 pt-6 shrink-0">
       </div>
 
-      {/* Керування відтворенням, доступне поки повний екран відкрито */}
+      {/* Керування відтворенням */}
       <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-2 pt-6 shrink-0">
         <div className="flex items-center gap-3 w-full text-xs text-[#b3b3b3]">
           <p className="w-9 text-right shrink-0">{formatTime(currentTime)}</p>
@@ -344,7 +328,6 @@ export const FullScreenPlayer: React.FC = () => {
           <img onClick={toggleShuffle}
             className={`w-4 h-4 cursor-pointer transition hover:scale-110 ${shuffle ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
             style={shuffle ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
-            src={assets.shuffle_icon} alt="Shuffle" />
             src={assets.shuffle_icon}
             alt="Shuffle"
           />
@@ -357,27 +340,29 @@ export const FullScreenPlayer: React.FC = () => {
           <img onClick={toggleLoop}
             className={`w-4 h-4 cursor-pointer transition hover:scale-110 ${loop ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
             style={loop ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
-            src={assets.loop_icon} alt="Loop" />
+            src={assets.loop_icon}
+            alt="Loop"
+          />
         </div>
 
         {/* Гучність */}
-        <div className="flex items-center gap-3 w-full max-w-xs">
+        <div className="flex items-center gap-3 w-full max-w-xs mt-2">
           <button onClick={() => changeVolume(volume > 0 ? 0 : 0.7)}
             className="shrink-0 text-neutral-400 hover:text-white transition">
             {volume === 0 ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" />
               </svg>
             ) : volume < 0.5 ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
               </svg>
             ) : (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
               </svg>
             )}
           </button>
@@ -389,10 +374,6 @@ export const FullScreenPlayer: React.FC = () => {
             </div>
           </div>
           <span className="text-xs text-neutral-500 w-8 text-right shrink-0">{Math.round(volume * 100)}%</span>
-        </div>
-            src={assets.loop_icon}
-            alt="Loop"
-          />
         </div>
       </div>
     </div>

@@ -20,4 +20,3 @@ export function durationToSeconds(duration: string | undefined | null): number {
   }
   return parts[0] || 0
 }
-}

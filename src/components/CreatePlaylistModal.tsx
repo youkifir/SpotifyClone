@@ -106,7 +106,6 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
   return (
     <div
       className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4"
-      className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4"
       onClick={resetAndClose}
     >
       <div
@@ -200,5 +199,4 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
   )
 }
 
-export default CreatePlaylistModal
 export default CreatePlaylistModal
