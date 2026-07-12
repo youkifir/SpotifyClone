@@ -29,6 +29,7 @@ interface PlayerContextType {
   track: Song
   playStatus: boolean
   currentTime: TimeParts
+  currentSeconds: number   // точний час у секундах з дробовою частиною (для синхронізації тексту)
   totalTime: TimeParts
   progress: number
   volume: number
@@ -84,6 +85,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
 
   const [playStatus, setPlayStatus] = useState(false)
   const [currentTime, setCurrentTime] = useState<TimeParts>({ minute: 0, second: 0 })
+  const [currentSeconds, setCurrentSeconds] = useState(0)
   const [totalTime, setTotalTime] = useState<TimeParts>({ minute: 0, second: 0 })
   const [progress, setProgress] = useState(0)
   const [volume, setVolumeState] = useState(0.7)
@@ -188,6 +190,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
 
     const handleTimeUpdate = () => {
       setCurrentTime(toParts(audio.currentTime))
+      setCurrentSeconds(audio.currentTime)   // точне значення без округлення
       setTotalTime(toParts(audio.duration))
       setProgress(audio.duration ? audio.currentTime / audio.duration : 0)
     }
@@ -297,6 +300,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     track: currentTrack,
     playStatus,
     currentTime,
+    currentSeconds,
     totalTime,
     progress,
     volume,
