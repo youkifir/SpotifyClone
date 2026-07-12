@@ -523,7 +523,6 @@ function ItunesModal({ token, onClose, onImported }: {
       desc: track.desc,
       genre: track.genre,
       source: 'itunes',
-      externalId: track.externalId, // required for per-musician deduplication in searchItunesPreview
     }
     const res = await fetch(`${API}/api/songs`, {
       method: 'POST',
