@@ -3,7 +3,6 @@ import { assets } from '../assets/assets'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { onLikeChanged } from '../hooks/Uselike'
-import { onPlaylistChanged } from '../hooks/usePlaylistEvents'
 import CreatePlaylistModal from './CreatePlaylistModal'
 import type { Playlist as CreatedPlaylist } from './CreatePlaylistModal'
 
@@ -74,25 +73,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   useEffect(() => {
     return onLikeChanged(fetchPlaylists)
   }, [fetchPlaylists])
-
-  // Слухаємо зміни плейлиста (назва, аватарка, кількість треків) — оновлюємо без перезавантаження
-  useEffect(() => {
-    return onPlaylistChanged(({ _id, name, image, songCount }) => {
-      setPlaylists((prev) =>
-        prev.map((pl) => {
-          if (pl._id !== _id) return pl
-          return {
-            ...pl,
-            ...(name !== undefined ? { name } : {}),
-            ...(image !== undefined ? { image } : {}),
-            ...(songCount !== undefined
-              ? { songs: Array.from({ length: songCount }) }
-              : {}),
-          }
-        })
-      )
-    })
-  }, [])
 
   const handlePlaylistCreated = (newPlaylist: CreatedPlaylist) => {
     setPlaylists((prev) => {
