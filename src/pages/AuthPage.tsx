@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean }) {
     const [username, setUsername] = useState('');
@@ -10,6 +11,7 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
     const [loading, setLoading] = useState(false);
 
     const { login: ctxLogin } = useAuth();
+    const { t } = useLanguage();
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -54,7 +56,7 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
         <div className="text-white p-6 w-full max-w-md">
             <div className="bg-[#121212]/90 border border-zinc-800 p-8 rounded-xl w-full shadow-2xl backdrop-blur-lg">
                 <h2 className="text-3xl font-bold text-center mb-8">
-                    {isLoginMode ? 'Увійти в Spotify' : 'Зареєструватися'}
+                    {isLoginMode ? t('loginToSpotify') : t('register')}
                 </h2>
 
                 {error && (
@@ -66,7 +68,7 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     {!isLoginMode && (
                         <div>
-                            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Ім'я користувача</label>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">{t('username')}</label>
                             <input
                                 type="text"
                                 required
@@ -79,7 +81,7 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
                     )}
 
                     <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Email</label>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">{t('email')}</label>
                         <input
                             type="email"
                             required
@@ -91,7 +93,7 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Пароль</label>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">{t('password')}</label>
                         <input
                             type="password"
                             required
@@ -107,14 +109,14 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
                         disabled={loading}
                         className="w-full bg-green-500 text-black font-bold p-3 rounded-full hover:scale-[1.02] active:scale-98 transition-all disabled:opacity-50 mt-4 cursor-pointer"
                     >
-                        {loading ? 'Завантаження...' : isLoginMode ? 'Увійти' : 'Створити акаунт'}
+                        {loading ? t('loading') : isLoginMode ? t('login') : t('createAccount')}
                     </button>
                 </form>
 
                 <p className="text-sm text-zinc-400 text-center mt-6">
-                    {isLoginMode ? 'Немає акаунту? ' : 'Вже маєте акаунт? '}
+                    {isLoginMode ? t('noAccount') + ' ' : t('haveAccount') + ' '}
                     <Link to={isLoginMode ? '/register' : '/login'} className="text-white underline hover:text-green-400">
-                        {isLoginMode ? 'Зареєструватися' : 'Увійти'}
+                        {isLoginMode ? t('register') : t('login')}
                     </Link>
                 </p>
             </div>

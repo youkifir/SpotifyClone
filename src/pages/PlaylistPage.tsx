@@ -318,7 +318,17 @@ function PlaylistPage() {
                 return (
                   <div
                     key={song._id}
-                    onClick={() => playWithId(song._id)}
+                    onClick={() => {
+                      // Явно розрізняємо клік по вже активному треку (пауза/плей)
+                      // від кліку по іншому треку (перемикання) — щоб кнопка паузи
+                      // в плейлисті гарантовано зупиняла відтворення.
+                      if (isActive) {
+                        if (playStatus) pause()
+                        else play()
+                      } else {
+                        playWithId(song._id)
+                      }
+                    }}
                     className={`grid grid-cols-[16px_4fr_2fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group ${isActive ? 'text-[#1db954]' : 'text-neutral-300'
                       }`}
                   >

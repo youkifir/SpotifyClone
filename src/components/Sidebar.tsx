@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext'
 import { onLikeChanged } from '../hooks/Uselike'
 import CreatePlaylistModal from './CreatePlaylistModal'
 import type { Playlist as CreatedPlaylist } from './CreatePlaylistModal'
@@ -25,6 +26,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { token } = useAuth()
+  const { t } = useLanguage()
 
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [sharedPlaylists, setSharedPlaylists] = useState<Playlist[]>([])
@@ -204,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img className="w-8" src={assets.stack_icon} alt="Library" />
-              <p className="font-semibold">Your Library</p>
+              <p className="font-semibold">{t('yourLibrary')}</p>
             </div>
             <div className="flex items-center gap-4 px-1">
               <img
@@ -231,18 +233,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
           <div className="flex flex-col gap-3 px-2 overflow-y-auto custom-scrollbar flex-1">
             {!token ? (
-              <p className="text-sm text-zinc-400 p-4">Увійдіть в акаунт, щоб бачити свої плейлисти</p>
+              <p className="text-sm text-zinc-400 p-4">{t('loginToSeePlaylists')}</p>
             ) : loading ? (
-              <p className="text-sm text-zinc-400 p-4">Завантаження...</p>
+              <p className="text-sm text-zinc-400 p-4">{t('loading')}</p>
             ) : playlists.length === 0 ? (
               <div className="p-4 bg-[#242424] hover:bg-[#2a2a2a] transition-colors rounded-lg flex flex-col items-start gap-1">
-                <h1 className="font-bold text-base text-white">Create your first playlist</h1>
-                <p className="text-sm text-white font-light opacity-90">it's easy we will help you</p>
+                <h1 className="font-bold text-base text-white">{t('createFirstPlaylist')}</h1>
+                <p className="text-sm text-white font-light opacity-90">{t('itsEasy')}</p>
                 <button
                   onClick={() => setIsModalOpen(true)}
                   className="bg-white text-black text-sm font-bold px-4 py-1.5 rounded-full mt-4 hover:scale-105 hover:bg-neutral-200 transition"
                 >
-                  Create Playlist
+                  {t('createPlaylist')}
                 </button>
               </div>
             ) : (

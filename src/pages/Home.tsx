@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import Card from '../components/Card'
 import { usePlayer } from '../context/usePlayer'
+import { useLanguage } from '../context/LanguageContext'
 import { useNavigate } from 'react-router-dom'
 
 const API = 'http://localhost:5000'
@@ -134,6 +135,7 @@ function ArtistCard({ artist }: { artist: Artist }) {
 
 function Home() {
   const { track, playStatus, playWithId, songsData } = usePlayer()
+  const { t } = useLanguage()
   const [albumsData, setAlbumsData] = useState<any[]>([])
   const [artists, setArtists] = useState<Artist[]>([])
   const [shuffledSongs, setShuffledSongs] = useState<any[]>([])
@@ -163,7 +165,7 @@ function Home() {
   return (
     <div className="pt-2 sm:pt-4 flex flex-col gap-6 sm:gap-8">
 
-      <ScrollSection title="Плейлисти для тебе" isEmpty={albumsData.length === 0} emptyText="Немає доступних плейлистів">
+      <ScrollSection title={t('playlists')} isEmpty={albumsData.length === 0} emptyText="Немає доступних плейлистів">
         {albumsData.map((album) => (
           <Card
             key={album.id}
@@ -175,7 +177,7 @@ function Home() {
         ))}
       </ScrollSection>
 
-      <ScrollSection title="Популярні треки" isEmpty={shuffledSongs.length === 0} emptyText="Немає доступних треків">
+      <ScrollSection title={t('popularTracks')} isEmpty={shuffledSongs.length === 0} emptyText="Немає доступних треків">
         {shuffledSongs.map((song, i) => (
           <Card
             key={`${song.id}-${i}`}
