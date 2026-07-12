@@ -43,6 +43,7 @@ export const Player: React.FC = () => {
   const [playlistMenuAnchor, setPlaylistMenuAnchor] = useState<HTMLElement | null>(null)
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const [isDevicesOpen, setIsDevicesOpen] = useState(false)
+  const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const prevVolumeRef = useRef(volume || 0.7)
 
@@ -133,7 +134,16 @@ export const Player: React.FC = () => {
     if (volume === 0 && !isMuted) setIsMuted(true)
   }, [volume])
 
-  if (!track) return null
+  // Закрити міні-плеєр при кліку поза ним
+  useEffect(() => {
+    if (!isMiniPlayerOpen) return
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-miniplayer]')) setIsMiniPlayerOpen(false)
+    }
+    window.addEventListener('mousedown', handleClick)
+    return () => window.removeEventListener('mousedown', handleClick)
+  }, [isMiniPlayerOpen])
 
   const trackImageUrl = track.image?.startsWith('http')
     ? track.image
@@ -348,7 +358,53 @@ export const Player: React.FC = () => {
               </div>
             </div>
             
-            <img className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.mini_player_icon} alt="Miniplayer" />
+            <div className='relative' data-miniplayer>
+              <img
+                onClick={() => setIsMiniPlayerOpen(o => !o)}
+                className={`w-4 cursor-pointer transition hover:scale-110 ${isMiniPlayerOpen ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+                style={isMiniPlayerOpen ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
+                src={assets.mini_player_icon}
+                alt="Miniplayer"
+              />
+
+              {/* Міні-плеєр popup */}
+              {isMiniPlayerOpen && track && (
+                <div className='absolute bottom-10 right-0 w-72 bg-[#181818] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-fadeIn'>
+                  {/* Обкладинка */}
+                  <div className='relative w-full aspect-square'>
+                    <img src={trackImageUrl} alt={track.name} className='w-full h-full object-cover' />
+                    {/* Градієнт знизу */}
+                    <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent' />
+                    {/* Назва поверх */}
+                    <div className='absolute bottom-3 left-3 right-3'>
+                      <p className='font-bold text-sm text-white truncate'>{track.name}</p>
+                      <p className='text-xs text-neutral-400 truncate mt-0.5'>
+                        {(track as any).artist || track.desc?.slice(0, 30)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Прогрес-бар */}
+                  <div className='w-full h-0.5 bg-neutral-700'>
+                    <div className='h-full bg-[#1db954] transition-all' style={{ width: `${progress * 100}%` }} />
+                  </div>
+
+                  {/* Контролс */}
+                  <div className='flex items-center justify-between px-4 py-3'>
+                    <span className='text-[10px] text-neutral-500'>{formatTime(currentTime)}</span>
+                    <div className='flex items-center gap-5'>
+                      <img onClick={previous} className='w-4 cursor-pointer opacity-70 hover:opacity-100 transition' src={assets.prev_icon} alt="Prev" />
+                      {playStatus
+                        ? <img onClick={pause} className='w-8 h-8 cursor-pointer hover:scale-105 transition' src={assets.pause_icon} alt="Pause" />
+                        : <img onClick={play} className='w-8 h-8 cursor-pointer hover:scale-105 transition' src={assets.play_icon} alt="Play" />
+                      }
+                      <img onClick={next} className='w-4 cursor-pointer opacity-70 hover:opacity-100 transition' src={assets.next_icon} alt="Next" />
+                    </div>
+                    <span className='text-[10px] text-neutral-500'>{formatTime(totalTime)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
             <img onClick={() => setIsFullScreen(true)} className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.zoom_icon} alt="Fullscreen" />
           </div>
         </div>

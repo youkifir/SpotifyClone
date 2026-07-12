@@ -186,9 +186,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
             playPromise
               .then(() => setPlayStatus(true))
               .catch((err: Error) => {
-                if (err.name !== 'AbortError') {
-                  setPlayStatus(false)
-                }
+                if (err.name === 'AbortError') return
+                setPlayStatus(false)
               })
           }
         }
@@ -241,7 +240,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     const handleEnded = () => {
       if (loop) {
         audio.currentTime = 0
-        audio.play()
+        audio.play().catch((err: Error) => { if (err.name !== 'AbortError') console.error(err) })
       } else {
         nextTrack()
       }
@@ -262,7 +261,8 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     const audio = audioRef.current
     if (!audio || !track) return
     audio.play()
-    setPlayStatus(true)
+      .then(() => setPlayStatus(true))
+      .catch((err: Error) => { if (err.name !== 'AbortError') console.error(err) })
   }
 
   const pause = () => {
