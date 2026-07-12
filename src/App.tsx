@@ -27,13 +27,11 @@ function App() {
     )
   }
 
-  // ── Рендер для неавторизованого користувача (Вхід / Реєстрація) ──
+  // ── Рендер для неавторизованого користувача ──
   if (!token) {
     return (
       <div className="h-screen w-screen bg-[#09090b] relative flex items-center justify-center overflow-hidden">
-        {/* Декоративний розмитий фон для ефекту "пустого аккаунту" */}
         <div className="absolute inset-0 bg-gradient-to-tr from-green-500/10 via-transparent to-zinc-500/5 blur-[120px] pointer-events-none" />
-
         <div className="z-10 w-full h-full flex items-center justify-center backdrop-blur-md">
           <Routes>
             <Route path="/login" element={<AuthPage isLoginMode={true} />} />
@@ -45,16 +43,20 @@ function App() {
     )
   }
 
-  // ── Основний рендер додатку (коли токен є) ──
+  // ── Основний рендер додатку (Адаптивна сітка без жорстких відсотків) ──
   return (
     <PlayerContextProvider>
-      <div className="h-screen bg-black flex flex-col p-2 gap-2 overflow-hidden">
+      <div className="h-screen w-screen bg-black flex flex-col p-2 gap-2 overflow-hidden select-none">
+        {/* Верхній Navbar */}
         <Navbar onToggleSidebar={() => setIsSidebarOpen((open) => !open)} />
 
-        <div className="h-[81%] flex flex-1 gap-2 overflow-hidden relative">
+        {/* Головна контентна зона */}
+        <div className="flex flex-1 min-h-0 gap-2 relative overflow-hidden">
+          {/* Бокова панель (Sidebar) */}
           <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-          <div className="flex-1 min-w-0 bg-[#121212] rounded-lg text-white p-3 sm:p-4 overflow-y-auto custom-scrollbar">
+          {/* Сторінки додатку */}
+          <div className="flex-1 min-w-0 bg-[#121212] rounded-lg text-white p-3 sm:p-5 overflow-y-auto custom-scrollbar">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/album/:id" element={<AlbumPage />} />
@@ -68,9 +70,11 @@ function App() {
           </div>
         </div>
 
+        {/* Нижній адаптивний плеєр */}
         <Player />
       </div>
 
+      {/* Повноекранний програвач */}
       <FullScreenPlayer />
     </PlayerContextProvider>
   )
