@@ -11,6 +11,7 @@ const formatTime = ({ minute, second }: { minute: number; second: number }) =>
 export const Player: React.FC = () => {
   const {
     track,
+    _hasTrack,
     playStatus,
     currentTime,
     totalTime,
@@ -137,29 +138,34 @@ export const Player: React.FC = () => {
             className='flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer active:bg-[#222] transition-colors'
           >
             <div className='flex items-center gap-3 min-w-0 flex-1'>
-              <img className='w-10 h-10 rounded object-cover shrink-0 shadow-md' src={trackImageUrl} alt={track.name} />
+              {_hasTrack && (
+                <img className='w-10 h-10 rounded object-cover shrink-0 shadow-md' src={trackImageUrl} alt={track.name} />
+              )}
               <div className='min-w-0 flex-1'>
-                <p className='font-bold text-sm truncate text-white'>{track.name}</p>
+                <p className='font-bold text-sm truncate text-white'>{_hasTrack ? track.name : ''}</p>
                 <p className='text-xs text-neutral-400 truncate mt-0.5'>
-                  {(track as any).artist || track.desc?.slice(0, 30)}
+                  {_hasTrack ? ((track as any).artist || track.desc?.slice(0, 30)) : ''}
                 </p>
               </div>
             </div>
             
             <div className='flex items-center gap-3 sm:gap-4 shrink-0'>
-              <button
-                onClick={(e) => { stop(e); handleLike(e) }}
-                className={`w-8 h-8 flex items-center justify-center transition ${likeAnimating ? 'scale-125' : ''}`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? '#1db954' : 'none'} stroke={liked ? '#1db954' : '#b3b3b3'} strokeWidth="2">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-              </button>
-              
-              {playStatus ? (
-                <img onClick={(e) => { stop(e); pause() }} className='w-8 h-8 active:scale-90 transition shrink-0' src={assets.pause_icon} alt="Pause" />
-              ) : (
-                <img onClick={(e) => { stop(e); play() }} className='w-8 h-8 active:scale-90 transition shrink-0' src={assets.play_icon} alt="Play" />
+              {_hasTrack && (
+                <>
+                  <button
+                    onClick={(e) => { stop(e); handleLike(e) }}
+                    className={`w-8 h-8 flex items-center justify-center transition ${likeAnimating ? 'scale-125' : ''}`}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? '#1db954' : 'none'} stroke={liked ? '#1db954' : '#b3b3b3'} strokeWidth="2">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                  </button>
+                  {playStatus ? (
+                    <img onClick={(e) => { stop(e); pause() }} className='w-8 h-8 active:scale-90 transition shrink-0' src={assets.pause_icon} alt="Pause" />
+                  ) : (
+                    <img onClick={(e) => { stop(e); play() }} className='w-8 h-8 active:scale-90 transition shrink-0' src={assets.play_icon} alt="Play" />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -170,22 +176,29 @@ export const Player: React.FC = () => {
 
           {/* Лево: инфо о треке */}
           <div className='flex items-center gap-4 w-1/4 min-w-[200px] flex-nowrap'>
-            <img className='w-14 h-14 rounded object-cover shrink-0 shadow-md' src={trackImageUrl} alt={track.name} />
+            {_hasTrack && (
+              <img className='w-14 h-14 rounded object-cover shrink-0 shadow-md' src={trackImageUrl} alt={track.name} />
+            )}
             <div className='min-w-0 flex-1'>
-              <p className='font-bold text-sm truncate text-white hover:underline cursor-pointer' onClick={() => setIsFullScreen(true)}>{track.name}</p>
-              {(track as any).artist ? (
-                <span
-                  ref={artistAnchorRef}
-                  onClick={(e) => { e.stopPropagation(); setShowArtistPopup(true) }}
-                  className='text-xs text-neutral-400 hover:text-white hover:underline cursor-pointer truncate block mt-0.5'
-                >
-                  {(track as any).artist}
-                </span>
-              ) : (
-                <p className='text-xs text-neutral-400 truncate mt-0.5'>{track.desc?.slice(0, 25)}</p>
+              {_hasTrack && (
+                <>
+                  <p className='font-bold text-sm truncate text-white hover:underline cursor-pointer' onClick={() => setIsFullScreen(true)}>{track.name}</p>
+                  {(track as any).artist ? (
+                    <span
+                      ref={artistAnchorRef}
+                      onClick={(e) => { e.stopPropagation(); setShowArtistPopup(true) }}
+                      className='text-xs text-neutral-400 hover:text-white hover:underline cursor-pointer truncate block mt-0.5'
+                    >
+                      {(track as any).artist}
+                    </span>
+                  ) : (
+                    <p className='text-xs text-neutral-400 truncate mt-0.5'>{track.desc?.slice(0, 25)}</p>
+                  )}
+                </>
               )}
             </div>
 
+            {_hasTrack && (
             <div className='flex items-center gap-2 shrink-0 ml-2'>
               <button
                 onClick={handleLike}
@@ -207,6 +220,7 @@ export const Player: React.FC = () => {
                 </svg>
               </button>
             </div>
+            )}
           </div>
 
           {/* Центр: управление и таймлайн */}
