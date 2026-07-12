@@ -1,8 +1,11 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/usePlayer'
 import { useAuth } from '../context/AuthContext'
 import { assets } from '../assets/assets'
+import { apiFetch, isOfflineError } from '../utils/apiError'
+import { ErrorScreen, LoadingScreen, EmptyScreen } from '../components/StateScreens'
+import { useLanguage } from '../context/LanguageContext'
 
 interface ArtistSong {
   id: string
@@ -47,54 +50,61 @@ function ArtistPage() {
   const [showFullBio, setShowFullBio] = useState(false)
   const [activeTab, setActiveTab] = useState<'tracks' | 'about'>('tracks')
 
+  const { t } = useLanguage()
   const artistName = decodeURIComponent(name || '')
+  const [offline, setOffline] = useState(false)
 
-  useEffect(() => {
+  const fetchArtist = useCallback(async () => {
     if (!artistName) return
     setLoading(true)
     setError('')
+    setOffline(false)
 
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
 
-    fetch(`http://localhost:5000/api/songs/artist/${encodeURIComponent(artistName)}`, { headers })
-      .then(async (r) => {
-        const text = await r.text()
-        try { return JSON.parse(text) }
-        catch { throw new Error(`Server error ${r.status}: ${text.slice(0, 100)}`) }
+    try {
+      const r = await apiFetch(
+        `http://localhost:5000/api/songs/artist/${encodeURIComponent(artistName)}`,
+        { headers }
+      )
+      const res = await r.json()
+      if (!res.success) throw new Error(res.message || 'Помилка сервера')
+      const data = res.data
+
+      const image = data.image || ''
+      const rawSongs: ArtistSong[] = (data.songs || []).map((s: any) => ({
+        ...s,
+        id: s.id ?? s._id,
+      }))
+
+      setSongs(rawSongs)
+      addSongs(rawSongs)
+
+      const genres = [...new Set(rawSongs.map((s) => s.genre).filter(Boolean))] as string[]
+
+      setArtistInfo({
+        name: artistName,
+        image,
+        bio: data.bio || data.description || null,
+        genres,
+        monthlyListeners: data.monthlyListeners || null,
+        country: data.country || null,
+        formedYear: data.formedYear || null,
       })
-      .then((res) => {
-        if (!res.success) throw new Error(res.message || 'Помилка сервера')
-        const data = res.data
+    } catch (e) {
+      console.error('ArtistPage fetch error:', e)
+      if (isOfflineError(e)) {
+        setOffline(true)
+        setError(t('errorNetwork'))
+      } else {
+        setError(t('errorLoadArtist'))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [artistName, token, t, addSongs])
 
-        // Збираємо інфо про виконавця з відповіді + генеруємо доп. поля
-        const image = data.image || ''
-        const rawSongs: ArtistSong[] = (data.songs || []).map((s: any) => ({
-          ...s,
-          id: s.id ?? s._id,
-        }))
-
-        setSongs(rawSongs)
-        addSongs(rawSongs)
-
-        // Genres — збираємо унікальні жанри з пісень
-        const genres = [...new Set(rawSongs.map((s) => s.genre).filter(Boolean))] as string[]
-
-        setArtistInfo({
-          name: artistName,
-          image,
-          bio: data.bio || data.description || null,
-          genres,
-          monthlyListeners: data.monthlyListeners || null,
-          country: data.country || null,
-          formedYear: data.formedYear || null,
-        })
-      })
-      .catch((e) => {
-        console.error('ArtistPage fetch error:', e)
-        setError('Не вдалося завантажити дані виконавця')
-      })
-      .finally(() => setLoading(false))
-  }, [artistName, token])
+  useEffect(() => { fetchArtist() }, [fetchArtist])
 
   const resolveUrl = (url: string) =>
     url?.startsWith('http') ? url : `http://localhost:5000/${url}`
@@ -121,21 +131,23 @@ function ArtistPage() {
   const topTracks = songs.slice(0, 5)
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <div className="w-10 h-10 border-2 border-[#1db954] border-t-transparent rounded-full animate-spin" />
-        <p className="text-neutral-400 text-sm">Завантаження виконавця...</p>
-      </div>
-    )
+    return <LoadingScreen label={t('loadingArtist')} />
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <p className="text-red-400">{error}</p>
-        <button onClick={() => navigate(-1)} className="text-sm text-neutral-400 hover:text-white transition underline">
-          ← Назад
-        </button>
+      <div className="flex flex-col gap-2">
+        <ErrorScreen
+          message={error}
+          offline={offline}
+          onRetry={fetchArtist}
+          retryLabel={t('errorRetry')}
+        />
+        <div className="text-center">
+          <button onClick={() => navigate(-1)} className="text-sm text-neutral-400 hover:text-white transition underline">
+            ← Назад
+          </button>
+        </div>
       </div>
     )
   }
@@ -239,7 +251,7 @@ function ArtistPage() {
       {activeTab === 'tracks' && (
         <>
           {songs.length === 0 ? (
-            <div className="text-center text-neutral-500 py-12">Треків не знайдено</div>
+            <EmptyScreen title={t('emptyArtistSongs')} />
           ) : (
             <div className="flex flex-col px-2">
               {/* Заголовок */}

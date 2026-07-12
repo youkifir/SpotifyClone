@@ -30,6 +30,8 @@ export const Player: React.FC = () => {
     changeVolume,
     toggleShuffle,
     toggleLoop,
+    audioError,
+    clearAudioError,
   } = usePlayer()
 
   const { isLiked, toggleLike } = useLike()
@@ -153,6 +155,24 @@ export const Player: React.FC = () => {
 
   return (
     <>
+      {/* ── Аудіо-помилка: тост над плеєром ── */}
+      {audioError && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-red-900/80 border-t border-red-700/50 text-sm text-red-200 select-none shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span className="flex-1">{audioError}</span>
+          <button
+            onClick={clearAudioError}
+            className="shrink-0 text-red-300 hover:text-white transition"
+            aria-label="Закрити"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      )}
       <div className='h-[12%] sm:h-[10%] min-h-16 lg:min-h-20 bg-black text-white flex flex-col justify-center select-none shrink-0 border-t border-neutral-900 lg:border-none px-2 lg:px-4'>
 
         {/* ── МОБИЛЬНЫЙ МИНИ-ПЛЕЕР ── */}

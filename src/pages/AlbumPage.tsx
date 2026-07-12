@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SongList from '../components/SongList'
 import { assets } from '../assets/assets'
 import { usePlayer } from '../context/usePlayer'
 import { useAuth } from '../context/AuthContext'
+import { apiFetch, isOfflineError } from '../utils/apiError'
+import { ErrorScreen, LoadingScreen, EmptyScreen } from '../components/StateScreens'
+import { useLanguage } from '../context/LanguageContext'
 
 interface Album {
   id: string | number
@@ -47,45 +50,52 @@ function AlbumPage() {
   const { track, playStatus, playWithId, play, pause, songsData, addSongs } = usePlayer()
   const { token } = useAuth()
 
+  const { t } = useLanguage()
   const [album, setAlbum] = useState<Album | null>(null)
   const [albumSongsRaw, setAlbumSongsRaw] = useState<AlbumSong[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [offline, setOffline] = useState(false)
 
-  useEffect(() => {
+  const fetchAlbum = useCallback(async () => {
     if (!id) return
     setLoading(true)
     setError('')
+    setOffline(false)
 
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
 
-    // Fetch album info
-    fetch(`http://localhost:5000/api/albums/${id}`, { headers })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        const res = await r.json()
-        const fetchedAlbum = res.data || res
-        if (fetchedAlbum) {
-          setAlbum({ ...fetchedAlbum, id: fetchedAlbum.id || fetchedAlbum._id })
-        } else {
-          throw new Error('Альбом не знайдено')
-        }
-      })
-      .catch((e) => {
-        console.error('AlbumPage fetch error:', e)
-        setError('Не вдалося завантажити альбом')
-      })
-      .finally(() => setLoading(false))
-  }, [id, token])
+    try {
+      const r = await apiFetch(`http://localhost:5000/api/albums/${id}`, { headers })
+      const res = await r.json()
+      const fetchedAlbum = res.data || res
+      if (fetchedAlbum?._id || fetchedAlbum?.id) {
+        setAlbum({ ...fetchedAlbum, id: fetchedAlbum.id || fetchedAlbum._id })
+      } else {
+        setError(t('errorNotFound'))
+      }
+    } catch (e) {
+      console.error('AlbumPage fetch error:', e)
+      if (isOfflineError(e)) {
+        setOffline(true)
+        setError(t('errorNetwork'))
+      } else {
+        setError(t('errorLoadAlbum'))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [id, token, t])
+
+  useEffect(() => { fetchAlbum() }, [fetchAlbum])
 
   // Fetch songs that belong to this album
   useEffect(() => {
     if (!id) return
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
 
-    fetch(`http://localhost:5000/api/songs?album=${id}`, { headers })
+    apiFetch(`http://localhost:5000/api/songs?album=${id}`, { headers })
       .then(async (r) => {
-        if (!r.ok) return
         const res = await r.json()
         const songs = (res.data || res.songs || []).map((s: any) => ({
           ...s,
@@ -97,6 +107,7 @@ function AlbumPage() {
         }
       })
       .catch(() => {/* fallback to songsData */})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, token])
 
   // Якщо окремий ендпоінт не повернув пісень — фолбек через songsData
@@ -142,21 +153,23 @@ function AlbumPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <div className="w-10 h-10 border-2 border-[#1db954] border-t-transparent rounded-full animate-spin" />
-        <p className="text-neutral-400 text-sm">Завантаження альбому...</p>
-      </div>
-    )
+    return <LoadingScreen label={t('loadingAlbum')} />
   }
 
   if (error || !album) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-red-400">{error || 'Альбом не знайдено'}</p>
-        <button onClick={() => navigate(-1)} className="text-sm text-neutral-400 hover:text-white transition underline">
-          ← Назад
-        </button>
+      <div className="flex flex-col gap-2">
+        <ErrorScreen
+          message={error || t('errorNotFound')}
+          offline={offline}
+          onRetry={offline || error ? fetchAlbum : undefined}
+          retryLabel={t('errorRetry')}
+        />
+        <div className="text-center">
+          <button onClick={() => navigate(-1)} className="text-sm text-neutral-400 hover:text-white transition underline">
+            ← Назад
+          </button>
+        </div>
       </div>
     )
   }
@@ -244,7 +257,14 @@ function AlbumPage() {
       {/* ── Список треків ── */}
       <div className="px-1 sm:px-2">
         {albumSongs.length === 0 ? (
-          <div className="text-center text-neutral-500 py-16">Треки не знайдено</div>
+          <EmptyScreen
+            title={t('emptyAlbumSongs')}
+            icon={
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+              </svg>
+            }
+          />
         ) : (
           <SongList songs={albumSongs} />
         )}
