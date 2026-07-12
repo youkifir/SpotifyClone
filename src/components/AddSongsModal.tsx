@@ -24,6 +24,11 @@ interface AddSongsModalProps {
 
 const API_BASE = 'http://localhost:5000/api'
 
+const resolveUrl = (path: string) => {
+  if (!path) return ''
+  return path.startsWith('http') || path.startsWith('data:') ? path : `http://localhost:5000/${path}`
+}
+
 function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }: AddSongsModalProps) {
   const { token } = useAuth()
 
@@ -97,7 +102,6 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4" onClick={onClose}>
     <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div
         className="bg-[#181818] border border-zinc-700 rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col p-6 shadow-2xl"
@@ -133,7 +137,7 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
                   key={song._id}
                   className="flex items-center gap-3 p-2 rounded-md hover:bg-[#2a2a2a] transition-colors"
                 >
-                  <img src={song.image} alt={song.name} className="w-10 h-10 rounded object-cover shrink-0" />
+                  <img src={resolveUrl(song.image)} alt={song.name} className="w-10 h-10 rounded object-cover shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-white truncate">{song.name}</p>
                     <p className="text-xs text-zinc-400 truncate">{song.artist || '—'}</p>
@@ -141,11 +145,10 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
                   <button
                     onClick={() => handleAdd(song)}
                     disabled={isAdded || isAdding}
-                    className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full transition disabled:opacity-50 ${
-                      isAdded
+                    className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-full transition disabled:opacity-50 ${isAdded
                         ? 'bg-transparent border border-zinc-600 text-zinc-500 cursor-default'
                         : 'bg-green-500 text-black hover:scale-105'
-                    }`}
+                      }`}
                   >
                     {isAdded ? 'Додано' : isAdding ? '...' : 'Додати'}
                   </button>
@@ -159,5 +162,4 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
   )
 }
 
-export default AddSongsModal
 export default AddSongsModal

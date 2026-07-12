@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
 import { assets } from '../assets/assets'
 import EditPlaylistModal from '../components/EditPlaylistModal'
-import AddSongsModal, { type ApiSong } from '../components/AddSongsModal';
 import AddSongsModal, { type ApiSong } from '../components/AddSongsModal'
 import { durationToSeconds } from '../utils/parseDuration'
 import type { Playlist } from '../components/CreatePlaylistModal'
@@ -71,8 +70,7 @@ function PlaylistPage() {
     fetchPlaylist()
   }, [id, token])
 
-  // резолвимо назви альбомів — потрібно для сортування/показу колонки "Альбом",
-  // бо бекенд повертає в списку пісень лише id альбому, без populate
+  // резолвимо назви альбомів
   useEffect(() => {
     const fetchAlbums = async () => {
       try {
@@ -152,8 +150,6 @@ function PlaylistPage() {
 
   const handleSongAdded = (song: ApiSong) => {
     setPlaylist((prev) => (prev ? { ...prev, songs: [...prev.songs, song] } : prev))
-    // якщо трек прийшов з iTunes і щойно з'явився в базі — оновлюємо каталог плеєра,
-    // інакше відтворення нового треку може не спрацювати одразу
     refreshSongs()
   }
 
@@ -185,7 +181,6 @@ function PlaylistPage() {
   return (
     <div className="pt-2 sm:pt-4">
       {/* шапка плейлиста */}
-      <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-linear-to-b from-[#535353] to-[#121212]">
       <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-gradient-to-b from-[#535353] to-[#121212]">
         <button
           onClick={() => setIsEditOpen(true)}
@@ -234,7 +229,6 @@ function PlaylistPage() {
         >
           Редагувати
         </button>
-        <div className="flex-1 min-w-2" />
         <div className="flex-1 min-w-[8px]" />
 
         <input
@@ -300,18 +294,16 @@ function PlaylistPage() {
                   <div
                     key={song._id}
                     onClick={() => playWithId(song._id)}
-                    className={`grid grid-cols-[16px_4fr_2fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group ${
-                      isActive ? 'text-[#1db954]' : 'text-neutral-300'
-                    }`}
+                    className={`grid grid-cols-[16px_4fr_2fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group ${isActive ? 'text-[#1db954]' : 'text-neutral-300'
+                      }`}
                   >
                     <span className="self-center text-sm relative w-4 h-4">
                       <span className={`${isActivePlaying ? 'hidden' : 'group-hover:hidden'}`}>{index + 1}</span>
                       <img
                         src={isActivePlaying ? assets.pause_icon : assets.play_icon}
                         alt=""
-                        className={`w-3 h-3 absolute inset-0 m-auto ${
-                          isActivePlaying ? 'block' : 'hidden group-hover:block'
-                        }`}
+                        className={`w-3 h-3 absolute inset-0 m-auto ${isActivePlaying ? 'block' : 'hidden group-hover:block'
+                          }`}
                       />
                     </span>
                     <div className="flex items-center gap-3 min-w-0">
@@ -365,5 +357,5 @@ function PlaylistPage() {
     </div>
   )
 }
-export default PlaylistPage
+
 export default PlaylistPage
