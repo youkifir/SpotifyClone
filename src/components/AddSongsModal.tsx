@@ -19,7 +19,7 @@ interface AddSongsModalProps {
   playlistId: string
   existingSongIds: Set<string>
   onClose: () => void
-  onAdded: (song: ApiSong) => void
+  onAdded: (updatedSongs: ApiSong[]) => void
 }
 
 const API_BASE = 'http://localhost:5000/api'
@@ -32,8 +32,12 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [addingId, setAddingId] = useState<string | null>(null)
+  const [locallyAdded, setLocallyAdded] = useState<Set<string>>(new Set())
 
-  // дебаунс-пошук: без запиту показуємо весь каталог, із запитом — гібридний пошук бекенду
+  useEffect(() => {
+    if (isOpen) setLocallyAdded(new Set())
+  }, [isOpen])
+
   useEffect(() => {
     if (!isOpen) return
 
@@ -87,7 +91,11 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
         body: JSON.stringify({ songId: song._id }),
       })
       if (response.ok) {
-        onAdded(song)
+        const resData = await response.json()
+        // сервер повертає оновлений плейлист з populate — беремо актуальний список пісень
+        const updatedSongs: ApiSong[] = resData.data?.songs ?? []
+        setLocallyAdded((prev) => new Set(prev).add(song._id))
+        onAdded(updatedSongs)
       }
     } catch (error) {
       console.error('Помилка додавання треку:', error)
@@ -126,7 +134,7 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
             <p className="text-zinc-400 text-sm p-4 text-center">Нічого не знайдено</p>
           ) : (
             results.map((song) => {
-              const isAdded = existingSongIds.has(song._id)
+              const isAdded = existingSongIds.has(song._id) || locallyAdded.has(song._id)
               const isAdding = addingId === song._id
               return (
                 <div

@@ -8,6 +8,7 @@ import AddSongsModal, { type ApiSong } from '../components/AddSongsModal';
 import AddSongsModal, { type ApiSong } from '../components/AddSongsModal'
 import { durationToSeconds } from '../utils/parseDuration'
 import type { Playlist } from '../components/CreatePlaylistModal'
+import { emitPlaylistChanged } from '../hooks/usePlaylistEvents'
 
 interface PlaylistDetail extends Omit<Playlist, 'songs'> {
   songs: ApiSong[]
@@ -150,15 +151,23 @@ function PlaylistPage() {
     }
   }
 
-  const handleSongAdded = (song: ApiSong) => {
-    setPlaylist((prev) => (prev ? { ...prev, songs: [...prev.songs, song] } : prev))
-    // якщо трек прийшов з iTunes і щойно з'явився в базі — оновлюємо каталог плеєра,
-    // інакше відтворення нового треку може не спрацювати одразу
+  const handleSongAdded = (updatedSongs: ApiSong[]) => {
+    setPlaylist((prev) => {
+      if (!prev) return prev
+      // повідомляємо Sidebar про нову кількість треків
+      emitPlaylistChanged({ _id: prev._id, songCount: updatedSongs.length })
+      return { ...prev, songs: updatedSongs }
+    })
     refreshSongs()
   }
 
   const handlePlaylistUpdated = (updated: Playlist) => {
-    setPlaylist((prev) => (prev ? { ...prev, name: updated.name, image: updated.image } : prev))
+    setPlaylist((prev) => {
+      if (!prev) return prev
+      // повідомляємо Sidebar про нову назву / аватарку
+      emitPlaylistChanged({ _id: prev._id, name: updated.name, image: updated.image })
+      return { ...prev, name: updated.name, image: updated.image }
+    })
   }
 
   const handlePlaylistDeleted = () => {
