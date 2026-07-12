@@ -29,8 +29,8 @@ export const FullScreenPlayer: React.FC = () => {
     seekTo,
     toggleShuffle,
     toggleLoop,
-    volume,       // Добавлено из usePlayer
-    changeVolume, // Добавлено из usePlayer
+    volume,
+    changeVolume,
   } = usePlayer()
 
   const seekBgRef = useRef<HTMLDivElement>(null)
@@ -40,12 +40,44 @@ export const FullScreenPlayer: React.FC = () => {
   const userScrolledRef = useRef(false)
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [isDraggingVolume, setIsDraggingVolume] = useState(false)
+
   // ── LRCLIB синхронізований текст ──────────────────────────
   const { lines: lrcLines, loading: lrcLoading } = useLyrics(
     track?.name ?? '',
     (track as any)?.artist ?? ''
   )
   const activeIndex = useActiveLyricIndex(lrcLines, currentSeconds)
+
+  // ── Функция расчета громкости (ПЕРЕНЕСЕНО НАВЕРХ) ──
+  const updateVolumePosition = useCallback((clientX: number) => {
+    const el = volumeBgRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const ratio = (clientX - rect.left) / rect.width
+    changeVolume(Math.min(1, Math.max(0, ratio)))
+  }, [changeVolume])
+
+  // ── Слушатель мыши для плавного изменения громкости (ПЕРЕНЕСЕНО НАВЕРХ) ──
+  useEffect(() => {
+    if (!isDraggingVolume) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      updateVolumePosition(e.clientX)
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingVolume(false)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingVolume, updateVolumePosition])
 
   // Плавний скрол до активного рядка (тільки якщо юзер не скролить вручну)
   useEffect(() => {
@@ -100,7 +132,28 @@ export const FullScreenPlayer: React.FC = () => {
     }
   }, [])
 
-  // ── iTunes fallback: рівномірний скрол без таймкодів ─────
+  const handleUserScroll = () => {
+    userScrolledRef.current = true
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+    scrollTimerRef.current = setTimeout(() => { userScrolledRef.current = false }, 4000)
+  }
+
+  const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = seekBgRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const ratio = (e.clientX - rect.left) / rect.width
+    seekTo(Math.min(1, Math.max(0, ratio)))
+  }
+
+  const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDraggingVolume(true)
+    updateVolumePosition(e.clientX)
+  }
+
+  // 🔴 ТЕПЕРЬ ВСЕ УСЛОВНЫЕ ПРОВЕРКИ И РАННИЕ ВОЗВРАТЫ ИДУТ ТОЛЬКО ЗДЕСЬ
+  if (!isFullScreen || !track) return null
+
   const staticLines = staticLyrics ? staticLyrics.split('\n').map(l => l.trim()) : []
   const nonEmptyLines = staticLines.filter(l => l.length > 0)
   const totalLines = nonEmptyLines.length
@@ -129,38 +182,14 @@ export const FullScreenPlayer: React.FC = () => {
     return { line, idx, i }
   })
 
-  const handleUserScroll = () => {
-    userScrolledRef.current = true
-    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
-    scrollTimerRef.current = setTimeout(() => { userScrolledRef.current = false }, 4000)
-  }
-
-  if (!isFullScreen || !track) return null
-
-  const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const el = seekBgRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
-    seekTo(Math.min(1, Math.max(0, ratio)))
-  }
-
-  const handleVolumeClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const el = volumeBgRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    changeVolume(Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)))
-  }
-
   const trackImageUrl = (track.image as string)?.startsWith('http')
     ? track.image
     : `${API}/${track.image}`
 
-  // Визначаємо що показувати: LRCLIB (з таймкодами) або static fallback
   const hasLrc = !lrcLoading && lrcLines && lrcLines.length > 0
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-12 text-white transition-all duration-300">
+    <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-12 text-white transition-all duration-300 select-none">
 
       {/* Верхня панель дій */}
       <div className="flex justify-between items-center w-full max-w-6xl mx-auto mb-4 md:mb-8 shrink-0">
@@ -177,7 +206,7 @@ export const FullScreenPlayer: React.FC = () => {
       {/* Центральний контент */}
       <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 flex-1 max-w-6xl mx-auto w-full overflow-hidden min-h-0">
 
-        {/* Ліва сторона: Велика обкладинка та деталі */}
+        {/* Ліва сторона */}
         <div className="flex flex-col items-center md:items-start text-center md:text-left gap-4 sm:gap-6 w-full md:w-2/5 shrink-0">
           <img
             className="w-48 h-48 sm:w-64 sm:h-64 lg:w-96 lg:h-96 rounded-lg object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] transition-transform hover:scale-[1.02]"
@@ -192,7 +221,7 @@ export const FullScreenPlayer: React.FC = () => {
           </div>
         </div>
 
-        {/* Права сторона: Текст пісні (синхронізований або статичний) */}
+        {/* Права сторона */}
         <div className="flex-1 w-full h-full min-h-0 flex flex-col">
           <div className="flex items-center gap-2 mb-4 shrink-0">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2">
@@ -218,7 +247,6 @@ export const FullScreenPlayer: React.FC = () => {
             className="overflow-y-auto flex-1 pr-2 max-h-[35vh] md:max-h-[65vh] custom-scrollbar"
             style={{ scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}
           >
-            {/* Завантаження LRCLIB */}
             {lrcLoading && (
               <div className="flex flex-col gap-3 mt-4">
                 {[...Array(8)].map((_, i) => (
@@ -228,7 +256,6 @@ export const FullScreenPlayer: React.FC = () => {
               </div>
             )}
 
-            {/* ✅ LRCLIB — синхронізований текст */}
             {hasLrc && (
               <div className="flex flex-col gap-2 pb-20">
                 {lrcLines!.map((line, i) => {
@@ -259,7 +286,6 @@ export const FullScreenPlayer: React.FC = () => {
               </div>
             )}
 
-            {/* Fallback: статичний текст з бекенду (без таймкодів) */}
             {!lrcLoading && !hasLrc && staticStatus === 'loading' && (
               <div className="flex flex-col gap-3 mt-4">
                 {[...Array(6)].map((_, i) => (
@@ -280,8 +306,8 @@ export const FullScreenPlayer: React.FC = () => {
                       key={i}
                       ref={isActive ? activeLineRef : undefined}
                       className={`text-xl sm:text-2xl md:text-3xl font-black leading-snug tracking-tight cursor-default select-text transition-all duration-500 py-0.5 ${isActive ? 'text-white scale-[1.02] origin-left'
-                          : isPast ? 'text-neutral-600'
-                            : 'text-neutral-500 hover:text-neutral-300'
+                        : isPast ? 'text-neutral-600'
+                          : 'text-neutral-500 hover:text-neutral-300'
                         }`}
                     >
                       {line}
@@ -366,11 +392,11 @@ export const FullScreenPlayer: React.FC = () => {
               </svg>
             )}
           </button>
-          <div ref={volumeBgRef} onClick={handleVolumeClick}
-            className="flex-1 bg-[#4d4d4d] h-1 rounded-full cursor-pointer group relative">
-            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative"
+          <div ref={volumeBgRef} onMouseDown={handleVolumeMouseDown}
+            className="flex-1 bg-[#4d4d4d] h-1 rounded-full cursor-pointer group relative flex items-center">
+            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative flex items-center"
               style={{ width: `${volume * 100}%` }}>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white opacity-0 group-hover:opacity-100 transition" />
+              <div className={`absolute right-0 w-3 h-3 rounded-full bg-white transition-opacity ${isDraggingVolume ? 'opacity-100 bg-[#1db954]' : 'opacity-0 group-hover:opacity-100'}`} style={{ transform: 'translateX(50%)' }} />
             </div>
           </div>
           <span className="text-xs text-neutral-500 w-8 text-right shrink-0">{Math.round(volume * 100)}%</span>
