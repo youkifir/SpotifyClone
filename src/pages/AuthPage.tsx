@@ -34,7 +34,6 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
                 throw new Error(resData.message || 'Щось пішло не так');
             }
 
-            // Если бэк возвращает { token, user } или { data: { token, user } }
             const token = resData.token || resData.data?.token;
             const user = resData.user || resData.data?.user;
 
@@ -52,8 +51,8 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[80vh] text-white p-6">
-            <div className="bg-[#121212] border border-zinc-8xl p-8 rounded-xl w-full max-w-md shadow-2xl">
+        <div className="text-white p-6 w-full max-w-md">
+            <div className="bg-[#121212]/90 border border-zinc-800 p-8 rounded-xl w-full shadow-2xl backdrop-blur-lg">
                 <h2 className="text-3xl font-bold text-center mb-8">
                     {isLoginMode ? 'Увійти в Spotify' : 'Зареєструватися'}
                 </h2>
@@ -106,7 +105,7 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-green-500 text-black font-bold p-3 rounded-full hover:scale-104 active:scale-98 transition-all disabled:opacity-50 mt-4 cursor-pointer"
+                        className="w-full bg-green-500 text-black font-bold p-3 rounded-full hover:scale-[1.02] active:scale-98 transition-all disabled:opacity-50 mt-4 cursor-pointer"
                     >
                         {loading ? 'Завантаження...' : isLoginMode ? 'Увійти' : 'Створити акаунт'}
                     </button>
