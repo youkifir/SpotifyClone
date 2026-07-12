@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react'
+import React, { useRef, useState, useCallback, useEffect } from 'react'
 import { assets } from '../assets/assets'
 import { usePlayer } from '../context/usePlayer'
 import ArtistPopup from './ArtistProup'
@@ -39,6 +39,9 @@ export const Player: React.FC = () => {
   const [playlistMenuOpen, setPlaylistMenuOpen] = useState(false)
   const [playlistMenuAnchor, setPlaylistMenuAnchor] = useState<HTMLElement | null>(null)
 
+  // Состояние перетаскивания громкости
+  const [isDraggingVolume, setIsDraggingVolume] = useState(false)
+
   const closePlaylistMenu = useCallback(() => {
     setPlaylistMenuOpen(false)
     setPlaylistMenuAnchor(null)
@@ -52,13 +55,40 @@ export const Player: React.FC = () => {
     seekTo(Math.min(1, Math.max(0, ratio)))
   }
 
-  const handleVolumeClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Общая функция расчета громкости по координате X
+  const updateVolumePosition = useCallback((clientX: number) => {
     const el = volumeBgRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
-    changeVolume(ratio)
+    const ratio = (clientX - rect.left) / rect.width
+    changeVolume(Math.min(1, Math.max(0, ratio)))
+  }, [changeVolume])
+
+  const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDraggingVolume(true)
+    updateVolumePosition(e.clientX)
   }
+
+  // Слушатели для глобального перетаскивания за пределами ползунка
+  useEffect(() => {
+    if (!isDraggingVolume) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      updateVolumePosition(e.clientX)
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingVolume(false)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDraggingVolume, updateVolumePosition])
 
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -80,7 +110,7 @@ export const Player: React.FC = () => {
 
   return (
     <>
-      <div className='h-[10%] min-h-16 bg-black text-white flex flex-col justify-center'>
+      <div className='h-[10%] min-h-16 bg-black text-white flex flex-col justify-center select-none'>
 
         {/* --- Мобільна панель --- */}
         <div className='flex lg:hidden flex-col w-full'>
@@ -147,9 +177,8 @@ export const Player: React.FC = () => {
             {/* Кнопка лайку */}
             <button
               onClick={handleLike}
-              className={`shrink-0 flex items-center justify-center w-5 h-5 transition-all ${
-                likeAnimating ? 'scale-125' : 'hover:scale-110'
-              }`}
+              className={`shrink-0 flex items-center justify-center w-5 h-5 transition-all ${likeAnimating ? 'scale-125' : 'hover:scale-110'
+                }`}
               aria-label={liked ? 'Прибрати з улюблених' : 'Додати до улюблених'}
             >
               <svg
@@ -166,9 +195,8 @@ export const Player: React.FC = () => {
             {/* Кнопка "Додати до плейліста" */}
             <button
               onClick={(e) => { e.stopPropagation(); setPlaylistMenuAnchor(e.currentTarget); setPlaylistMenuOpen(true) }}
-              className={`shrink-0 flex items-center justify-center w-5 h-5 transition-all hover:scale-110 ${
-                playlistMenuOpen ? 'text-[#1db954]' : 'text-[#b3b3b3] hover:text-white'
-              }`}
+              className={`shrink-0 flex items-center justify-center w-5 h-5 transition-all hover:scale-110 ${playlistMenuOpen ? 'text-[#1db954]' : 'text-[#b3b3b3] hover:text-white'
+                }`}
               aria-label="Додати до плейліста"
               title="Додати до плейліста"
             >
@@ -231,13 +259,16 @@ export const Player: React.FC = () => {
             <img className='w-4 cursor-pointer hover:scale-110 transition' src={assets.volume_icon} alt="Volume" />
             <div
               ref={volumeBgRef}
-              onClick={handleVolumeClick}
-              className='w-20 bg-[#4d4d4d] h-1 rounded cursor-pointer group'
+              onMouseDown={handleVolumeMouseDown}
+              className='w-20 bg-[#4d4d4d] h-1 rounded-full cursor-pointer group relative flex items-center'
             >
               <div
-                className='bg-white group-hover:bg-[#1db954] h-1 rounded transition-colors'
+                className='h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative flex items-center'
                 style={{ width: `${volume * 100}%` }}
-              />
+              >
+                {/* Круглый ползунок (как у трека времени), появляющийся при наведении */}
+                <div className={`absolute right-0 w-3 h-3 rounded-full bg-white transition-opacity ${isDraggingVolume ? 'opacity-100 bg-[#1db954]' : 'opacity-0 group-hover:opacity-100'}`} style={{ transform: 'translateX(50%)' }} />
+              </div>
             </div>
             <img className='w-4 cursor-pointer hover:scale-110 transition' src={assets.mini_player_icon} alt="Miniplayer" />
             <img onClick={() => setIsFullScreen(true)} className='w-4 cursor-pointer hover:scale-110 transition' src={assets.zoom_icon} alt="Fullscreen" />
