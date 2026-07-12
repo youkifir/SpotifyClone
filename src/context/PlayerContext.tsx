@@ -51,6 +51,10 @@ interface PlayerContextType {
   addSongs: (songs: Song[]) => void
   setQueue: (songs: Song[]) => void
   clearQueue: () => void
+  // Список, за яким зараз рухаються next/previous/shuffle: або явна черга
+  // (наприклад, трек-лист плейлиста), або весь каталог, якщо черга не задана.
+  // Потрібен для панелі "Черга відтворення" зліва від гучності.
+  activeQueue: Song[]
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -344,6 +348,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     addSongs,
     setQueue,
     clearQueue,
+    activeQueue: activeList,
   }
 
   return (

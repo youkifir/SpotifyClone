@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext'
+import { LANGUAGES } from '../i18n/translations'
 import { useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar'
 
@@ -10,8 +12,10 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth()
+  const { t, language, setLanguage } = useLanguage()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [langMenuOpen, setLangMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Закриваємо меню при кліку поза ним
@@ -19,6 +23,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
+        setLangMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -77,7 +82,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
       {/* Правий блок — профіль */}
       <div className='flex items-center justify-end gap-2 sm:gap-3'>
         <button className='bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 hover:bg-neutral-200 transition hidden xl:block shadow-sm'>
-          Watch about Premium
+          {t('watchPremium')}
         </button>
 
         {/* Дзвіночок */}
@@ -122,7 +127,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                     <path d="M2 17l10 5 10-5" />
                     <path d="M2 12l10 5 10-5" />
                   </svg>
-                  Адмін панель
+                  {t('adminPanel')}
                 </button>
               )}
 
@@ -135,7 +140,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
                   </svg>
-                  Моя студія
+                  {t('myStudio')}
                 </button>
               )}
 
@@ -148,8 +153,45 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
-                Профіль
+                {t('profile')}
               </button>
+
+              <div className='border-t border-[#3e3e3e] mt-1'></div>
+
+              {/* Мова */}
+              <div className='relative'>
+                <button
+                  onClick={() => setLangMenuOpen((o) => !o)}
+                  className='w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-neutral-300 hover:text-white hover:bg-[#333333] transition text-left'
+                >
+                  <span className='flex items-center gap-3'>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="2" y1="12" x2="22" y2="12" />
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                    {t('language')}
+                  </span>
+                  <span className='text-xs text-neutral-500'>{language.toUpperCase()}</span>
+                </button>
+
+                {langMenuOpen && (
+                  <div className='pb-1'>
+                    {LANGUAGES.map((lng) => (
+                      <button
+                        key={lng.code}
+                        onClick={() => { setLanguage(lng.code); setLangMenuOpen(false) }}
+                        className={`w-full flex items-center justify-between pl-11 pr-4 py-2 text-sm transition text-left ${
+                          language === lng.code ? 'text-[#1db954]' : 'text-neutral-400 hover:text-white'
+                        } hover:bg-[#333333]`}
+                      >
+                        {lng.label}
+                        {language === lng.code && <span>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className='border-t border-[#3e3e3e] mt-1'></div>
 
@@ -163,7 +205,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   <polyline points="16 17 21 12 16 7" />
                   <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
-                Вийти
+                {t('logout')}
               </button>
             </div>
           )}
