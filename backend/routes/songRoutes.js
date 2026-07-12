@@ -6,7 +6,6 @@ const {
   getGenres, updateSong, deleteSong, getSongLyrics,
 } = require('../controllers/songController');
 const { protect, isAdmin, isMusician } = require('../middleware/auth');
-=======
 const { getSongs, getSongById, searchSongs, searchItunesPreview, createSong, getGenres, updateSong, deleteSong, getSongLyrics, getArtistSongs } = require('../controllers/songController');
 const { protect, isAdmin } = require('../middleware/auth');
 
