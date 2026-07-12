@@ -106,6 +106,7 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
   return (
     <div
       className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4"
       onClick={resetAndClose}
     >
       <div
@@ -157,7 +158,6 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
               placeholder="Мій плейлист"
             />
           </div>
-
           {/* Перемикач публічності */}
           <div className="flex items-center justify-between px-1">
             <div>
@@ -178,7 +178,6 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
               />
             </button>
           </div>
-
           <div className="flex gap-3 mt-2">
             <button
               type="button"
@@ -201,4 +200,5 @@ function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModal
   )
 }
 
+export default CreatePlaylistModal
 export default CreatePlaylistModal

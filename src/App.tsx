@@ -12,6 +12,7 @@ import ProfilePage from './pages/ProfilePage'
 import ArtistPage from './pages/ArtistPage'
 import PlaylistPage from './pages/PlaylistPage'
 import MusicianPage from './pages/MusicianPage'
+import PlaylistPage from './pages/PlaylistPage'
 import { PlayerContextProvider } from './context/PlayerContext'
 import { useAuth } from './context/AuthContext'
 
@@ -45,8 +46,12 @@ function App() {
               <Route path="/admin"        element={token ? <AdminPanel />  : <Navigate to="/login" />} />
               <Route path="/profile"      element={token ? <ProfilePage /> : <Navigate to="/login" />} />
               <Route path="/musician"     element={token ? <MusicianPage /> : <Navigate to="/login" />} />
-
-              <Route path="/login"    element={!token ? <AuthPage isLoginMode={true}  /> : <Navigate to="/" />} />
+              <Route path="/" element={token ? <Home /> : <Navigate to="/login" />} />
+              <Route path="/album/:id" element={token ? <AlbumPage /> : <Navigate to="/login" />} />
+              <Route path="/playlist/:id" element={token ? <PlaylistPage /> : <Navigate to="/login" />} />
+              <Route path="/admin" element={token ? <AdminPanel /> : <Navigate to="/login" />} />
+              <Route path="/profile" element={token ? <ProfilePage /> : <Navigate to="/login" />} />
+              <Route path="/login" element={!token ? <AuthPage isLoginMode={true} /> : <Navigate to="/" />} />
               <Route path="/register" element={!token ? <AuthPage isLoginMode={false} /> : <Navigate to="/" />} />
             </Routes>
           </div>

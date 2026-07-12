@@ -98,6 +98,7 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
 
   return (
     <div className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div
         className="bg-[#181818] border border-zinc-700 rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -158,4 +159,5 @@ function AddSongsModal({ isOpen, playlistId, existingSongIds, onClose, onAdded }
   )
 }
 
+export default AddSongsModal
 export default AddSongsModal
