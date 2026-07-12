@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { apiFetch, isOfflineError } from '../utils/apiError'
 import { ErrorScreen, LoadingScreen, EmptyScreen } from '../components/StateScreens'
 import { useLanguage } from '../context/LanguageContext'
+import { addRecentlyPlayed } from '../hooks/useRecentlyPlayed'
 
 interface Album {
   id: string | number
@@ -48,7 +49,7 @@ function AlbumPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { track, playStatus, playWithId, play, pause, songsData, addSongs } = usePlayer()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
 
   const { t } = useLanguage()
   const [album, setAlbum] = useState<Album | null>(null)
@@ -70,7 +71,19 @@ function AlbumPage() {
       const res = await r.json()
       const fetchedAlbum = res.data || res
       if (fetchedAlbum?._id || fetchedAlbum?.id) {
-        setAlbum({ ...fetchedAlbum, id: fetchedAlbum.id || fetchedAlbum._id })
+        const normalizedAlbum = { ...fetchedAlbum, id: fetchedAlbum.id || fetchedAlbum._id }
+        setAlbum(normalizedAlbum)
+
+        // Позначаємо альбом як "недавно прослуханий" на головній сторінці
+        addRecentlyPlayed(user?.id, {
+          id: String(normalizedAlbum.id),
+          type: 'album',
+          name: normalizedAlbum.name,
+          desc: t('albumLabel2'),
+          image: normalizedAlbum.image?.startsWith('http')
+            ? normalizedAlbum.image
+            : `http://localhost:5000/${normalizedAlbum.image}`,
+        })
       } else {
         setError(t('errorNotFound'))
       }
@@ -85,7 +98,7 @@ function AlbumPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, token, t])
+  }, [id, token, t, user])
 
   useEffect(() => { fetchAlbum() }, [fetchAlbum])
 

@@ -176,6 +176,10 @@ export const translations = {
     noArtists: 'Немає виконавців',
     noAvailablePlaylists: 'Немає доступних плейлистів',
     noAvailableTracks: 'Немає доступних треків',
+    recentlyPlayed: 'Нещодавно прослухані',
+    playlistLabel2: 'Плейлист',
+    albumLabel2: 'Альбом',
+    likedSongsLabel: 'Улюблені треки',
     // Error / network states
     errorNetwork: 'Немає з\'єднання з сервером. Перевір мережу.',
     errorTimeout: 'Сервер не відповідає. Спробуй пізніше.',
@@ -361,6 +365,10 @@ export const translations = {
     noArtists: 'Нет исполнителей',
     noAvailablePlaylists: 'Нет доступных плейлистов',
     noAvailableTracks: 'Нет доступных треков',
+    recentlyPlayed: 'Недавно прослушанные',
+    playlistLabel2: 'Плейлист',
+    albumLabel2: 'Альбом',
+    likedSongsLabel: 'Любимые треки',
     // Error / network states
     errorNetwork: 'Нет соединения с сервером. Проверьте сеть.',
     errorTimeout: 'Сервер не отвечает. Попробуйте позже.',
@@ -546,6 +554,10 @@ export const translations = {
     noArtists: 'No artists',
     noAvailablePlaylists: 'No playlists available',
     noAvailableTracks: 'No tracks available',
+    recentlyPlayed: 'Recently played',
+    playlistLabel2: 'Playlist',
+    albumLabel2: 'Album',
+    likedSongsLabel: 'Liked Songs',
     // Error / network states
     errorNetwork: 'Cannot reach the server. Check your network.',
     errorTimeout: 'Server is not responding. Try again later.',

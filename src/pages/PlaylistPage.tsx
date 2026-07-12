@@ -11,6 +11,7 @@ import type { Song } from '../context/PlayerContext'
 import { apiFetch, isOfflineError } from '../utils/apiError'
 import { ErrorScreen, LoadingScreen } from '../components/StateScreens'
 import { useLanguage } from '../context/LanguageContext'
+import { addRecentlyPlayed } from '../hooks/useRecentlyPlayed'
 
 interface PlaylistDetail extends Omit<Playlist, 'songs'> {
   songs: ApiSong[]
@@ -28,7 +29,7 @@ const resolveUrl = (path: string) => {
 
 function PlaylistPage() {
   const { id } = useParams()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const { track, playStatus, playWithId, play, pause, refreshSongs, setQueue, clearQueue, addSongs } = usePlayer()
 
   const { t } = useLanguage()
@@ -60,7 +61,22 @@ function PlaylistPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       const resData = await response.json()
-      setPlaylist(resData.data || resData)
+      const loadedPlaylist = resData.data || resData
+      setPlaylist(loadedPlaylist)
+
+      // Позначаємо плейлист як "недавно прослуханий" на головній сторінці
+      if (loadedPlaylist?._id) {
+        addRecentlyPlayed(user?.id, {
+          id: loadedPlaylist._id,
+          type: 'playlist',
+          name: loadedPlaylist.name,
+          desc: loadedPlaylist.isLikedSongs
+            ? ''
+            : `${t('playlistLabel2')} • ${loadedPlaylist.songs?.length ?? 0} ${loadedPlaylist.songs?.length === 1 ? 'трек' : 'треків'}`,
+          image: loadedPlaylist.image ? resolveUrl(loadedPlaylist.image) : '',
+          isLikedSongs: !!loadedPlaylist.isLikedSongs,
+        })
+      }
     } catch (error: any) {
       console.error('Помилка завантаження плейлиста:', error)
       if (error?.status === 404 || error?.status === 403) {
@@ -74,7 +90,7 @@ function PlaylistPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, token, t])
+  }, [id, token, t, user])
 
   useEffect(() => { fetchPlaylist() }, [fetchPlaylist])
 
