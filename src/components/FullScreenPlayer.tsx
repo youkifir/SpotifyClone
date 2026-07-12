@@ -34,6 +34,7 @@ export const FullScreenPlayer: React.FC = () => {
   } = usePlayer()
 
   const seekBgRef = useRef<HTMLDivElement>(null)
+  const mobileSeekBgRef = useRef<HTMLDivElement>(null)
   const volumeBgRef = useRef<HTMLDivElement>(null)
   const lyricsRef = useRef<HTMLDivElement>(null)
   const activeLineRef = useRef<HTMLParagraphElement>(null)
@@ -41,6 +42,8 @@ export const FullScreenPlayer: React.FC = () => {
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [isDraggingVolume, setIsDraggingVolume] = useState(false)
+  const [isDraggingSeek, setIsDraggingSeek] = useState(false) // Состояние перетаскивания таймлайна
+  const [mobileTab, setMobileTab] = useState<'player' | 'lyrics'>('player')
 
   // ── LRCLIB синхронізований текст ──────────────────────────
   const { lines: lrcLines, loading: lrcLoading } = useLyrics(
@@ -49,7 +52,7 @@ export const FullScreenPlayer: React.FC = () => {
   )
   const activeIndex = useActiveLyricIndex(lrcLines, currentSeconds)
 
-  // ── Функция расчета громкости (ПЕРЕНЕСЕНО НАВЕРХ) ──
+  // ── Функция расчета громкости ──
   const updateVolumePosition = useCallback((clientX: number) => {
     const el = volumeBgRef.current
     if (!el) return
@@ -58,26 +61,56 @@ export const FullScreenPlayer: React.FC = () => {
     changeVolume(Math.min(1, Math.max(0, ratio)))
   }, [changeVolume])
 
-  // ── Слушатель мыши для плавного изменения громкости (ПЕРЕНЕСЕНО НАВЕРХ) ──
+  // ── Функция расчета позиции трека ──
+  const updateSeekPosition = useCallback((clientX: number) => {
+    // Определяем, какой из двух прогресс-баров сейчас активен/виден
+    const el = seekBgRef.current?.getBoundingClientRect().width ? seekBgRef.current : mobileSeekBgRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const ratio = (clientX - rect.left) / rect.width
+    seekTo(Math.min(1, Math.max(0, ratio)))
+  }, [seekTo])
+
+  // Handler для начала перетаскивания таймлайна (мышь и тач)
+  const handleSeekMouseDown = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    setIsDraggingSeek(true)
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    updateSeekPosition(clientX)
+  }
+
+  // ── Глобальные слушатели для громкости и перемотки трека ──
   useEffect(() => {
-    if (!isDraggingVolume) return
+    if (!isDraggingVolume && !isDraggingSeek) return
 
     const handleMouseMove = (e: MouseEvent) => {
-      updateVolumePosition(e.clientX)
+      if (isDraggingVolume) updateVolumePosition(e.clientX)
+      if (isDraggingSeek) updateSeekPosition(e.clientX)
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        if (isDraggingVolume) updateVolumePosition(e.touches[0].clientX)
+        if (isDraggingSeek) updateSeekPosition(e.touches[0].clientX)
+      }
     }
 
     const handleMouseUp = () => {
       setIsDraggingVolume(false)
+      setIsDraggingSeek(false)
     }
 
     window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('touchmove', handleTouchMove, { passive: true })
     window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('touchend', handleMouseUp)
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('touchmove', handleTouchMove)
       window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('touchend', handleMouseUp)
     }
-  }, [isDraggingVolume, updateVolumePosition])
+  }, [isDraggingVolume, isDraggingSeek, updateVolumePosition, updateSeekPosition])
 
   // Плавний скрол до активного рядка (тільки якщо юзер не скролить вручну)
   useEffect(() => {
@@ -138,20 +171,12 @@ export const FullScreenPlayer: React.FC = () => {
     scrollTimerRef.current = setTimeout(() => { userScrolledRef.current = false }, 4000)
   }
 
-  const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const el = seekBgRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
-    seekTo(Math.min(1, Math.max(0, ratio)))
-  }
-
-  const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     setIsDraggingVolume(true)
-    updateVolumePosition(e.clientX)
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+    updateVolumePosition(clientX)
   }
 
-  // 🔴 ТЕПЕРЬ ВСЕ УСЛОВНЫЕ ПРОВЕРКИ И РАННИЕ ВОЗВРАТЫ ИДУТ ТОЛЬКО ЗДЕСЬ
   if (!isFullScreen || !track) return null
 
   const staticLines = staticLyrics ? staticLyrics.split('\n').map(l => l.trim()) : []
@@ -188,214 +213,243 @@ export const FullScreenPlayer: React.FC = () => {
 
   const hasLrc = !lrcLoading && lrcLines && lrcLines.length > 0
 
-  return (
-    <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-12 text-white transition-all duration-300 select-none">
+  const renderLyricsContent = (isMobileLayout: boolean) => (
+    <div className="flex-1 w-full h-full min-h-0 flex flex-col">
+      <div className="hidden md:flex items-center gap-2 mb-4 shrink-0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2">
+          <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+        </svg>
+        <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Текст пісні</h2>
+        {lrcLoading && <span className="ml-2 text-xs text-neutral-500 animate-pulse">Завантаження...</span>}
+        {hasLrc && <span className="ml-2 text-xs text-[#1db954] font-semibold">● синхронізовано</span>}
+      </div>
 
-      {/* Верхня панель дій */}
+      <div
+        ref={isMobileLayout ? undefined : lyricsRef}
+        onScroll={handleUserScroll}
+        className={`overflow-y-auto flex-1 pr-2 custom-scrollbar ${isMobileLayout ? 'max-h-[55vh] text-center md:text-left' : 'max-h-[65vh]'}`}
+        style={{ scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}
+      >
+        {lrcLoading && (
+          <div className="flex flex-col gap-3 mt-4 items-center md:items-start">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="h-5 rounded-full bg-neutral-800 animate-pulse"
+                style={{ width: `${60 + (i * 7) % 30}%`, opacity: 1 - i * 0.08 }} />
+            ))}
+          </div>
+        )}
+
+        {hasLrc && (
+          <div className="flex flex-col gap-3 pb-20">
+            {lrcLines!.map((line, i) => {
+              const isActive = i === activeIndex
+              const isPast = i < activeIndex
+              return (
+                <p
+                  key={i}
+                  ref={isActive && !isMobileLayout ? activeLineRef : undefined}
+                  onClick={() => seekTo(line.time / (totalTime.minute * 60 + totalTime.second || 1))}
+                  className="transition-all duration-300 leading-relaxed cursor-pointer select-text"
+                  style={{
+                    fontSize: isActive ? (isMobileLayout ? '1.4rem' : '1.6rem') : (isMobileLayout ? '1.1rem' : '1.2rem'),
+                    fontWeight: isActive ? 800 : 500,
+                    color: isActive ? '#ffffff' : isPast ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.45)',
+                    transform: isActive ? 'scale(1.02)' : 'scale(1)',
+                    transformOrigin: isMobileLayout ? 'center center' : 'left center',
+                    textShadow: isActive ? '0 0 24px rgba(29,185,84,0.5)' : 'none',
+                  }}
+                >
+                  {line.text}
+                </p>
+              )
+            })}
+          </div>
+        )}
+
+        {!lrcLoading && !hasLrc && staticStatus === 'loading' && (
+          <div className="flex flex-col gap-3 mt-4 items-center md:items-start">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-5 rounded-full bg-neutral-800 animate-pulse" style={{ width: `${55 + (i * 7) % 35}%` }} />
+            ))}
+          </div>
+        )}
+
+        {!lrcLoading && !hasLrc && staticStatus === 'found' && staticLines.length > 0 && (
+          <div className="flex flex-col gap-2 pb-20">
+            {displayLines.map(({ line, idx, i }) => {
+              if (line.length === 0) return <div key={i} className="h-4" />
+              const isActive = idx === currentLineIndex
+              const isPast = idx < currentLineIndex
+              return (
+                <p
+                  key={i}
+                  ref={isActive && !isMobileLayout ? activeLineRef : undefined}
+                  className={`text-lg sm:text-xl md:text-3xl font-black leading-snug tracking-tight transition-all duration-500 py-0.5 ${isActive ? 'text-white scale-[1.02] origin-center md:origin-left'
+                    : isPast ? 'text-neutral-600' : 'text-neutral-500 hover:text-neutral-300'
+                    }`}
+                >
+                  {line}
+                </p>
+              )
+            })}
+          </div>
+        )}
+
+        {!lrcLoading && !hasLrc && (staticStatus === 'not_found' || staticStatus === 'error') && (
+          <div className="flex flex-col items-center md:items-start gap-3 mt-4">
+            <p className="text-xl sm:text-2xl font-black text-neutral-300 text-center md:text-left">
+              Текст пісні для цього треку відсутній.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-12 text-white transition-all duration-300 select-none overflow-y-auto md:overflow-hidden">
+
+      {/* Шапка плеера */}
       <div className="flex justify-between items-center w-full max-w-6xl mx-auto mb-4 md:mb-8 shrink-0">
         <button
           onClick={() => setIsFullScreen(false)}
-          className="text-neutral-400 hover:text-white hover:scale-105 transition flex items-center gap-2 font-medium"
+          className="text-neutral-400 hover:text-white hover:scale-105 transition flex items-center gap-2 font-medium text-sm md:text-base"
         >
-          ✕ Згорнути
+          ✕ <span className="hidden sm:inline">Згорнути</span>
         </button>
-        <p className="text-xs uppercase tracking-widest text-neutral-400 font-bold">Зараз грає</p>
-        <div className="w-16"></div>
+
+        <div className="flex md:hidden bg-neutral-900 rounded-full p-1 border border-neutral-800">
+          <button
+            onClick={() => setMobileTab('player')}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${mobileTab === 'player' ? 'bg-white text-black' : 'text-neutral-400'}`}
+          >
+            Трек
+          </button>
+          <button
+            onClick={() => setMobileTab('lyrics')}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${mobileTab === 'lyrics' ? 'bg-white text-black' : 'text-neutral-400'}`}
+          >
+            Текст
+          </button>
+        </div>
+
+        <p className="hidden md:block text-xs uppercase tracking-widest text-neutral-400 font-bold">Зараз грає</p>
+        <div className="w-16 hidden md:block"></div>
       </div>
 
-      {/* Центральний контент */}
-      <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 flex-1 max-w-6xl mx-auto w-full overflow-hidden min-h-0">
-
-        {/* Ліва сторона */}
-        <div className="flex flex-col items-center md:items-start text-center md:text-left gap-4 sm:gap-6 w-full md:w-2/5 shrink-0">
+      {/* ── ДЕСТКОПНАЯ СЕТКА ── */}
+      <div className="hidden md:flex flex-row items-center justify-center gap-12 flex-1 max-w-6xl mx-auto w-full overflow-hidden min-h-0">
+        <div className="flex flex-col items-start text-left gap-6 w-2/5 shrink-0">
           <img
-            className="w-48 h-48 sm:w-64 sm:h-64 lg:w-96 lg:h-96 rounded-lg object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] transition-transform hover:scale-[1.02]"
+            className="w-72 h-72 lg:w-96 lg:h-96 rounded-lg object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)]"
             src={trackImageUrl}
             alt={track.name}
           />
           <div className="min-w-0 w-full">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight line-clamp-2">{track.name}</h1>
-            <p className="text-neutral-400 text-sm sm:text-base mt-1 line-clamp-1">
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight line-clamp-2">{track.name}</h1>
+            <p className="text-neutral-400 text-base mt-1 line-clamp-1">
               {(track as any).artist || track.desc?.slice(0, 40)}
             </p>
           </div>
         </div>
-
-        {/* Права сторона */}
-        <div className="flex-1 w-full h-full min-h-0 flex flex-col">
-          <div className="flex items-center gap-2 mb-4 shrink-0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2">
-              <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-            </svg>
-            <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Текст пісні</h2>
-            {lrcLoading && (
-              <span className="ml-2 flex items-center gap-1.5 text-xs text-neutral-500">
-                <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" />
-                </svg>
-                Завантаження...
-              </span>
-            )}
-            {hasLrc && (
-              <span className="ml-2 text-xs text-[#1db954] font-semibold">● синхронізовано</span>
-            )}
-          </div>
-
-          <div
-            ref={lyricsRef}
-            onScroll={handleUserScroll}
-            className="overflow-y-auto flex-1 pr-2 max-h-[35vh] md:max-h-[65vh] custom-scrollbar"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#333 transparent' }}
-          >
-            {lrcLoading && (
-              <div className="flex flex-col gap-3 mt-4">
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} className="h-5 rounded-full bg-neutral-800 animate-pulse"
-                    style={{ width: `${55 + (i * 7) % 35}%`, opacity: 1 - i * 0.08 }} />
-                ))}
-              </div>
-            )}
-
-            {hasLrc && (
-              <div className="flex flex-col gap-2 pb-20">
-                {lrcLines!.map((line, i) => {
-                  const isActive = i === activeIndex
-                  const isPast = i < activeIndex
-                  return (
-                    <p
-                      key={i}
-                      ref={isActive ? activeLineRef : undefined}
-                      onClick={() => seekTo(line.time / (totalTime.minute * 60 + totalTime.second || 1))}
-                      className="transition-all duration-300 leading-relaxed cursor-pointer select-text"
-                      style={{
-                        fontSize: isActive ? '1.6rem' : '1.2rem',
-                        fontWeight: isActive ? 800 : 500,
-                        color: isActive ? '#ffffff'
-                          : isPast ? 'rgba(255,255,255,0.25)'
-                            : 'rgba(255,255,255,0.45)',
-                        transform: isActive ? 'scale(1.02)' : 'scale(1)',
-                        transformOrigin: 'left center',
-                        textShadow: isActive ? '0 0 24px rgba(29,185,84,0.5)' : 'none',
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {line.text}
-                    </p>
-                  )
-                })}
-              </div>
-            )}
-
-            {!lrcLoading && !hasLrc && staticStatus === 'loading' && (
-              <div className="flex flex-col gap-3 mt-4">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-5 rounded-full bg-neutral-800 animate-pulse"
-                    style={{ width: `${55 + (i * 7) % 35}%` }} />
-                ))}
-              </div>
-            )}
-
-            {!lrcLoading && !hasLrc && staticStatus === 'found' && staticLines.length > 0 && (
-              <div className="flex flex-col gap-0.5 pb-20">
-                {displayLines.map(({ line, idx, i }) => {
-                  if (line.length === 0) return <div key={i} className="h-4" />
-                  const isActive = idx === currentLineIndex
-                  const isPast = idx < currentLineIndex
-                  return (
-                    <p
-                      key={i}
-                      ref={isActive ? activeLineRef : undefined}
-                      className={`text-xl sm:text-2xl md:text-3xl font-black leading-snug tracking-tight cursor-default select-text transition-all duration-500 py-0.5 ${isActive ? 'text-white scale-[1.02] origin-left'
-                        : isPast ? 'text-neutral-600'
-                          : 'text-neutral-500 hover:text-neutral-300'
-                        }`}
-                    >
-                      {line}
-                    </p>
-                  )
-                })}
-              </div>
-            )}
-
-            {!lrcLoading && !hasLrc && (staticStatus === 'not_found' || staticStatus === 'error') && (
-              <div className="flex flex-col items-start gap-3 mt-4">
-                <p className="text-2xl sm:text-3xl font-black text-neutral-300">
-                  Текст пісні для цього треку відсутній.
-                </p>
-                <p className="text-sm text-neutral-600 mt-1">
-                  {staticStatus === 'error' ? 'Помилка при завантаженні. Спробуй пізніше.'
-                    : 'Спробуй додати текст вручну через редагування треку.'}
-                </p>
-              </div>
-            )}
-
-            {!lrcLoading && !hasLrc && staticStatus === 'idle' && (
-              <p className="text-2xl font-black text-neutral-600">...</p>
-            )}
-          </div>
-        </div>
+        {renderLyricsContent(false)}
       </div>
 
-      {/* Керування відтворенням */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-2 pt-6 shrink-0">
-        <div className="flex items-center gap-3 w-full text-xs text-[#b3b3b3]">
+      {/* ── МОБИЛЬНАЯ СЕТКА ── */}
+      <div className="flex md:hidden flex-col flex-1 items-center justify-center w-full min-h-0">
+        {mobileTab === 'player' ? (
+          <div className="flex flex-col items-center justify-center text-center gap-6 w-full py-4 animate-fadeIn">
+            <img
+              className="w-64 h-64 sm:w-80 sm:h-80 rounded-xl object-cover shadow-[0_20px_40px_rgba(0,0,0,0.6)]"
+              src={trackImageUrl}
+              alt={track.name}
+            />
+            <div className="w-full px-4 mt-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight line-clamp-1">{track.name}</h1>
+              <p className="text-neutral-400 text-sm sm:text-base mt-1 line-clamp-1">
+                {(track as any).artist || track.desc?.slice(0, 40)}
+              </p>
+            </div>
+
+            {/* Компактный прогресс-бар для мобилок с поддержкой тача */}
+            <div className="w-full px-4 flex items-center gap-3 text-[10px] text-neutral-400 mt-4">
+              <p className="w-8 text-right">{formatTime(currentTime)}</p>
+              <div
+                ref={mobileSeekBgRef}
+                onMouseDown={handleSeekMouseDown}
+                onTouchStart={handleSeekMouseDown}
+                className="flex-1 bg-neutral-800 h-1.5 rounded-full relative cursor-pointer select-none"
+              >
+                <div className="h-1.5 rounded-full bg-white" style={{ width: `${progress * 100}%` }}>
+                  <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white transition-opacity ${isDraggingSeek ? 'opacity-100 bg-[#1db954]' : 'opacity-0'
+                    }`} />
+                </div>
+              </div>
+              <p className="w-8 text-left">{formatTime(totalTime)}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full h-full px-2 py-4 overflow-hidden flex flex-col animate-fadeIn">
+            {renderLyricsContent(true)}
+          </div>
+        )}
+      </div>
+
+      {/* Панель управления */}
+      <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-4 pt-6 shrink-0 border-t border-neutral-900 md:border-none">
+
+        {/* Стандартный прогресс-бар для десктопа с поддержкой зажатия мыши */}
+        <div className="hidden md:flex items-center gap-3 w-full text-xs text-[#b3b3b3]">
           <p className="w-9 text-right shrink-0">{formatTime(currentTime)}</p>
-          <div ref={seekBgRef} onClick={handleSeekClick}
-            className="flex-1 bg-[#4d4d4d] h-1 rounded-full cursor-pointer group relative">
-            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative"
-              style={{ width: `${progress * 100}%` }}>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white opacity-0 group-hover:opacity-100 transition" />
+          <div
+            ref={seekBgRef}
+            onMouseDown={handleSeekMouseDown}
+            className="flex-1 bg-[#4d4d4d] h-1 rounded-full cursor-pointer group relative select-none"
+          >
+            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative" style={{ width: `${progress * 100}%` }}>
+              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white transition-opacity ${isDraggingSeek ? 'opacity-100 bg-[#1db954]' : 'opacity-0 group-hover:opacity-100'
+                }`} />
             </div>
           </div>
           <p className="w-9 shrink-0">{formatTime(totalTime)}</p>
         </div>
 
-        <div className="flex items-center gap-6 sm:gap-8">
+        {/* Кнопки управления */}
+        <div className="flex items-center gap-6 sm:gap-8 md:gap-10">
           <img onClick={toggleShuffle}
-            className={`w-4 h-4 cursor-pointer transition hover:scale-110 ${shuffle ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+            className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer transition hover:scale-110 ${shuffle ? 'opacity-100' : 'opacity-70'}`}
             style={shuffle ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
             src={assets.shuffle_icon}
             alt="Shuffle"
           />
-          <img onClick={previous} className="w-5 h-5 cursor-pointer opacity-80 hover:opacity-100 hover:scale-110 transition" src={assets.prev_icon} alt="Previous" />
+          <img onClick={previous} className="w-5 h-5 md:w-6 md:h-6 cursor-pointer opacity-80 hover:opacity-100 hover:scale-110 transition" src={assets.prev_icon} alt="Previous" />
           {playStatus
-            ? <img onClick={pause} className="w-11 h-11 cursor-pointer hover:scale-105 transition" src={assets.pause_icon} alt="Pause" />
-            : <img onClick={play} className="w-11 h-11 cursor-pointer hover:scale-105 transition" src={assets.play_icon} alt="Play" />
+            ? <img onClick={pause} className="w-12 h-12 md:w-14 md:h-14 cursor-pointer hover:scale-105 transition" src={assets.pause_icon} alt="Pause" />
+            : <img onClick={play} className="w-12 h-12 md:w-14 md:h-14 cursor-pointer hover:scale-105 transition" src={assets.play_icon} alt="Play" />
           }
-          <img onClick={next} className="w-5 h-5 cursor-pointer opacity-80 hover:opacity-100 hover:scale-110 transition" src={assets.next_icon} alt="Next" />
+          <img onClick={next} className="w-5 h-5 md:w-6 md:h-6 cursor-pointer opacity-80 hover:opacity-100 hover:scale-110 transition" src={assets.next_icon} alt="Next" />
           <img onClick={toggleLoop}
-            className={`w-4 h-4 cursor-pointer transition hover:scale-110 ${loop ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+            className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer transition hover:scale-110 ${loop ? 'opacity-100' : 'opacity-70'}`}
             style={loop ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
             src={assets.loop_icon}
             alt="Loop"
           />
         </div>
 
-        {/* Гучність */}
-        <div className="flex items-center gap-3 w-full max-w-xs mt-2">
-          <button onClick={() => changeVolume(volume > 0 ? 0 : 0.7)}
-            className="shrink-0 text-neutral-400 hover:text-white transition">
+        {/* Громкость */}
+        <div className="hidden md:flex items-center gap-3 w-full max-w-xs mt-2">
+          <button onClick={() => changeVolume(volume > 0 ? 0 : 0.7)} className="shrink-0 text-neutral-400 hover:text-white transition">
             {volume === 0 ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" />
-              </svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>
             ) : volume < 0.5 ? (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-              </svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
             ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-              </svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" /></svg>
             )}
           </button>
-          <div ref={volumeBgRef} onMouseDown={handleVolumeMouseDown}
+          <div ref={volumeBgRef} onMouseDown={handleVolumeMouseDown} onTouchStart={handleVolumeMouseDown}
             className="flex-1 bg-[#4d4d4d] h-1 rounded-full cursor-pointer group relative flex items-center">
-            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative flex items-center"
-              style={{ width: `${volume * 100}%` }}>
+            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative flex items-center" style={{ width: `${volume * 100}%` }}>
               <div className={`absolute right-0 w-3 h-3 rounded-full bg-white transition-opacity ${isDraggingVolume ? 'opacity-100 bg-[#1db954]' : 'opacity-0 group-hover:opacity-100'}`} style={{ transform: 'translateX(50%)' }} />
             </div>
           </div>
