@@ -4,10 +4,11 @@ const playlistSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
-    image: { type: String, default: '' }, // если пусто — на фронте можно ставить дефолтную обложку
+    image: { type: String, default: '' },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     songs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Song' }],
-    isPublic: { type: Boolean, default: false }, // на будущее: публичные плейлисты, которые видно другим
+    isPublic: { type: Boolean, default: false },
+    isLikedSongs: { type: Boolean, default: false }, // спеціальний системний плейлист
   },
   { timestamps: true }
 );

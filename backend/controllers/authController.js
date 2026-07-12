@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const Playlist = require('../models/Playlist');
 
 const generateToken = (user) => {
   return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
@@ -95,7 +96,7 @@ const getMe = async (req, res, next) => {
   }
 };
 
-// PUT /api/auth/profile — оновлення імені, пошти, паролю
+// PUT /api/auth/profile
 const updateProfile = async (req, res, next) => {
   try {
     const { username, email, currentPassword, newPassword } = req.body;
@@ -103,12 +104,10 @@ const updateProfile = async (req, res, next) => {
     const user = await User.findById(req.user.id).select('+password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Оновлення імені
     if (username && username.trim()) {
       user.username = username.trim();
     }
 
-    // Оновлення email
     if (email && email.trim()) {
       const emailLower = email.toLowerCase().trim();
       if (emailLower !== user.email) {
@@ -120,7 +119,6 @@ const updateProfile = async (req, res, next) => {
       }
     }
 
-    // Зміна паролю
     if (newPassword) {
       if (!currentPassword) {
         return res.status(400).json({ success: false, message: 'Введіть поточний пароль' });
@@ -137,8 +135,6 @@ const updateProfile = async (req, res, next) => {
     }
 
     await user.save();
-
-    // Генеруємо новий токен якщо змінились дані
     const newToken = generateToken(user);
 
     res.json({
@@ -152,7 +148,64 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-// GET /api/auth/users — admin only: list all users
+// GET /api/auth/likes — повертає список лайкнутих пісень
+const getLikedSongs = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).populate('likedSongs');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, data: user.likedSongs });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/auth/likes/:songId — toggle лайк + автоматично створює/оновлює плейлист "Liked Songs"
+const toggleLike = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const songId = req.params.songId;
+    const alreadyLiked = user.likedSongs.some((id) => id.toString() === songId);
+
+    if (alreadyLiked) {
+      // Прибираємо лайк
+      user.likedSongs = user.likedSongs.filter((id) => id.toString() !== songId);
+    } else {
+      // Додаємо лайк
+      user.likedSongs.push(songId);
+    }
+    await user.save();
+
+    // --- Синхронізуємо плейлист "Liked Songs" ---
+    let likedPlaylist = await Playlist.findOne({ owner: user._id, isLikedSongs: true });
+
+    if (!likedPlaylist) {
+      // Перший лайк — створюємо плейлист
+      likedPlaylist = await Playlist.create({
+        name: 'Liked Songs',
+        description: 'Songs you liked',
+        owner: user._id,
+        isLikedSongs: true,
+        isPublic: false,
+        songs: user.likedSongs,
+      });
+    } else {
+      likedPlaylist.songs = user.likedSongs;
+      await likedPlaylist.save();
+    }
+
+    res.json({
+      success: true,
+      liked: !alreadyLiked,
+      likedSongsPlaylistId: likedPlaylist._id,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/auth/users — admin only
 const getUsers = async (req, res, next) => {
   try {
     const users = await User.find({}).sort({ createdAt: -1 });
@@ -171,7 +224,7 @@ const getUsers = async (req, res, next) => {
   }
 };
 
-// DELETE /api/auth/users/:id — admin only: delete a user (cannot delete self)
+// DELETE /api/auth/users/:id — admin only
 const deleteUser = async (req, res, next) => {
   try {
     if (String(req.params.id) === String(req.user.id)) {
@@ -185,4 +238,4 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe, updateProfile, getUsers, deleteUser };
+module.exports = { register, login, getMe, updateProfile, getLikedSongs, toggleLike, getUsers, deleteUser };

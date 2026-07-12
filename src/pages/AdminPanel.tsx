@@ -29,15 +29,26 @@ interface Song {
   source: 'local' | 'itunes'
 }
 
-type Tab = 'albums' | 'songs' | 'users'
+type Tab = 'albums' | 'songs' | 'users' | 'musicians'
 type ModalMode = 'create' | 'edit'
 
 interface UserRecord {
   id: string
   username: string
   email: string
-  role: 'user' | 'admin'
+  role: 'user' | 'admin' | 'musician'
   createdAt: string
+}
+
+interface MusicianRequest {
+  _id: string
+  username: string
+  email: string
+  musicianRequest: {
+    status: 'pending' | 'approved' | 'rejected'
+    message: string
+    requestedAt: string
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -745,6 +756,10 @@ export default function AdminPanel() {
   const [usersLoading, setUsersLoading] = useState(false)
   const [userDeleteTarget, setUserDeleteTarget] = useState<{ id: string; name: string } | null>(null)
 
+  const [musicianRequests, setMusicianRequests] = useState<MusicianRequest[]>([])
+  const [requestsLoading, setRequestsLoading] = useState(false)
+  const [processingId, setProcessingId] = useState<string | null>(null)
+
   const [albumModal, setAlbumModal] = useState<{ mode: ModalMode; item?: Album } | null>(null)
   const [songModal, setSongModal] = useState<{ mode: ModalMode; item?: Song } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'album' | 'song'; id: string; name: string } | null>(null)
@@ -785,6 +800,42 @@ export default function AdminPanel() {
     }
   }
 
+  const fetchMusicianRequests = async () => {
+    if (!token) return
+    setRequestsLoading(true)
+    try {
+      const res = await fetch(`${API}/api/admin/musician-requests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      setMusicianRequests(data.data ?? [])
+    } catch {
+      showToast('Не вдалося завантажити заявки', false)
+    } finally {
+      setRequestsLoading(false)
+    }
+  }
+
+  const handleMusicianRequest = async (userId: string, action: 'approve' | 'reject') => {
+    if (!token || processingId) return
+    setProcessingId(userId)
+    try {
+      const res = await fetch(`${API}/api/admin/musician-requests/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Помилка')
+      showToast(action === 'approve' ? '🎵 Музиканта схвалено!' : 'Заявку відхилено')
+      fetchMusicianRequests()
+    } catch (err: any) {
+      showToast(err.message, false)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
   useEffect(() => {
     setLoadingData(true)
     Promise.all([fetchAlbums(), fetchSongs()]).finally(() => setLoadingData(false))
@@ -792,6 +843,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (tab === 'users') fetchUsers()
+    if (tab === 'musicians') fetchMusicianRequests()
   }, [tab])
 
   const handleDelete = async () => {
@@ -870,7 +922,7 @@ export default function AdminPanel() {
       {/* ── Tabs & Actions ── */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
         <div className="flex bg-[#181818] rounded-full p-1 gap-1">
-          {(['albums', 'songs', 'users'] as Tab[]).map((t) => (
+          {(['albums', 'songs', 'users', 'musicians'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -878,12 +930,21 @@ export default function AdminPanel() {
                 tab === t ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
-              {t === 'albums' ? 'Альбоми' : t === 'songs' ? 'Пісні' : 'Користувачі'}
+              {t === 'albums' ? 'Альбоми' : t === 'songs' ? 'Пісні' : t === 'users' ? 'Користувачі' : (
+                <span className="flex items-center gap-1.5">
+                  Заявки
+                  {musicianRequests.length > 0 && (
+                    <span className="bg-[#1db954] text-black text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                      {musicianRequests.length}
+                    </span>
+                  )}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {tab !== 'users' && (
+        {tab !== 'users' && tab !== 'musicians' && (
           <button
             onClick={() => tab === 'albums' ? setAlbumModal({ mode: 'create' }) : setSongModal({ mode: 'create' })}
             className="bg-[#1db954] hover:bg-[#1ed760] text-black px-5 py-2 rounded-full text-sm font-bold transition"
@@ -998,8 +1059,12 @@ export default function AdminPanel() {
                           <td className="py-3 px-4 text-white font-medium">{u.username}</td>
                           <td className="py-3 px-4">{u.email}</td>
                           <td className="py-3 px-4">
-                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${u.role === 'admin' ? 'bg-[#1db954]/20 text-[#1db954]' : 'bg-neutral-800 text-neutral-400'}`}>
-                              {u.role}
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                              u.role === 'admin' ? 'bg-[#1db954]/20 text-[#1db954]' :
+                              u.role === 'musician' ? 'bg-purple-500/20 text-purple-400' :
+                              'bg-neutral-800 text-neutral-400'
+                            }`}>
+                              {u.role === 'musician' ? '🎵 musician' : u.role}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap opacity-0 group-hover:opacity-100 transition">
@@ -1013,6 +1078,69 @@ export default function AdminPanel() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )
+            )}
+
+            {/* 4. MUSICIAN REQUESTS TAB */}
+            {tab === 'musicians' && (
+              requestsLoading ? (
+                <div className="py-16 text-center text-neutral-500 text-sm animate-pulse">Завантаження заявок...</div>
+              ) : musicianRequests.length === 0 ? (
+                <div className="flex flex-col items-center justify-center bg-[#121212] rounded-xl p-12 text-center border border-neutral-800/40">
+                  <div className="w-14 h-14 rounded-full bg-[#181818] flex items-center justify-center text-2xl mb-4">🎵</div>
+                  <p className="text-white font-bold text-base">Нових заявок немає</p>
+                  <p className="text-neutral-500 text-xs mt-1">Усі заявки музикантів розглянуто</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {musicianRequests.map((req) => (
+                    <div key={req._id} className="flex items-center gap-4 bg-[#181818] rounded-2xl p-4 border border-neutral-800/60">
+                      {/* Avatar */}
+                      <div className="w-11 h-11 rounded-full bg-[#282828] flex items-center justify-center font-bold text-white text-sm shrink-0 uppercase">
+                        {req.username.charAt(0)}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold text-sm truncate">{req.username}</p>
+                        <p className="text-neutral-500 text-xs truncate">{req.email}</p>
+                        {req.musicianRequest.requestedAt && (
+                          <p className="text-neutral-600 text-[10px] mt-0.5">
+                            Подано: {new Date(req.musicianRequest.requestedAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Status badge */}
+                      <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 shrink-0">
+                        ⏳ pending
+                      </span>
+
+                      {/* Action buttons */}
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => handleMusicianRequest(req._id, 'reject')}
+                          disabled={processingId === req._id}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold text-neutral-300 border border-neutral-700 hover:border-red-500/50 hover:text-red-400 transition disabled:opacity-40"
+                        >
+                          Відхилити
+                        </button>
+                        <button
+                          onClick={() => handleMusicianRequest(req._id, 'approve')}
+                          disabled={processingId === req._id}
+                          className="px-3 py-1.5 rounded-full text-xs font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-40 flex items-center gap-1.5"
+                        >
+                          {processingId === req._id ? (
+                            <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
+                            </svg>
+                          ) : null}
+                          ✓ Схвалити
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )
             )}

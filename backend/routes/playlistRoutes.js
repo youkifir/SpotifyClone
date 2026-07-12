@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getMyPlaylists,
+  getSharedPlaylists,
   getPlaylistById,
   createPlaylist,
   updatePlaylist,
@@ -17,6 +18,7 @@ const { protect } = require('../middleware/auth');
 router.use(protect);
 
 router.get('/my', getMyPlaylists);
+router.get('/shared', getSharedPlaylists);
 router.get('/:id', getPlaylistById);
 router.post('/', createPlaylist);
 router.put('/:id', updatePlaylist);
