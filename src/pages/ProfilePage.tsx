@@ -1,33 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
-import { useLike } from '../hooks/Uselike'
+import { useLanguage } from '../context/LanguageContext'
 
 const API = 'http://localhost:5000'
 
-function formatDate(dateStr?: string) {
+function formatDate(dateStr?: string, language = 'uk') {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('uk-UA', {
+  const locale = language === 'en' ? 'en-GB' : language === 'ru' ? 'ru-RU' : 'uk-UA'
+  return new Date(dateStr).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   })
 }
 
-interface LikedSong {
-  id: string
-  _id: string
-  name: string
-  artist?: string
-  image: string
-  file: string
-  desc: string
-  duration: string
-}
-
 // ─── Musician Request Button ──────────────────────────────────────────────────
 
-function MusicianRequestButton({ token }: { token: string | null }) {
+function MusicianRequestButton({ token, t }: { token: string | null; t: (key: any) => string }) {
   const [status, setStatus] = useState<'idle' | 'pending' | 'loading' | 'sent'>('idle')
   const [error, setError] = useState('')
 
@@ -68,7 +58,7 @@ function MusicianRequestButton({ token }: { token: string | null }) {
       {error && <p className="text-red-400 text-xs mb-1">{error}</p>}
       {status === 'pending' ? (
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
-          ⏳ Заявка на розгляді
+          {t('musicianRequestPending')}
         </span>
       ) : (
         <button
@@ -79,7 +69,7 @@ function MusicianRequestButton({ token }: { token: string | null }) {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
           </svg>
-          {status === 'loading' ? 'Відправляємо...' : 'Стати музикантом'}
+          {status === 'loading' ? t('sendingRequest') : t('becomeMusician')}
         </button>
       )}
     </div>
@@ -88,8 +78,7 @@ function MusicianRequestButton({ token }: { token: string | null }) {
 
 export default function ProfilePage() {
   const { user, token, login: ctxLogin } = useAuth()
-  const { playWithId, addSongs, track, playStatus } = usePlayer()
-  const { toggleLike } = useLike()
+  const { t, language } = useLanguage()
 
   const [username, setUsername] = useState(user?.username ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
@@ -104,9 +93,6 @@ export default function ProfilePage() {
   const [successInfo, setSuccessInfo] = useState('')
   const [successPass, setSuccessPass] = useState('')
 
-  const [likedSongs, setLikedSongs] = useState<LikedSong[]>([])
-  const [loadingLikes, setLoadingLikes] = useState(false)
-
   // Avatar state
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar ?? null)
   const [loadingAvatar, setLoadingAvatar] = useState(false)
@@ -120,11 +106,11 @@ export default function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setErrorAvatar('Оберіть файл зображення (JPG, PNG, WebP)')
+      setErrorAvatar(t('avatarErrorType'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      setErrorAvatar('Розмір файлу не повинен перевищувати 5MB')
+      setErrorAvatar(t('avatarErrorSize'))
       return
     }
     const reader = new FileReader()
@@ -149,7 +135,7 @@ export default function ProfilePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка')
       ctxLogin(data.token, data.user)
-      showSuccess(setSuccessAvatar, 'Аватар оновлено!')
+      showSuccess(setSuccessAvatar, t('avatarUpdated'))
     } catch (err: any) {
       setErrorAvatar(err.message)
     } finally {
@@ -171,7 +157,7 @@ export default function ProfilePage() {
       ctxLogin(data.token, data.user)
       setAvatarPreview(null)
       if (avatarInputRef.current) avatarInputRef.current.value = ''
-      showSuccess(setSuccessAvatar, 'Аватар видалено!')
+      showSuccess(setSuccessAvatar, t('avatarDeleted'))
     } catch (err: any) {
       setErrorAvatar(err.message)
     } finally {
@@ -183,23 +169,6 @@ export default function ProfilePage() {
     setter(msg)
     setTimeout(() => setter(''), 3000)
   }
-
-  // Завантаження улюблених
-  useEffect(() => {
-    if (!token) return
-    setLoadingLikes(true)
-    fetch(`${API}/api/auth/likes`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        const songs = (data.data || []).map((s: any) => ({ ...s, id: String(s._id || s.id) }))
-        setLikedSongs(songs)
-        addSongs(songs)
-      })
-      .catch(() => {})
-      .finally(() => setLoadingLikes(false))
-  }, [token])
 
   const handleSaveInfo = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -214,7 +183,7 @@ export default function ProfilePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка')
       ctxLogin(data.token, data.user)
-      showSuccess(setSuccessInfo, 'Профіль оновлено!')
+      showSuccess(setSuccessInfo, t('profileUpdated'))
     } catch (err: any) {
       setErrorInfo(err.message)
     } finally {
@@ -225,7 +194,7 @@ export default function ProfilePage() {
   const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorPass('')
-    if (newPassword !== confirmPassword) { setErrorPass('Паролі не збігаються'); return }
+    if (newPassword !== confirmPassword) { setErrorPass(t('passwordMismatch')); return }
     setLoadingPass(true)
     try {
       const res = await fetch(`${API}/api/auth/profile`, {
@@ -237,18 +206,12 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error(data.message || 'Помилка')
       ctxLogin(data.token, data.user)
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
-      showSuccess(setSuccessPass, 'Пароль змінено!')
+      showSuccess(setSuccessPass, t('passwordChanged'))
     } catch (err: any) {
       setErrorPass(err.message)
     } finally {
       setLoadingPass(false)
     }
-  }
-
-  const handleUnlike = async (e: React.MouseEvent, songId: string) => {
-    e.stopPropagation()
-    await toggleLike(songId)
-    setLikedSongs((prev) => prev.filter((s) => s.id !== songId))
   }
 
   return (
@@ -271,13 +234,13 @@ export default function ProfilePage() {
           <button
             onClick={() => avatarInputRef.current?.click()}
             className="absolute inset-0 rounded-full bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            title="Змінити аватар"
+            title={t('changeAvatarTitle')}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
-            <span className="text-white text-[9px] font-semibold mt-0.5">Змінити</span>
+            <span className="text-white text-[9px] font-semibold mt-0.5">{t('changeAvatar')}</span>
           </button>
           <input
             ref={avatarInputRef}
@@ -289,7 +252,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">Профіль</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">{t('profileLabel')}</p>
           <h1 className="text-2xl sm:text-3xl font-black text-white">{user?.username}</h1>
           <p className="text-neutral-400 text-sm mt-0.5">{user?.email}</p>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -300,13 +263,13 @@ export default function ProfilePage() {
                 ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                 : 'bg-[#282828] text-neutral-400'
             }`}>
-              {user?.role === 'admin' ? '🛡 Адміністратор' : user?.role === 'musician' ? '🎵 Музикант' : 'Користувач'}
+              {user?.role === 'admin' ? t('roleAdmin') : user?.role === 'musician' ? t('roleMusician') : t('roleUser')}
             </span>
             <span className="text-neutral-500 text-xs">
-              З нами з {formatDate((user as any)?.createdAt)}
+              {t('memberSince')} {formatDate((user as any)?.createdAt, language)}
             </span>
           </div>
-          {user?.role === 'user' && <MusicianRequestButton token={token} />}
+          {user?.role === 'user' && <MusicianRequestButton token={token} t={t} />}
 
           {/* Кнопки збереження/видалення аватара */}
           {(avatarPreview !== (user?.avatar ?? null)) && (
@@ -316,7 +279,7 @@ export default function ProfilePage() {
                 disabled={loadingAvatar}
                 className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#1db954] text-black hover:bg-[#1ed760] transition disabled:opacity-50"
               >
-                {loadingAvatar ? 'Збереження...' : 'Зберегти аватар'}
+                {loadingAvatar ? t('savingAvatar') : t('saveAvatar')}
               </button>
               <button
                 onClick={() => {
@@ -325,7 +288,7 @@ export default function ProfilePage() {
                 }}
                 className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[#282828] text-neutral-400 hover:text-white hover:bg-[#333] transition"
               >
-                Скасувати
+                {t('cancelAvatar')}
               </button>
             </div>
           )}
@@ -335,7 +298,7 @@ export default function ProfilePage() {
               disabled={loadingAvatar}
               className="mt-3 text-xs font-semibold px-3 py-1.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition disabled:opacity-50"
             >
-              {loadingAvatar ? '...' : 'Видалити аватар'}
+              {loadingAvatar ? '...' : t('deleteAvatar')}
             </button>
           )}
           {errorAvatar && <p className="text-red-400 text-xs mt-2">{errorAvatar}</p>}
@@ -343,109 +306,17 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Улюблені треки */}
-      <div className="bg-[#181818] rounded-xl p-6">
-        <div className="flex items-center gap-2 mb-5">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#1db954" stroke="#1db954" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-          </svg>
-          <h2 className="text-white font-bold text-base">Улюблені треки</h2>
-          {likedSongs.length > 0 && (
-            <span className="text-xs text-neutral-500 ml-1">{likedSongs.length}</span>
-          )}
-        </div>
-
-        {loadingLikes ? (
-          <div className="flex items-center gap-2 text-neutral-400 text-sm py-4">
-            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-            Завантаження...
-          </div>
-        ) : likedSongs.length === 0 ? (
-          <div className="py-6 text-center">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3e3e3e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-            <p className="text-neutral-500 text-sm">Ще немає улюблених треків</p>
-            <p className="text-neutral-600 text-xs mt-1">Натисни ♥ біля будь-якої пісні</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {likedSongs.map((song) => {
-              const isActive = track.id === song.id
-              const isPlaying = isActive && playStatus
-              return (
-                <div
-                  key={song.id}
-                  onClick={() => playWithId(song.id)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer group transition-colors ${
-                    isActive ? 'bg-[#1db954]/10' : 'hover:bg-[#242424]'
-                  }`}
-                >
-                  {/* Обкладинка */}
-                  <div className="relative shrink-0 w-10 h-10">
-                    <img
-                      src={song.image.startsWith('http') ? song.image : `${API}/${song.image}`}
-                      alt={song.name}
-                      className="w-10 h-10 rounded object-cover"
-                    />
-                    <div className={`absolute inset-0 rounded flex items-center justify-center bg-black/50 transition-opacity ${
-                      isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    }`}>
-                      {isPlaying ? (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
-                          <rect x="3" y="4" width="4" height="16" rx="1"/>
-                          <rect x="10" y="4" width="4" height="16" rx="1"/>
-                          <rect x="17" y="4" width="4" height="16" rx="1"/>
-                        </svg>
-                      ) : (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="white">
-                          <polygon points="5,3 19,12 5,21"/>
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Назва + автор */}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${isActive ? 'text-[#1db954]' : 'text-white'}`}>
-                      {song.name}
-                    </p>
-                    <p className="text-xs text-neutral-400 truncate">{song.artist || song.desc}</p>
-                  </div>
-
-                  <span className="text-xs text-neutral-500 shrink-0 tabular-nums">{song.duration}</span>
-
-                  {/* Кнопка видалити з улюблених */}
-                  <button
-                    onClick={(e) => handleUnlike(e, song.id)}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"
-                    aria-label="Прибрати з улюблених"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#1db954" stroke="#1db954" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                    </svg>
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
       {/* Особисті дані */}
       <div className="bg-[#181818] rounded-xl p-6">
-        <h2 className="text-white font-bold text-base mb-5">Особисті дані</h2>
+        <h2 className="text-white font-bold text-base mb-5">{t('personalInfo')}</h2>
         {errorInfo && <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded-lg mb-4 text-sm">{errorInfo}</div>}
         {successInfo && <div className="bg-[#1db954]/20 border border-[#1db954]/40 text-[#1db954] p-3 rounded-lg mb-4 text-sm">{successInfo}</div>}
         <form onSubmit={handleSaveInfo} className="flex flex-col gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">Ім'я користувача</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">{t('usernameLabel')}</label>
             <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-[#242424] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#1db954] transition-colors"
-              placeholder="Ваше ім'я" />
+              placeholder={t('usernamePlaceholder')} />
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">Email</label>
@@ -454,50 +325,50 @@ export default function ProfilePage() {
               placeholder="name@domain.com" />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">Дата реєстрації</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">{t('registrationDate')}</label>
             <div className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-neutral-500 cursor-not-allowed">
-              {formatDate((user as any)?.createdAt)}
+              {formatDate((user as any)?.createdAt, language)}
             </div>
           </div>
           <button type="submit" disabled={loadingInfo}
             className="self-start px-6 py-2.5 rounded-full text-sm font-bold bg-white hover:bg-neutral-200 text-black transition disabled:opacity-50 mt-1">
-            {loadingInfo ? 'Збереження...' : 'Зберегти зміни'}
+            {loadingInfo ? t('saving') : t('saveChanges')}
           </button>
         </form>
       </div>
 
       {/* Зміна паролю */}
       <div className="bg-[#181818] rounded-xl p-6">
-        <h2 className="text-white font-bold text-base mb-5">Змінити пароль</h2>
+        <h2 className="text-white font-bold text-base mb-5">{t('changePassword')}</h2>
         {errorPass && <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded-lg mb-4 text-sm">{errorPass}</div>}
         {successPass && <div className="bg-[#1db954]/20 border border-[#1db954]/40 text-[#1db954] p-3 rounded-lg mb-4 text-sm">{successPass}</div>}
         <form onSubmit={handleSavePassword} className="flex flex-col gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">Поточний пароль</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">{t('currentPassword')}</label>
             <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required
               className="w-full bg-[#242424] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#1db954] transition-colors"
               placeholder="••••••••" />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">Новий пароль</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">{t('newPassword')}</label>
             <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6}
               className="w-full bg-[#242424] border border-[#3a3a3a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#1db954] transition-colors"
-              placeholder="Мінімум 6 символів" />
+              placeholder={t('newPasswordPlaceholder')} />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">Підтвердити пароль</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">{t('confirmPassword')}</label>
             <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required
               className={`w-full bg-[#242424] border rounded-lg px-3 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none transition-colors ${
                 confirmPassword && newPassword !== confirmPassword ? 'border-red-500' : 'border-[#3a3a3a] focus:border-[#1db954]'
               }`}
-              placeholder="Повторіть новий пароль" />
+              placeholder={t('confirmPasswordPlaceholder')} />
             {confirmPassword && newPassword !== confirmPassword && (
-              <p className="text-red-400 text-xs mt-1">Паролі не збігаються</p>
+              <p className="text-red-400 text-xs mt-1">{t('passwordMismatch')}</p>
             )}
           </div>
           <button type="submit" disabled={loadingPass || (!!confirmPassword && newPassword !== confirmPassword)}
             className="self-start px-6 py-2.5 rounded-full text-sm font-bold bg-white hover:bg-neutral-200 text-black transition disabled:opacity-50 mt-1">
-            {loadingPass ? 'Збереження...' : 'Змінити пароль'}
+            {loadingPass ? t('saving') : t('changePasswordBtn')}
           </button>
         </form>
       </div>
