@@ -294,8 +294,9 @@ const getSongLyrics = async (req, res, next) => {
 };
 
 // GET /api/songs/itunes-preview?q=...
-// Admin-only: searches iTunes and returns results WITHOUT saving to the database.
-// Used in the admin panel so the admin can pick which tracks to import.
+// Musician: searches iTunes and returns results WITHOUT saving to the database.
+// alreadyAdded = true only if THIS musician already has that track (externalId + uploadedBy).
+// Other musicians owning the same track does NOT block adding — each musician gets their own copy.
 const searchItunesPreview = async (req, res, next) => {
   try {
     const q = (req.query.q || '').trim();
@@ -310,9 +311,16 @@ const searchItunesPreview = async (req, res, next) => {
 
     const tracks = await searchItunes(q, 20);
 
-    // Mark which tracks are already in the DB so the UI can show "Already added"
+    // Per-musician ownership check: "Вже є" only when THIS user already added the track.
+    // Admin sees global state (any owner counts).
     const externalIds = tracks.map((t) => t.externalId);
-    const existing = await Song.find({ externalId: { $in: externalIds } }).select('externalId');
+    const userId = req.user?.id;
+    const ownershipFilter =
+      req.user?.role === 'admin'
+        ? { externalId: { $in: externalIds } }
+        : { externalId: { $in: externalIds }, uploadedBy: userId };
+
+    const existing = await Song.find(ownershipFilter).select('externalId');
     const existingSet = new Set(existing.map((s) => s.externalId));
 
     const results = tracks.map((t) => ({
