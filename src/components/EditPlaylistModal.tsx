@@ -115,6 +115,7 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
   return (
     <div
       className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4"
       onClick={handleClose}
     >
       <div
@@ -165,7 +166,6 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
               placeholder="Мій плейлист"
             />
           </div>
-
           {/* Перемикач публічності */}
           <div className="flex items-center justify-between px-1">
             <div>
@@ -186,7 +186,6 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
               />
             </button>
           </div>
-
           <div className="flex gap-3 mt-2">
             <button
               type="button"
@@ -218,4 +217,5 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
   )
 }
 
+export default EditPlaylistModal
 export default EditPlaylistModal

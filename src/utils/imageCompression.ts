@@ -53,3 +53,4 @@ export function fileToCompressedDataUrl(
     reader.readAsDataURL(file)
   })
 }
+}

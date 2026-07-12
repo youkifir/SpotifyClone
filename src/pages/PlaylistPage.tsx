@@ -5,6 +5,7 @@ import { usePlayer } from '../context/usePlayer'
 import { assets } from '../assets/assets'
 import EditPlaylistModal from '../components/EditPlaylistModal'
 import AddSongsModal, { type ApiSong } from '../components/AddSongsModal';
+import AddSongsModal, { type ApiSong } from '../components/AddSongsModal'
 import { durationToSeconds } from '../utils/parseDuration'
 import type { Playlist } from '../components/CreatePlaylistModal'
 import { emitPlaylistChanged } from '../hooks/usePlaylistEvents'
@@ -194,6 +195,7 @@ function PlaylistPage() {
     <div className="pt-2 sm:pt-4">
       {/* шапка плейлиста */}
       <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-linear-to-b from-[#535353] to-[#121212]">
+      <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-gradient-to-b from-[#535353] to-[#121212]">
         <button
           onClick={() => setIsEditOpen(true)}
           className="w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden group relative"
@@ -241,8 +243,8 @@ function PlaylistPage() {
         >
           Редагувати
         </button>
-
         <div className="flex-1 min-w-2" />
+        <div className="flex-1 min-w-[8px]" />
 
         <input
           type="text"
@@ -372,5 +374,5 @@ function PlaylistPage() {
     </div>
   )
 }
-
+export default PlaylistPage
 export default PlaylistPage

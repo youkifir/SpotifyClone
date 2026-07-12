@@ -17,11 +17,14 @@ interface Playlist {
   songs: any[]
   owner?: { _id?: string; username?: string; name?: string } | string
 }
+import CreatePlaylistModal, { type Playlist } from './CreatePlaylistModal'
 
 interface SidebarProps {
   isOpen?: boolean
   onClose?: () => void
 }
+
+const API_BASE = 'http://localhost:5000/api'
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
   const { token } = useAuth()
@@ -159,6 +162,66 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
         </div>
       </Link>
     )
+
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [loading, setLoading] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchPlaylists = async () => {
+      if (!token) {
+        setPlaylists([])
+        return
+      }
+      setLoading(true)
+      try {
+        const response = await fetch(`${API_BASE}/playlists/my`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (response.ok) {
+          const resData = await response.json()
+          setPlaylists(Array.isArray(resData) ? resData : resData.data || [])
+        }
+      } catch (error) {
+        console.error('Помилка завантаження плейлистів:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchPlaylists()
+  }, [token])
+
+  const handleCreated = (playlist: Playlist) => {
+    setPlaylists((prev) => [playlist, ...prev])
+  }
+
+  const handleDelete = async (e: React.MouseEvent, playlistId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!token) return
+    if (!window.confirm('Видалити цей плейлист?')) return
+
+    setDeletingId(playlistId)
+    try {
+      const response = await fetch(`${API_BASE}/playlists/${playlistId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (response.ok) {
+        setPlaylists((prev) => prev.filter((p) => p._id !== playlistId))
+      }
+    } catch (error) {
+      console.error('Помилка видалення плейлиста:', error)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const resolveImage = (image: string) => {
+    if (!image) return assets.stack_icon
+    return image.startsWith('http') || image.startsWith('data:') ? image : `http://localhost:5000/${image}`
   }
 
   return (
@@ -184,6 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
               <p className='font-semibold'>Your Library</p>
             </div>
             <div className='flex items-center gap-4 px-1'>
+
               <img className='w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.arrow_icon} alt='Arrow' />
               {/* Кнопка + відкриває модал створення плейлиста */}
               <img
@@ -192,6 +256,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                 alt='Plus'
                 onClick={() => setIsModalOpen(true)}
                 title='Створити плейлист'
+
+              <img
+                onClick={() => setIsModalOpen(true)}
+                className='w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition'
+                src={assets.plus_icon}
+                alt="Створити плейлист"
+                title="Створити плейлист"
+
               />
               <button
                 onClick={onClose}
@@ -202,9 +274,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
               </button>
             </div>
           </div>
-
           <div className='flex flex-col gap-1 px-2 overflow-y-auto custom-scrollbar flex-1'>
             {playlists.length === 0 ? (
+          <div className='flex flex-col gap-3 px-2 overflow-y-auto custom-scrollbar flex-1'>
+            {!token ? (
+              <p className='text-sm text-zinc-400 p-4'>Увійдіть в акаунт, щоб бачити свої плейлисти</p>
+            ) : loading ? (
+              <p className='text-sm text-zinc-400 p-4'>Завантаження...</p>
+            ) : playlists.length === 0 ? (
               <div className='p-4 bg-[#242424] hover:bg-[#2a2a2a] transition-colors rounded-lg flex flex-col items-start gap-1'>
                 <h1 className='font-bold text-base text-white'>Create your first playlist</h1>
                 <p className='text-sm text-white font-light opacity-90'>it's easy we will help you</p>
@@ -231,6 +308,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
                   <PlaylistItem key={playlist._id} playlist={playlist} isShared={true} />
                 ))}
               </>
+                <Link
+                  key={playlist._id}
+                  to={`/playlist/${playlist._id}`}
+                  onClick={onClose}
+                  className='flex items-center gap-3 p-2 rounded-md hover:bg-[#1a1a1a] transition-colors group cursor-pointer'
+                >
+                  <img
+                    className='w-12 h-12 rounded object-cover shrink-0'
+                    src={resolveImage(playlist.image)}
+                    alt={playlist.name}
+                  />
+                  <div className='min-w-0 flex-1'>
+                    <p className='font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors'>
+                      {playlist.name}
+                    </p>
+                    <p className='text-xs text-neutral-400 truncate'>
+                      Плейлист • {playlist.songs.length} треків
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => handleDelete(e, playlist._id)}
+                    disabled={deletingId === playlist._id}
+                    aria-label="Видалити плейлист"
+                    title="Видалити плейлист"
+                    className='shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-zinc-500 hover:text-red-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition disabled:opacity-50'
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" className='w-4 h-4' stroke="currentColor" strokeWidth="2">
+                      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </Link>
+              ))
+
             )}
           </div>
 
@@ -242,6 +352,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCreated={handlePlaylistCreated}
+      <CreatePlaylistModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCreated={handleCreated}
       />
     </>
   )
