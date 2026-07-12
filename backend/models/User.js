@@ -15,8 +15,6 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'],
     },
-    // select: false prevents the password hash from being returned by default
-    // in find() and findById() queries. Request it explicitly with .select('+password').
     password: {
       type: String,
       required: [true, 'Password is required'],
@@ -24,8 +22,19 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['user', 'admin'],
+      enum: ['user', 'admin', 'musician'],
       default: 'user',
+    },
+    likedSongs: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Song',
+      },
+    ],
+    musicianRequest: {
+      status: { type: String, enum: ['pending', 'approved', 'rejected'], default: null },
+      message: { type: String, default: '' },
+      requestedAt: { type: Date },
     },
   },
   { timestamps: true }

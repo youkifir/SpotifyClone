@@ -18,6 +18,23 @@ const findOwnedPlaylist = async (req, res, next) => {
   return playlist;
 };
 
+// GET /api/playlists/shared — публічні плейлисти ІНШИХ користувачів
+const getSharedPlaylists = async (req, res, next) => {
+  try {
+    const playlists = await Playlist.find({
+      isPublic: true,
+      owner: { $ne: req.user.id }, // виключаємо свої
+      isLikedSongs: { $ne: true },  // не показуємо "Liked Songs" чужі
+    })
+      .populate('songs')
+      .populate('owner', 'username name') // підтягуємо ім'я власника
+      .sort({ createdAt: -1 });
+    res.json({ success: true, message: 'Request completed successfully', data: playlists });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // GET /api/playlists/my — все плейлисты текущего пользователя
 const getMyPlaylists = async (req, res, next) => {
   try {
@@ -147,6 +164,7 @@ const removeSongFromPlaylist = async (req, res, next) => {
 
 module.exports = {
   getMyPlaylists,
+  getSharedPlaylists,
   getPlaylistById,
   createPlaylist,
   updatePlaylist,

@@ -19,6 +19,7 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
 
   const [name, setName] = useState(playlist.name)
   const [imagePreview, setImagePreview] = useState<string>(playlist.image || '')
+  const [isPublic, setIsPublic] = useState(playlist.isPublic ?? false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -72,6 +73,7 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
         body: JSON.stringify({
           name: name.trim(),
           image: imagePreview,
+          isPublic,
         }),
       })
 
@@ -112,6 +114,7 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
 
   return (
     <div
+      className="fixed inset-0 bg-black/70 z-60 flex items-center justify-center p-4"
       className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4"
       onClick={handleClose}
     >
@@ -163,7 +166,26 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
               placeholder="Мій плейлист"
             />
           </div>
-
+          {/* Перемикач публічності */}
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <p className="text-sm font-medium text-white">Публічний плейлист</p>
+              <p className="text-xs text-zinc-400">Колеги побачать його у своїй бібліотеці</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPublic((v) => !v)}
+              className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
+                isPublic ? 'bg-green-500' : 'bg-zinc-600'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                  isPublic ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
           <div className="flex gap-3 mt-2">
             <button
               type="button"
@@ -195,4 +217,5 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
   )
 }
 
+export default EditPlaylistModal
 export default EditPlaylistModal
