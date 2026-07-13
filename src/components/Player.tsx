@@ -461,7 +461,7 @@ export const Player: React.FC = () => {
                         <span className='text-[8px] text-black/60 opacity-0 group-hover:opacity-100 leading-none'>↗</span>
                       </button>
                     </div>
-                    <span className='text-[10px] text-neutral-500 truncate max-w-[140px]'>{track.name}</span>
+                    <span className='text-[10px] text-neutral-500 truncate max-w-35'>{track.name}</span>
                     <div className='w-10' />
                   </div>
 
@@ -473,7 +473,7 @@ export const Player: React.FC = () => {
                   >
                     <img src={trackImageUrl} alt={track.name} className='w-full h-full object-cover' />
                     {/* Градієнт знизу */}
-                    <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent' />
+                    <div className='absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent' />
                     {/* Назва поверх */}
                     <div className='absolute bottom-3 left-3 right-3'>
                       <p className='font-bold text-sm text-white truncate'>{track.name}</p>

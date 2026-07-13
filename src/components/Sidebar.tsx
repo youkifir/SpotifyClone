@@ -22,9 +22,11 @@ export interface Playlist {
 interface SidebarProps {
   isOpen?: boolean
   onClose?: () => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
   const { token } = useAuth()
   const { t } = useLanguage()
 
@@ -189,6 +191,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     )
   }
 
+  /* ---- collapsed: показуємо лише вузьку смужку зі стрілочкою ---- */
+  if (collapsed) {
+    return (
+      <div className="bg-[#121212] h-full rounded-lg flex flex-col items-center pt-4 gap-4">
+        {/* Стрілка "відкрити" */}
+        <button
+          onClick={onToggleCollapse}
+          aria-label="Розгорнути бібліотеку"
+          title="Розгорнути бібліотеку"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-[#2a2a2a] hover:scale-110 transition"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <>
       {/* Затемнення фону на мобільних */}
@@ -199,8 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       />
 
       <div
-        className={`fixed lg:static top-0 left-0 h-full w-[78%] max-w-70 lg:w-[25%] flex flex-col text-white shrink-0 z-50 lg:z-auto transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-          }`}
+        className={`fixed lg:static top-0 left-0 h-full w-[78%] max-w-70 lg:w-full flex flex-col text-white shrink-0 z-50 lg:z-auto transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
         <div className="bg-[#121212] h-full lg:rounded-lg p-2 flex flex-col gap-2">
           <div className="p-4 flex items-center justify-between">
@@ -209,11 +229,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
               <p className="font-semibold">{t('yourLibrary')}</p>
             </div>
             <div className="flex items-center gap-4 px-1">
-              <img
-                className="w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition"
-                src={assets.arrow_icon}
-                alt="Arrow"
-              />
+              {/* Стрілка "закрити" — тільки десктоп */}
+              {onToggleCollapse && (
+                <button
+                  onClick={onToggleCollapse}
+                  aria-label="Згорнути бібліотеку"
+                  title="Згорнути бібліотеку"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-neutral-400 hover:text-white hover:bg-[#2a2a2a] hover:scale-110 transition"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+              )}
               <img
                 onClick={() => setIsModalOpen(true)}
                 className="w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition"
@@ -249,14 +277,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
               </div>
             ) : (
               <>
-                {/* Список власних плейлистів */}
                 <div className="flex flex-col gap-1">
                   {playlists.map((playlist) => (
                     <PlaylistItem key={playlist._id} playlist={playlist} />
                   ))}
                 </div>
-
-                {/* Плейлисти колег (публічні) */}
                 {sharedPlaylists.length > 0 && (
                   <div className="flex flex-col gap-1 mt-2">
                     <div className="mt-3 mb-1 px-2">
@@ -273,7 +298,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
         </div>
       </div>
 
-      {/* Модал створення плейлиста */}
       <CreatePlaylistModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

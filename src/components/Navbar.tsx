@@ -8,9 +8,11 @@ import SearchBar from './SearchBar'
 
 interface NavbarProps {
   onToggleSidebar?: () => void
+  onToggleCollapse?: () => void
+  sidebarCollapsed?: boolean
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
+const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, sidebarCollapsed }) => {
   const { user, logout } = useAuth()
   const { t, language, setLanguage } = useLanguage()
   const navigate = useNavigate()
@@ -50,6 +52,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
       {/* Лівий блок */}
       <div className='flex items-center gap-2 justify-start min-w-0'>
+        {/* Мобільний бургер */}
         <button
           onClick={onToggleSidebar}
           aria-label="Відкрити бібліотеку"

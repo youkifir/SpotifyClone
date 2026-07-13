@@ -180,7 +180,7 @@ function ArtistPage() {
             style={{ backgroundImage: `url(${heroCover})` }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-[#121212]/60 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-[#121212] via-[#121212]/60 to-transparent" />
 
         {/* Аватар */}
         <div className="relative z-10 w-32 h-32 sm:w-44 sm:h-44 rounded-full overflow-hidden shadow-2xl border-2 border-white/10 shrink-0">
