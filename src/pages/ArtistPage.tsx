@@ -164,6 +164,16 @@ function ArtistPage() {
         className="relative flex items-end gap-6 p-6 sm:p-8 rounded-lg overflow-hidden mb-2"
         style={{ minHeight: 240, background: 'linear-gradient(180deg, #2a2a2a 0%, #121212 100%)' }}
       >
+        {/* Кнопка Назад */}
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 hover:bg-black/80 text-white text-sm font-medium backdrop-blur transition hover:scale-105 active:scale-95"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          Назад
+        </button>
         {heroCover && (
           <div
             className="absolute inset-0 bg-cover bg-center opacity-25 blur-xl scale-110"
@@ -226,12 +236,6 @@ function ArtistPage() {
             alt="Play"
             className="w-6 h-6"
           />
-        </button>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm text-neutral-400 hover:text-white transition"
-        >
-          ← Назад
         </button>
       </div>
 

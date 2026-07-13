@@ -49,6 +49,12 @@ export const Player: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false)
   const prevVolumeRef = useRef(volume || 0.7)
 
+  // Drag стан мініплеєра
+  const [miniPos, setMiniPos] = useState<{ x: number; y: number } | null>(null)
+  const [isDraggingMini, setIsDraggingMini] = useState(false)
+  const miniDragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const miniPlayerRef = useRef<HTMLDivElement>(null)
+
   // Состояния для перетаскивания (громкость и таймлайн трека)
   const [isDraggingVolume, setIsDraggingVolume] = useState(false)
   const [isDraggingSeek, setIsDraggingSeek] = useState(false)
@@ -145,6 +151,41 @@ export const Player: React.FC = () => {
     }
     window.addEventListener('mousedown', handleClick)
     return () => window.removeEventListener('mousedown', handleClick)
+  }, [isMiniPlayerOpen])
+
+  // Drag мініплеєра
+  const handleMiniDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const rect = miniPlayerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    miniDragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    setIsDraggingMini(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isDraggingMini) return
+    const onMove = (e: MouseEvent) => {
+      const x = e.clientX - miniDragOffset.current.x
+      const y = e.clientY - miniDragOffset.current.y
+      const maxX = window.innerWidth - (miniPlayerRef.current?.offsetWidth ?? 288)
+      const maxY = window.innerHeight - (miniPlayerRef.current?.offsetHeight ?? 400)
+      setMiniPos({ x: Math.max(0, Math.min(x, maxX)), y: Math.max(0, Math.min(y, maxY)) })
+    }
+    const onUp = () => setIsDraggingMini(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [isDraggingMini])
+
+  // Встановити початкову позицію при відкритті мініплеєра
+  useEffect(() => {
+    if (isMiniPlayerOpen && miniPos === null) {
+      setMiniPos({ x: window.innerWidth - 300, y: window.innerHeight - 460 })
+    }
+    if (!isMiniPlayerOpen) setMiniPos(null)
   }, [isMiniPlayerOpen])
 
   const trackImageUrl = track.image?.startsWith('http')
@@ -388,10 +429,48 @@ export const Player: React.FC = () => {
               />
 
               {/* Міні-плеєр popup */}
-              {isMiniPlayerOpen && track && (
-                <div className='absolute bottom-10 right-0 w-72 bg-[#181818] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-fadeIn'>
+              {isMiniPlayerOpen && track && miniPos && (
+                <div
+                  ref={miniPlayerRef}
+                  className='w-72 bg-[#181818] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-fadeIn'
+                  style={{ position: 'fixed', left: miniPos.x, top: miniPos.y, cursor: isDraggingMini ? 'grabbing' : 'default' }}
+                >
+                  {/* Top drag bar */}
+                  <div
+                    className='flex items-center justify-between px-3 py-2 bg-[#111] select-none'
+                    onMouseDown={handleMiniDragStart}
+                    style={{ cursor: isDraggingMini ? 'grabbing' : 'grab' }}
+                  >
+                    <div className='flex gap-1.5'>
+                      {/* Закрити */}
+                      <button
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={() => setIsMiniPlayerOpen(false)}
+                        className='w-3 h-3 rounded-full bg-[#ff5f56] hover:brightness-110 transition flex items-center justify-center group'
+                        title='Закрити'
+                      >
+                        <span className='text-[8px] text-black/60 opacity-0 group-hover:opacity-100 leading-none'>✕</span>
+                      </button>
+                      {/* Згорнути (відкрити fullscreen) */}
+                      <button
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={() => { setIsMiniPlayerOpen(false); setIsFullScreen(true) }}
+                        className='w-3 h-3 rounded-full bg-[#28c940] hover:brightness-110 transition flex items-center justify-center group'
+                        title='Відкрити повний плеєр'
+                      >
+                        <span className='text-[8px] text-black/60 opacity-0 group-hover:opacity-100 leading-none'>↗</span>
+                      </button>
+                    </div>
+                    <span className='text-[10px] text-neutral-500 truncate max-w-[140px]'>{track.name}</span>
+                    <div className='w-10' />
+                  </div>
+
                   {/* Обкладинка */}
-                  <div className='relative w-full aspect-square'>
+                  <div
+                    className='relative w-full aspect-square'
+                    onMouseDown={handleMiniDragStart}
+                    style={{ cursor: isDraggingMini ? 'grabbing' : 'grab' }}
+                  >
                     <img src={trackImageUrl} alt={track.name} className='w-full h-full object-cover' />
                     {/* Градієнт знизу */}
                     <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent' />
