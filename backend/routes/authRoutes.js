@@ -3,13 +3,15 @@ const router = express.Router();
 const {
   register, login, getMe, updateProfile, updateAvatar,
   getLikedSongs, toggleLike,
-  getUsers, deleteUser,
+  getUsers, deleteUser, googleLogin, facebookLogin 
 } = require('../controllers/authController');
 const { protect, isAdmin } = require('../middleware/auth');
 const User = require('../models/User');
 
 router.post('/register', register);
 router.post('/login', login);
+router.post('/google', googleLogin);
+router.post('/facebook', facebookLogin);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.put('/avatar', protect, updateAvatar);
