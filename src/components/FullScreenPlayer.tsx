@@ -346,13 +346,14 @@ export const FullScreenPlayer: React.FC = () => {
   )
 
   return (
-    <div className="fixed inset-0 bg-linear-to-b from-[#1a1a1a] to-black z-50 flex flex-col p-4 sm:p-6 md:p-12 text-white transition-all duration-300 select-none overflow-y-auto md:overflow-hidden">
+    <div className="fixed inset-0 bg-gradient-to-b from-[#1a1a1a] to-black z-50 flex flex-col text-white select-none overflow-hidden"
+      style={{padding: 'clamp(16px, 3vw, 48px)'}}>
 
       {/* Шапка плеера */}
-      <div className="flex justify-between items-center w-full max-w-6xl mx-auto mb-4 md:mb-8 shrink-0">
+      <div className="flex justify-between items-center w-full max-w-6xl mx-auto mb-4 shrink-0">
         <button
           onClick={() => setIsFullScreen(false)}
-          className="text-neutral-400 hover:text-white hover:scale-105 transition flex items-center gap-2 font-medium text-sm md:text-base"
+          className="text-neutral-400 hover:text-white hover:scale-105 transition flex items-center gap-2 font-medium text-sm"
         >
           ✕ <span className="hidden sm:inline">Згорнути</span>
         </button>
@@ -376,58 +377,146 @@ export const FullScreenPlayer: React.FC = () => {
         <div className="w-16 hidden md:block"></div>
       </div>
 
-      {/* ── ДЕСТКОПНАЯ СЕТКА ── */}
-      <div className="hidden md:flex flex-row items-center justify-center gap-12 flex-1 max-w-6xl mx-auto w-full overflow-hidden min-h-0">
-        <div className="flex flex-col items-start text-left gap-6 w-2/5 shrink-0">
+      {/* ── ДЕСКТОПНА СІТКА ── */}
+      <div className="hidden md:flex flex-row items-center justify-center gap-10 lg:gap-16 flex-1 max-w-6xl mx-auto w-full min-h-0 overflow-hidden">
+
+        {/* Ліва колонка: обкладинка + назва */}
+        <div className="flex flex-col items-start gap-5 shrink-0" style={{width: 'clamp(220px, 30vw, 360px)'}}>
           <img
-            className="w-72 h-72 lg:w-96 lg:h-96 rounded-lg object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)]"
+            className="rounded-xl object-cover shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] w-full aspect-square"
             src={trackImageUrl}
             alt={track.name}
           />
-          <div className="min-w-0 w-full">
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight line-clamp-2">{track.name}</h1>
-            <p className="text-neutral-400 text-base mt-1 line-clamp-1">
+          <div className="w-full min-w-0">
+            <h1 className="font-black tracking-tight leading-tight truncate w-full"
+              style={{fontSize: 'clamp(1.1rem, 2vw, 1.75rem)'}}>
+              {track.name}
+            </h1>
+            <p className="text-neutral-400 mt-1 truncate w-full" style={{fontSize: 'clamp(0.8rem, 1.2vw, 1rem)'}}>
               {(track as any).artist || track.desc?.slice(0, 40)}
             </p>
           </div>
         </div>
-        {renderLyricsContent(false)}
+
+        {/* Права колонка: текст пісні */}
+        <div className="flex-1 min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
+          <div className="flex items-center gap-2 mb-4 shrink-0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2">
+              <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+            </svg>
+            <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Текст пісні</h2>
+            {lrcLoading && <span className="ml-2 text-xs text-neutral-500 animate-pulse">Завантаження...</span>}
+            {hasLrc && <span className="ml-2 text-xs text-[#1db954] font-semibold">● синхронізовано</span>}
+          </div>
+
+          <div
+            ref={lyricsRef}
+            onScroll={handleUserScroll}
+            className="overflow-y-auto flex-1 min-h-0 pr-3"
+            style={{scrollbarWidth: 'thin', scrollbarColor: '#333 transparent'}}
+          >
+            {lrcLoading && (
+              <div className="flex flex-col gap-3 mt-2">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="h-5 rounded-full bg-neutral-800 animate-pulse"
+                    style={{width: `${60 + (i * 7) % 30}%`, opacity: 1 - i * 0.08}} />
+                ))}
+              </div>
+            )}
+
+            {hasLrc && (
+              <div className="flex flex-col gap-2 pb-8">
+                {lrcLines!.map((line, i) => {
+                  const isActive = i === activeIndex
+                  const isPast = i < activeIndex
+                  return (
+                    <p
+                      key={i}
+                      ref={isActive ? activeLineRef : undefined}
+                      onClick={() => seekTo(line.time / (totalTime.minute * 60 + totalTime.second || 1))}
+                      className="transition-all duration-300 leading-snug cursor-pointer select-text break-words"
+                      style={{
+                        fontSize: isActive ? 'clamp(1.1rem, 2vw, 1.5rem)' : 'clamp(0.9rem, 1.5vw, 1.15rem)',
+                        fontWeight: isActive ? 800 : 500,
+                        color: isActive ? '#ffffff' : isPast ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.45)',
+                        textShadow: isActive ? '0 0 24px rgba(29,185,84,0.5)' : 'none',
+                      }}
+                    >
+                      {line.text}
+                    </p>
+                  )
+                })}
+              </div>
+            )}
+
+            {!lrcLoading && !hasLrc && staticStatus === 'loading' && (
+              <div className="flex flex-col gap-3 mt-2">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-5 rounded-full bg-neutral-800 animate-pulse" style={{width: `${55 + (i * 7) % 35}%`}} />
+                ))}
+              </div>
+            )}
+
+            {!lrcLoading && !hasLrc && staticStatus === 'found' && staticLines.length > 0 && (
+              <div className="flex flex-col gap-1.5 pb-8">
+                {displayLines.map(({line, idx, i}) => {
+                  if (line.length === 0) return <div key={i} className="h-3" />
+                  const isActive = idx === currentLineIndex
+                  const isPast = idx < currentLineIndex
+                  return (
+                    <p
+                      key={i}
+                      ref={isActive ? activeLineRef : undefined}
+                      className="leading-snug transition-all duration-500 break-words"
+                      style={{
+                        fontSize: isActive ? 'clamp(1rem, 1.8vw, 1.4rem)' : 'clamp(0.85rem, 1.4vw, 1.1rem)',
+                        fontWeight: isActive ? 800 : 600,
+                        color: isActive ? '#fff' : isPast ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.45)',
+                      }}
+                    >
+                      {line}
+                    </p>
+                  )
+                })}
+              </div>
+            )}
+
+            {!lrcLoading && !hasLrc && (staticStatus === 'not_found' || staticStatus === 'error') && (
+              <p className="text-lg font-bold text-neutral-400 mt-2">
+                Текст пісні для цього треку відсутній.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* ── МОБИЛЬНАЯ СЕТКА ── */}
+      {/* ── МОБІЛЬНА СІТКА ── */}
       <div className="flex md:hidden flex-col flex-1 items-center justify-center w-full min-h-0">
         {mobileTab === 'player' ? (
           <div className="flex flex-row items-center justify-center w-full flex-1 gap-4 py-4 animate-fadeIn">
 
             {/* Вертикальний слайдер гучності зліва */}
             <div className="flex flex-col items-center gap-2 h-64 sm:h-72 shrink-0">
-              {/* Іконка гучно зверху */}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-neutral-400 shrink-0">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                 <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" strokeWidth="2" fill="none" />
               </svg>
-
-              {/* Вертикальний трек */}
               <div
                 ref={mobileVolumeBgRef}
                 onMouseDown={(e) => { setIsDraggingMobileVolume(true); updateMobileVolumePosition(e.clientY) }}
                 onTouchStart={(e) => { setIsDraggingMobileVolume(true); updateMobileVolumePosition(e.touches[0].clientY) }}
                 className="flex-1 w-1.5 bg-neutral-700 rounded-full cursor-pointer relative flex flex-col-reverse"
               >
-                {/* Заповнена частина знизу вгору */}
                 <div
                   className={`w-full rounded-full transition-colors ${isDraggingMobileVolume ? 'bg-[#1db954]' : 'bg-neutral-300'}`}
-                  style={{ height: `${volume * 100}%` }}
+                  style={{height: `${volume * 100}%`}}
                 >
-                  {/* Кружечок-повзунок */}
                   <div
                     className={`absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white shadow-lg transition-opacity ${isDraggingMobileVolume ? 'opacity-100' : 'opacity-70'}`}
-                    style={{ top: `${(1 - volume) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                    style={{top: `${(1 - volume) * 100}%`, transform: 'translate(-50%, -50%)'}}
                   />
                 </div>
               </div>
-
-              {/* Іконка тихо знизу */}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-neutral-400 shrink-0">
                 <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
               </svg>
@@ -441,13 +530,12 @@ export const FullScreenPlayer: React.FC = () => {
                 alt={track.name}
               />
               <div className="w-full px-2">
-                <h1 className="text-lg sm:text-xl font-black tracking-tight line-clamp-1">{track.name}</h1>
-                <p className="text-neutral-400 text-sm mt-0.5 line-clamp-1">
+                <h1 className="text-lg sm:text-xl font-black tracking-tight truncate">{track.name}</h1>
+                <p className="text-neutral-400 text-sm mt-0.5 truncate">
                   {(track as any).artist || track.desc?.slice(0, 40)}
                 </p>
               </div>
 
-              {/* Прогрес-бар */}
               <div className="w-full flex items-center gap-2 text-[10px] text-neutral-400">
                 <p className="w-7 text-right shrink-0">{formatTime(currentTime)}</p>
                 <div
@@ -456,7 +544,7 @@ export const FullScreenPlayer: React.FC = () => {
                   onTouchStart={handleSeekMouseDown}
                   className="flex-1 bg-neutral-800 h-1.5 rounded-full relative cursor-pointer select-none"
                 >
-                  <div className="h-1.5 rounded-full bg-white" style={{ width: `${progress * 100}%` }}>
+                  <div className="h-1.5 rounded-full bg-white" style={{width: `${progress * 100}%`}}>
                     <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white transition-opacity ${isDraggingSeek ? 'opacity-100 bg-[#1db954]' : 'opacity-0'}`} />
                   </div>
                 </div>
@@ -471,10 +559,10 @@ export const FullScreenPlayer: React.FC = () => {
         )}
       </div>
 
-      {/* Панель управления */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-4 pt-6 shrink-0 border-t border-neutral-900 md:border-none">
+      {/* Панель управління */}
+      <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-3 pt-4 shrink-0 border-t border-neutral-900 md:border-none">
 
-        {/* Стандартный прогресс-бар для десктопа с поддержкой зажатия мыши */}
+        {/* Прогрес-бар десктоп */}
         <div className="hidden md:flex items-center gap-3 w-full text-xs text-[#b3b3b3]">
           <p className="w-9 text-right shrink-0">{formatTime(currentTime)}</p>
           <div
@@ -482,21 +570,19 @@ export const FullScreenPlayer: React.FC = () => {
             onMouseDown={handleSeekMouseDown}
             className="flex-1 bg-[#4d4d4d] h-1 rounded-full cursor-pointer group relative select-none"
           >
-            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative" style={{ width: `${progress * 100}%` }}>
-              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white transition-opacity ${isDraggingSeek ? 'opacity-100 bg-[#1db954]' : 'opacity-0 group-hover:opacity-100'
-                }`} />
+            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative" style={{width: `${progress * 100}%`}}>
+              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white transition-opacity ${isDraggingSeek ? 'opacity-100 bg-[#1db954]' : 'opacity-0 group-hover:opacity-100'}`} />
             </div>
           </div>
           <p className="w-9 shrink-0">{formatTime(totalTime)}</p>
         </div>
 
-        {/* Кнопки управления */}
+        {/* Кнопки керування */}
         <div className="flex items-center gap-6 sm:gap-8 md:gap-10">
           <img onClick={toggleShuffle}
             className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer transition hover:scale-110 ${shuffle ? 'opacity-100' : 'opacity-70'}`}
-            style={shuffle ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
-            src={assets.shuffle_icon}
-            alt="Shuffle"
+            style={shuffle ? {filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)'} : undefined}
+            src={assets.shuffle_icon} alt="Shuffle"
           />
           <img onClick={previous} className="w-5 h-5 md:w-6 md:h-6 cursor-pointer opacity-80 hover:opacity-100 hover:scale-110 transition" src={assets.prev_icon} alt="Previous" />
           {playStatus
@@ -506,14 +592,13 @@ export const FullScreenPlayer: React.FC = () => {
           <img onClick={next} className="w-5 h-5 md:w-6 md:h-6 cursor-pointer opacity-80 hover:opacity-100 hover:scale-110 transition" src={assets.next_icon} alt="Next" />
           <img onClick={toggleLoop}
             className={`w-4 h-4 md:w-5 md:h-5 cursor-pointer transition hover:scale-110 ${loop ? 'opacity-100' : 'opacity-70'}`}
-            style={loop ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
-            src={assets.loop_icon}
-            alt="Loop"
+            style={loop ? {filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)'} : undefined}
+            src={assets.loop_icon} alt="Loop"
           />
         </div>
 
-        {/* Громкость */}
-        <div className="hidden md:flex items-center gap-3 w-full max-w-xs mt-2">
+        {/* Гучність десктоп */}
+        <div className="hidden md:flex items-center gap-3 w-full max-w-xs">
           <button onClick={() => changeVolume(volume > 0 ? 0 : 0.7)} className="shrink-0 text-neutral-400 hover:text-white transition">
             {volume === 0 ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>
@@ -525,8 +610,8 @@ export const FullScreenPlayer: React.FC = () => {
           </button>
           <div ref={volumeBgRef} onMouseDown={handleVolumeMouseDown} onTouchStart={handleVolumeMouseDown}
             className="flex-1 bg-[#4d4d4d] h-1 rounded-full cursor-pointer group relative flex items-center">
-            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative flex items-center" style={{ width: `${volume * 100}%` }}>
-              <div className={`absolute right-0 w-3 h-3 rounded-full bg-white transition-opacity ${isDraggingVolume ? 'opacity-100 bg-[#1db954]' : 'opacity-0 group-hover:opacity-100'}`} style={{ transform: 'translateX(50%)' }} />
+            <div className="h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative flex items-center" style={{width: `${volume * 100}%`}}>
+              <div className={`absolute right-0 w-3 h-3 rounded-full bg-white transition-opacity ${isDraggingVolume ? 'opacity-100 bg-[#1db954]' : 'opacity-0 group-hover:opacity-100'}`} style={{transform: 'translateX(50%)'}} />
             </div>
           </div>
           <span className="text-xs text-neutral-500 w-8 text-right shrink-0">{Math.round(volume * 100)}%</span>
