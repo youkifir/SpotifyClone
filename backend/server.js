@@ -12,6 +12,7 @@ const albumRoutes    = require('./routes/albumRoutes');
 const authRoutes     = require('./routes/authRoutes');
 const playlistRoutes = require('./routes/playlistRoutes');
 const adminRoutes    = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { protect, isAdmin, isMusician } = require('./middleware/auth');
 
@@ -88,6 +89,7 @@ app.use('/api/songs',     songRoutes);
 app.use('/api/albums',    albumRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/admin',     adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // ── Захищений аудіо-стрімінг ─────────────────────────────────────────────────
 // Всі аудіо-запити йдуть через цей маршрут з JWT-токеном
