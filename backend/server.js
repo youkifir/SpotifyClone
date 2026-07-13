@@ -12,6 +12,7 @@ const albumRoutes    = require('./routes/albumRoutes');
 const authRoutes     = require('./routes/authRoutes');
 const playlistRoutes = require('./routes/playlistRoutes');
 const adminRoutes    = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { protect, isAdmin, isMusician } = require('./middleware/auth');
 const { proxyAIPlaylist } = require('./controllers/recommendedController');
@@ -89,6 +90,7 @@ app.use('/api/songs',     songRoutes);
 app.use('/api/albums',    albumRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/admin',     adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // POST /api/ai-playlist — проксі до Claude API (API-ключ на сервері, не на фронті)
 app.post('/api/ai-playlist', protect, proxyAIPlaylist);

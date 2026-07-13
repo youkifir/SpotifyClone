@@ -40,13 +40,11 @@ const userSchema = new mongoose.Schema(
       message: { type: String, default: '' },
       requestedAt: { type: Date },
     },
-    // Підписки на артистів (ім'я артиста, рядок)
-    followedArtists: [{ type: String, trim: true }],
-    // Історія прослуховування
-    listenHistory: [
+    // Музиканти, на яких підписаний юзер (щоб отримувати сповіщення)
+    following: [
       {
-        song: { type: mongoose.Schema.Types.ObjectId, ref: 'Song' },
-        listenedAt: { type: Date, default: Date.now },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
       },
     ],
   },

@@ -9,6 +9,17 @@ import { useNavigate } from 'react-router-dom'
 
 const API = 'http://localhost:5000'
 
+// Функція для безпечного визначення шляху до зображення (захищає від помилки 431)
+const getSafeImgSrc = (imgStr: string | undefined | null): string => {
+  if (!imgStr) return ''
+  // Якщо це пряме посилання або Base64 рядок, повертаємо його без змін
+  if (imgStr.startsWith('http') || imgStr.startsWith('data:')) {
+    return imgStr
+  }
+  // Якщо це звичайний локальний шлях, додаємо URL бекенду
+  return `${API}/${imgStr}`
+}
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -104,14 +115,13 @@ interface Artist {
 function ArtistCard({ artist }: { artist: Artist }) {
   const navigate = useNavigate()
   const { t } = useLanguage()
-  const imgSrc = artist.image?.startsWith('http') ? artist.image : `${API}/${artist.image}`
+  const imgSrc = getSafeImgSrc(artist.image)
 
   return (
     <div
       onClick={() => navigate(`/artist/${encodeURIComponent(artist.name)}`)}
       className="w-36 sm:w-44 shrink-0 snap-start rounded-lg p-3 sm:p-4 cursor-pointer group"
     >
-      {/* Кругла аватарка */}
       <div className="relative mx-auto w-full aspect-square rounded-full overflow-hidden shadow-lg mb-3 sm:mb-4">
         <img
           src={imgSrc}
@@ -121,7 +131,6 @@ function ArtistCard({ artist }: { artist: Artist }) {
             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(artist.name)}&background=1db954&color=000&size=200&bold=true`
           }}
         />
-        {/* Play overlay */}
         <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="w-10 h-10 rounded-full bg-[#1db954] shadow-lg flex items-center justify-center translate-y-1 group-hover:translate-y-0 transition-transform duration-200">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="black">
@@ -137,6 +146,43 @@ function ArtistCard({ artist }: { artist: Artist }) {
   )
 }
 
+function RecentlyPlayedTile({ item }: { item: RecentlyPlayedItem }) {
+  const { t } = useLanguage()
+  const to = item.type === 'album' ? `/album/${item.id}` : `/playlist/${item.id}`
+  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=282828&color=fff`
+  const imgSrc = item.image ? getSafeImgSrc(item.image) : fallbackAvatar
+
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 sm:gap-4 bg-[#2a2a2a]/60 hover:bg-[#3a3a3a] transition-colors rounded-md overflow-hidden group min-w-0"
+    >
+      {item.isLikedSongs ? (
+        <div
+          className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 flex items-center justify-center"
+          style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          </svg>
+        </div>
+      ) : (
+        <img
+          src={imgSrc}
+          alt={item.name}
+          className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = fallbackAvatar
+          }}
+        />
+      )}
+      <p className="text-sm sm:text-base font-semibold text-white truncate pr-3">
+        {item.isLikedSongs ? t('likedSongsLabel') : item.name}
+      </p>
+    </Link>
+  )
+}
+
 function Home() {
   const { track, playStatus, playWithId, songsData } = usePlayer()
   const { t } = useLanguage()
@@ -144,22 +190,39 @@ function Home() {
   const [artists, setArtists] = useState<Artist[]>([])
   const [shuffledSongs, setShuffledSongs] = useState<any[]>([])
 
-  useEffect(() => {
-    fetch(`${API}/api/albums`)
-      .then(r => r.json())
-      .then(res => {
-        const albums = Array.isArray(res) ? res : (res.data || [])
-        setAlbumsData(albums.map((a: any) => ({ ...a, id: a.id || a._id })))
-      })
-      .catch(() => {})
-  }, [])
+  const fetchAlbums = useCallback(async () => {
+    setAlbumsLoading(true)
+    setAlbumsError(null)
+    try {
+      const r = await apiFetch(`${API}/api/albums`)
+      const res = await r.json()
+      const albums = Array.isArray(res) ? res : (res.data || [])
+      setAlbumsData(albums.map((a: any) => ({ ...a, id: a.id || a._id })))
+    } catch (err) {
+      // Додано 'as any' для усунення помилок суворої типізації i18n
+      setAlbumsError(isOfflineError(err) ? t('errorNetwork' as any) : t('errorLoadAlbums' as any))
+    } finally {
+      setAlbumsLoading(false)
+    }
+  }, [t])
 
-  useEffect(() => {
-    fetch(`${API}/api/songs/top-artists?limit=20`)
-      .then(r => r.json())
-      .then(res => setArtists(res.data || []))
-      .catch(() => {})
-  }, [])
+  const fetchArtists = useCallback(async () => {
+    setArtistsLoading(true)
+    setArtistsError(null)
+    try {
+      const r = await apiFetch(`${API}/api/songs/top-artists?limit=20`)
+      const res = await r.json()
+      setArtists(res.data || [])
+    } catch (err) {
+      // Додано 'as any' для усунення помилок суворої типізації i18n
+      setArtistsError(isOfflineError(err) ? t('errorNetwork' as any) : t('errorGeneric' as any))
+    } finally {
+      setArtistsLoading(false)
+    }
+  }, [t])
+
+  useEffect(() => { fetchAlbums() }, [fetchAlbums])
+  useEffect(() => { fetchArtists() }, [fetchArtists])
 
   useEffect(() => {
     if (songsData.length === 0) return
@@ -241,71 +304,36 @@ function Home() {
         </section>
       )}
 
-      {token && (
-        <section>
-          <h2 className="text-white font-bold text-xl mb-4">Плейлисти для тебе</h2>
-          {recLoading ? (
-            <div className="flex gap-3">
-              {[1,2,3].map(i => (
-                <div key={i} className="w-44 sm:w-52 shrink-0 rounded-xl bg-[#181818] p-3 animate-pulse">
-                  <div className="w-full aspect-square rounded-lg bg-[#282828] mb-3" />
-                  <div className="h-3 bg-[#282828] rounded mb-2 w-3/4" /><div className="h-2 bg-[#282828] rounded w-full" />
-                </div>
-              ))}
-            </div>
-          ) : recommendedPlaylists.length > 0 ? (
-            <div className="flex gap-3 sm:gap-5 overflow-x-auto no-scrollbar pb-2">
-              {recommendedPlaylists.map((pl, i) => {
-                const covers = (pl.songs || []).slice(0, 4)
-                const isOpening = false
-                return (
-                  <div
-                    key={i}
-                    onClick={() => handleOpenRec(pl)}
-                    className="w-44 sm:w-52 shrink-0 rounded-xl bg-[#181818] hover:bg-[#282828] transition-colors p-3 group cursor-pointer select-none"
-                  >
-                    <div className="relative w-full aspect-square rounded-lg overflow-hidden mb-3 shadow-lg">
-                      {covers.length >= 4 ? (
-                        <div className="grid grid-cols-2 w-full h-full">
-                          {covers.map((s: any, ci: number) => (
-                            <img key={ci} src={s.image?.startsWith('http') ? s.image : `${API}/${s.image}`} alt={s.name} className="w-full h-full object-cover" onError={(e)=>{(e.target as HTMLImageElement).src='https://via.placeholder.com/80?text=music'}} />
-                          ))}
-                        </div>
-                      ) : covers.length > 0 ? (
-                        <img src={covers[0].image?.startsWith('http') ? covers[0].image : `${API}/${covers[0].image}`} alt={covers[0].name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-[#282828] flex items-center justify-center">
-                          <svg width="40" height="40" viewBox="0 0 24 24" fill="#b3b3b3"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-                        </div>
-                      )}
-                      {/* Play-кнопка при hover */}
-                      <div className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1db954] flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200">
-                        {isOpening ? (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" className="animate-spin"><circle cx="12" cy="12" r="9" strokeDasharray="56" strokeDashoffset="20"/></svg>
-                        ) : (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"/></svg>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-white text-sm font-semibold truncate">{pl.name}</p>
-                    <p className="text-neutral-400 text-xs mt-0.5 line-clamp-2">{pl.description || `${pl.songs?.length || 0} треків`}</p>
-                    {pl.genre && <span className="inline-block mt-1.5 text-xs bg-white/10 text-neutral-400 px-2 py-0.5 rounded-full">{pl.genre}</span>}
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-zinc-400 text-sm pl-1">Послухай кілька треків — і ми підберемо плейлисти спеціально для тебе</p>
-          )}
-        </section>
-      )}
+      <ScrollSection
+        title={t('playlists')}
+        isEmpty={albumsData.length === 0}
+        emptyText={t('noAvailablePlaylists')}
+        isLoading={albumsLoading}
+        error={albumsError}
+        onRetry={fetchAlbums}
+      >
+        {albumsData.map((album) => (
+          <Card
+            key={album.id}
+            to={`/album/${album.id}`}
+            image={getSafeImgSrc(album.image)}
+            name={album.name}
+            desc={album.desc}
+          />
+        ))}
+      </ScrollSection>
 
-
-      <ScrollSection title={t('popularTracks')} isEmpty={shuffledSongs.length === 0} emptyText={t('noAvailableTracks')}>
+      <ScrollSection
+        title={t('popularTracks')}
+        isEmpty={shuffledSongs.length === 0}
+        emptyText={t('noAvailableTracks')}
+        isLoading={songsLoading}
+        error={songsError ? (songsError === 'network' ? t('errorNetwork' as any) : t('errorLoadSongs' as any)) : null}
+      >
         {shuffledSongs.map((song, i) => (
           <Card
             key={`${song.id}-${i}`}
-            image={song.image.startsWith('http') ? song.image : `${API}/${song.image}`}
+            image={getSafeImgSrc(song.image)}
             name={song.name}
             desc={song.desc}
             onClick={() => playWithId(song.id)}

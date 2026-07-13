@@ -5,12 +5,17 @@ import { useLanguage } from '../context/LanguageContext'
 import { LANGUAGES } from '../i18n/translations'
 import { useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar'
+import { useNotifications } from '../context/NotificationContext.tsx'
+import NotificationPanel from './NotificationPanel'
+
 
 interface NavbarProps {
   onToggleSidebar?: () => void
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
+const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, sidebarCollapsed }) => {
+  const [notifOpen, setNotifOpen] = useState(false)        // ← add this
+  const { unreadCount } = useNotifications()  
   const { user, logout } = useAuth()
   const { t, language, setLanguage } = useLanguage()
   const navigate = useNavigate()
@@ -86,10 +91,22 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
         </button>
 
         {/* Дзвіночок */}
-        <div className='bg-[#1f1f1f] p-2.5 rounded-full hover:bg-[#2a2a2a] hover:scale-105 cursor-pointer transition flex items-center justify-center w-9 h-9 text-[#b3b3b3] hover:text-white'>
-          <svg role="img" height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 1.5a3 3 0 0 0-3 3v2.37l-1.283 1.283A1 1 0 0 0 3 8.862V10.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8.862a1 1 0 0 0-.717-.71l-1.283-1.282V4.5a3 3 0 0 0-3-3zM6.5 13a1.5 1.5 0 0 0 3 0h-3z" />
-          </svg>
+        <div className='relative'>
+          <button
+            onClick={() => setNotifOpen(o => !o)}
+            aria-label="Сповіщення"
+            className='relative bg-[#1f1f1f] p-2.5 rounded-full hover:bg-[#2a2a2a] hover:scale-105 cursor-pointer transition flex items-center justify-center w-9 h-9 text-[#b3b3b3] hover:text-white'
+          >
+            <svg role="img" height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1.5a3 3 0 0 0-3 3v2.37l-1.283 1.283A1 1 0 0 0 3 8.862V10.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8.862a1 1 0 0 0-.717-.71l-1.283-1.282V4.5a3 3 0 0 0-3-3zM6.5 13a1.5 1.5 0 0 0 3 0h-3z" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className='absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#1db954] text-black text-[9px] font-bold flex items-center justify-center leading-none'>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
         </div>
 
         {/* Аватар з дропдауном */}
