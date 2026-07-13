@@ -7,6 +7,7 @@ import { apiFetch, isOfflineError } from '../utils/apiError'
 import { ErrorScreen, LoadingScreen, EmptyScreen } from '../components/StateScreens'
 import { useLanguage } from '../context/LanguageContext'
 import { useArtistBio } from '../hooks/useArtistBio'
+import { useNotifications } from '../context/NotificationContext'
 
 interface ArtistSong {
   id: string
@@ -54,6 +55,8 @@ function ArtistPage() {
   const { t, language } = useLanguage()
   const artistName = decodeURIComponent(name || '')
   const [offline, setOffline] = useState(false)
+  const [musicianId, setMusicianId] = useState<string | null>(null)
+  const { follow, unfollow, isFollowing } = useNotifications()
 
   // Підтягуємо біографію з MusicBrainz + Wikipedia автоматично,
   // перекладаємо на поточну мову сайту

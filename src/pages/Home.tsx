@@ -10,6 +10,17 @@ import { useRecentlyPlayed, type RecentlyPlayedItem } from '../hooks/useRecently
 
 const API = 'http://localhost:5000'
 
+// Функція для безпечного визначення шляху до зображення (захищає від помилки 431)
+const getSafeImgSrc = (imgStr: string | undefined | null): string => {
+  if (!imgStr) return ''
+  // Якщо це пряме посилання або Base64 рядок, повертаємо його без змін
+  if (imgStr.startsWith('http') || imgStr.startsWith('data:')) {
+    return imgStr
+  }
+  // Якщо це звичайний локальний шлях, додаємо URL бекенду
+  return `${API}/${imgStr}`
+}
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -126,14 +137,13 @@ interface Artist {
 function ArtistCard({ artist }: { artist: Artist }) {
   const navigate = useNavigate()
   const { t } = useLanguage()
-  const imgSrc = artist.image?.startsWith('http') ? artist.image : `${API}/${artist.image}`
+  const imgSrc = getSafeImgSrc(artist.image)
 
   return (
     <div
       onClick={() => navigate(`/artist/${encodeURIComponent(artist.name)}`)}
       className="w-36 sm:w-44 shrink-0 snap-start rounded-lg p-3 sm:p-4 cursor-pointer group"
     >
-      {/* Кругла аватарка */}
       <div className="relative mx-auto w-full aspect-square rounded-full overflow-hidden shadow-lg mb-3 sm:mb-4">
         <img
           src={imgSrc}
@@ -143,7 +153,6 @@ function ArtistCard({ artist }: { artist: Artist }) {
             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(artist.name)}&background=1db954&color=000&size=200&bold=true`
           }}
         />
-        {/* Play overlay */}
         <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="w-10 h-10 rounded-full bg-[#1db954] shadow-lg flex items-center justify-center translate-y-1 group-hover:translate-y-0 transition-transform duration-200">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="black">
@@ -159,11 +168,11 @@ function ArtistCard({ artist }: { artist: Artist }) {
   )
 }
 
-// Плитка "недавно прослуханого" плейлиста/альбому — компактна горизонтальна
-// картка з обкладинкою зліва, як на головній сторінці справжнього Spotify.
 function RecentlyPlayedTile({ item }: { item: RecentlyPlayedItem }) {
   const { t } = useLanguage()
   const to = item.type === 'album' ? `/album/${item.id}` : `/playlist/${item.id}`
+  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=282828&color=fff`
+  const imgSrc = item.image ? getSafeImgSrc(item.image) : fallbackAvatar
 
   return (
     <Link
@@ -181,11 +190,11 @@ function RecentlyPlayedTile({ item }: { item: RecentlyPlayedItem }) {
         </div>
       ) : (
         <img
-          src={item.image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.name) + '&background=282828&color=fff'}
+          src={imgSrc}
           alt={item.name}
           className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 object-cover"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=282828&color=fff`
+            (e.target as HTMLImageElement).src = fallbackAvatar
           }}
         />
       )}
@@ -218,7 +227,8 @@ function Home() {
       const albums = Array.isArray(res) ? res : (res.data || [])
       setAlbumsData(albums.map((a: any) => ({ ...a, id: a.id || a._id })))
     } catch (err) {
-      setAlbumsError(isOfflineError(err) ? t('errorNetwork') : t('errorLoadAlbums'))
+      // Додано 'as any' для усунення помилок суворої типізації i18n
+      setAlbumsError(isOfflineError(err) ? t('errorNetwork' as any) : t('errorLoadAlbums' as any))
     } finally {
       setAlbumsLoading(false)
     }
@@ -232,7 +242,8 @@ function Home() {
       const res = await r.json()
       setArtists(res.data || [])
     } catch (err) {
-      setArtistsError(isOfflineError(err) ? t('errorNetwork') : t('errorGeneric'))
+      // Додано 'as any' для усунення помилок суворої типізації i18n
+      setArtistsError(isOfflineError(err) ? t('errorNetwork' as any) : t('errorGeneric' as any))
     } finally {
       setArtistsLoading(false)
     }
@@ -274,7 +285,7 @@ function Home() {
           <Card
             key={album.id}
             to={`/album/${album.id}`}
-            image={album.image.startsWith('http') ? album.image : `${API}/${album.image}`}
+            image={getSafeImgSrc(album.image)}
             name={album.name}
             desc={album.desc}
           />
@@ -286,12 +297,12 @@ function Home() {
         isEmpty={shuffledSongs.length === 0}
         emptyText={t('noAvailableTracks')}
         isLoading={songsLoading}
-        error={songsError ? (songsError === 'network' ? t('errorNetwork') : t('errorLoadSongs')) : null}
+        error={songsError ? (songsError === 'network' ? t('errorNetwork' as any) : t('errorLoadSongs' as any)) : null}
       >
         {shuffledSongs.map((song, i) => (
           <Card
             key={`${song.id}-${i}`}
-            image={song.image.startsWith('http') ? song.image : `${API}/${song.image}`}
+            image={getSafeImgSrc(song.image)}
             name={song.name}
             desc={song.desc}
             onClick={() => playWithId(song.id)}

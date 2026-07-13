@@ -6,10 +6,6 @@ export const LANGUAGES: { code: Language; label: string }[] = [
   { code: 'en', label: 'English' },
 ]
 
-// Словник перекладів. Ключі — короткі смислові ідентифікатори, а не самі
-// фрази, щоб можна було легко міняти формулювання, не чіпаючи компоненти.
-// Щоб додати новий текст: додай ключ сюди для всіх трьох мов, а в компоненті
-// виклич t('твійКлюч') замість хардкоду рядка.
 export const translations = {
   uk: {
     home: 'Головна',
@@ -95,7 +91,6 @@ export const translations = {
     passwordMismatch: 'Паролі не збігаються',
     passwordChanged: 'Пароль змінено!',
     changePasswordBtn: 'Змінити пароль',
-    // MusicianPage
     musicianStudio: 'Студія музиканта',
     myTracks: 'Мої треки',
     createPlaylistBtn: 'Плейлист',
@@ -186,7 +181,6 @@ export const translations = {
     loadingArtist: 'Завантаження виконавця...',
     errorRetry: 'Спробувати знову',
     emptyArtistSongs: 'У цього виконавця ще немає треків',
-    // AdminPanel
     adminPanelTitle: 'Панель адміністратора',
     adminContentManagement: 'Управління контентом',
     adminUsersCount: 'Користувачів',
@@ -256,6 +250,18 @@ export const translations = {
     adminSaveBtn: 'Зберегти',
     adminCancelBtn: 'Скасувати',
     adminItunesSearchPlaceholder: 'Пошук в iTunes: назва, артист...',
+    // Notifications
+    notifTitle: 'Сповіщення',
+    notifEmpty: 'Немає нових сповіщень',
+    notifMarkAllRead: 'Позначити всі як прочитані',
+    notifNewSong: 'новий трек',
+    notifNewAlbum: 'новий альбом',
+    notifJustNow: 'щойно',
+    notifMinAgo: 'хв тому',
+    notifHourAgo: 'год тому',
+    notifDayAgo: 'дн тому',
+    followMusician: 'Стежити',
+    unfollowMusician: 'Відписатись',
   },
   ru: {
     home: 'Главная',
@@ -341,7 +347,6 @@ export const translations = {
     passwordMismatch: 'Пароли не совпадают',
     passwordChanged: 'Пароль изменён!',
     changePasswordBtn: 'Изменить пароль',
-    // MusicianPage
     musicianStudio: 'Студия музыканта',
     myTracks: 'Мои треки',
     createPlaylistBtn: 'Плейлист',
@@ -432,7 +437,6 @@ export const translations = {
     loadingArtist: 'Загрузка исполнителя...',
     errorRetry: 'Попробовать снова',
     emptyArtistSongs: 'У этого исполнителя пока нет треков',
-    // AdminPanel
     adminPanelTitle: 'Панель администратора',
     adminContentManagement: 'Управление контентом',
     adminUsersCount: 'Пользователей',
@@ -502,6 +506,18 @@ export const translations = {
     adminSaveBtn: 'Сохранить',
     adminCancelBtn: 'Отмена',
     adminItunesSearchPlaceholder: 'Поиск в iTunes: название, артист...',
+    // Notifications
+    notifTitle: 'Уведомления',
+    notifEmpty: 'Нет новых уведомлений',
+    notifMarkAllRead: 'Отметить все как прочитанные',
+    notifNewSong: 'новый трек',
+    notifNewAlbum: 'новый альбом',
+    notifJustNow: 'только что',
+    notifMinAgo: 'мин назад',
+    notifHourAgo: 'ч назад',
+    notifDayAgo: 'дн назад',
+    followMusician: 'Подписаться',
+    unfollowMusician: 'Отписаться',
   },
   en: {
     home: 'Home',
@@ -587,7 +603,6 @@ export const translations = {
     passwordMismatch: 'Passwords do not match',
     passwordChanged: 'Password changed!',
     changePasswordBtn: 'Change password',
-    // MusicianPage
     musicianStudio: 'Musician Studio',
     myTracks: 'My Tracks',
     createPlaylistBtn: 'Playlist',
@@ -678,7 +693,6 @@ export const translations = {
     loadingArtist: 'Loading artist...',
     errorRetry: 'Try again',
     emptyArtistSongs: 'This artist has no tracks yet',
-    // AdminPanel
     adminPanelTitle: 'Admin panel',
     adminContentManagement: 'Content management',
     adminUsersCount: 'Users',
@@ -709,7 +723,7 @@ export const translations = {
     adminColUser: 'User',
     adminColEmail: 'Email',
     adminColRole: 'Role',
-    adminThisIsYou: 'That\'s you',
+    adminThisIsYou: "That's you",
     adminLoadingRequests: 'Loading requests...',
     adminNoRequests: 'No new requests',
     adminNoRequestsHint: 'All musician requests have been reviewed',
@@ -748,6 +762,18 @@ export const translations = {
     adminSaveBtn: 'Save',
     adminCancelBtn: 'Cancel',
     adminItunesSearchPlaceholder: 'Search iTunes: title, artist...',
+    // Notifications
+    notifTitle: 'Notifications',
+    notifEmpty: 'No new notifications',
+    notifMarkAllRead: 'Mark all as read',
+    notifNewSong: 'new song',
+    notifNewAlbum: 'new album',
+    notifJustNow: 'just now',
+    notifMinAgo: 'min ago',
+    notifHourAgo: 'h ago',
+    notifDayAgo: 'd ago',
+    followMusician: 'Follow',
+    unfollowMusician: 'Unfollow',
   },
 } as const
 
