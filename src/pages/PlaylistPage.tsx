@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import { useParams, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
 import { assets } from '../assets/assets'
@@ -9,11 +9,9 @@ import { durationToSeconds } from '../utils/parseDuration'
 import type { Playlist } from '../components/CreatePlaylistModal'
 import type { Song } from '../context/PlayerContext'
 import { apiFetch, isOfflineError } from '../utils/apiError'
-import { ErrorScreen, LoadingScreen } from '../components/StateScreen'
+import { ErrorScreen, LoadingScreen } from '../components/StateScreens'
 import { useLanguage } from '../context/LanguageContext'
 import { addRecentlyPlayed } from '../hooks/useRecentlyPlayed'
-import { onLikeChanged } from '../hooks/Uselike'
-import { onPlaylistSongAdded } from '../components/AddToPlaylistMenu'
 
 interface PlaylistDetail extends Omit<Playlist, 'songs'> {
   songs: ApiSong[]
@@ -31,10 +29,12 @@ const resolveUrl = (path: string) => {
 
 function PlaylistPage() {
   const { id } = useParams()
+  const location = useLocation()
+  const previewData = id === 'preview' ? (location.state as any)?.preview : null
   const { token, user } = useAuth()
-  const { t } = useLanguage()
   const { track, playStatus, playWithId, play, pause, refreshSongs, setQueue, clearQueue, addSongs } = usePlayer()
 
+  const { t } = useLanguage()
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -49,13 +49,86 @@ function PlaylistPage() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+
+  // ── Drag & Drop ────────────────────────────────────────────
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const dragSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleDragStart = (e: React.DragEvent, songId: string) => {
+    setDraggedId(songId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, songId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (songId !== dragOverId) setDragOverId(songId)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault()
+    if (!draggedId || draggedId === targetId || !playlist) return
+
+    const songs = [...playlist.songs]
+    const fromIdx = songs.findIndex(s => s._id === draggedId)
+    const toIdx   = songs.findIndex(s => s._id === targetId)
+    if (fromIdx === -1 || toIdx === -1) return
+
+    // Переставляємо
+    const [moved] = songs.splice(fromIdx, 1)
+    songs.splice(toIdx, 0, moved)
+    setPlaylist(prev => prev ? { ...prev, songs } : prev)
+
+    setDraggedId(null)
+    setDragOverId(null)
+
+    // Зберігаємо на сервері з debounce 600ms
+    if (dragSaveTimer.current) clearTimeout(dragSaveTimer.current)
+    dragSaveTimer.current = setTimeout(async () => {
+      try {
+        await fetch(`${API_BASE}/playlists/${playlist._id}/reorder`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ songIds: songs.map(s => s._id) }),
+        })
+      } catch { /* ігноруємо — порядок вже оновлено локально */ }
+    }, 600)
+  }
+
+  const handleDragEnd = () => { setDraggedId(null); setDragOverId(null) }
   const [wasDeleted, setWasDeleted] = useState(false)
-  const [copied, setCopied] = useState(false)
+
+  // Якщо це preview — одразу будуємо playlist зі state, без запиту до БД
+  useEffect(() => {
+    if (!previewData) return
+    const songs: ApiSong[] = (previewData.songs || []).map((s: any) => ({
+      _id: s._id,
+      name: s.name,
+      artist: s.artist || '',
+      image: s.image || '',
+      file: s.file || '',
+      desc: s.desc || '',
+      duration: s.duration || '0:00',
+      album: s.album || null,
+    }))
+    setPlaylist({
+      _id: 'preview',
+      name: previewData.name,
+      description: previewData.description || '',
+      image: songs[0]?.image || '',
+      owner: '',
+      songs,
+      isPublic: false,
+      isLikedSongs: false,
+    } as any)
+    setLoading(false)
+  }, [previewData])
 
   // завантаження плейлиста
-  const fetchPlaylist = useCallback(async (silent = false) => {
-    if (!token || !id) return
-    if (!silent) setLoading(true)
+  const fetchPlaylist = useCallback(async () => {
+    if (!token || !id || id === 'preview') return
+    setLoading(true)
     setNotFound(false)
     setFetchError(null)
     setOffline(false)
@@ -80,50 +153,36 @@ function PlaylistPage() {
           isLikedSongs: !!loadedPlaylist.isLikedSongs,
         })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Помилка завантаження плейлиста:', error)
-      if (isOfflineError(error)) {
+      if (error?.status === 404 || error?.status === 403) {
+        setNotFound(true)
+      } else if (isOfflineError(error)) {
         setOffline(true)
+        setFetchError(t('errorNetwork'))
       } else {
-        setFetchError('Не вдалося завантажити плейлист')
+        setFetchError(t('errorLoadPlaylist'))
       }
     } finally {
       setLoading(false)
     }
-  }, [id, token, user?.id, t])
+  }, [id, token, t, user])
 
-  useEffect(() => {
-    fetchPlaylist()
-  }, [fetchPlaylist])
-
-  // Оновлюємо список одразу після лайку або додавання треку до плейліcту
-  useEffect(() => {
-    const unsubLike = onLikeChanged(() => fetchPlaylist(true))
-    const unsubAdd = onPlaylistSongAdded((playlistId) => {
-      if (!playlistId || playlistId === id) fetchPlaylist(true)
-    })
-    return () => { unsubLike(); unsubAdd() }
-  }, [fetchPlaylist, id])
+  useEffect(() => { fetchPlaylist() }, [fetchPlaylist])
 
   // резолвимо назви альбомів
   useEffect(() => {
-    const fetchAlbums = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/albums`)
-        if (response.ok) {
-          const resData = await response.json()
-          const list = Array.isArray(resData) ? resData : resData.data || []
-          const map: Record<string, string> = {}
-          for (const album of list) {
-            map[album._id || album.id] = album.name
-          }
-          setAlbumNames(map)
+    apiFetch(`${API_BASE}/albums`)
+      .then(r => r.json())
+      .then(resData => {
+        const list = Array.isArray(resData) ? resData : resData.data || []
+        const map: Record<string, string> = {}
+        for (const album of list) {
+          map[album._id || album.id] = album.name
         }
-      } catch (error) {
-        console.error('Помилка завантаження альбомів:', error)
-      }
-    }
-    fetchAlbums()
+        setAlbumNames(map)
+      })
+      .catch(() => {/* non-critical, album names just show — */})
   }, [])
 
   const existingSongIds = useMemo(
@@ -181,10 +240,10 @@ function PlaylistPage() {
   useEffect(() => {
     if (!playlist || visibleSongs.length === 0) return
     const playerSongs = visibleSongs.map(toPlayerSong)
-    addSongs(playerSongs)
+    addSongs(playerSongs)   // гарантуємо що треки є в songsData
     setQueue(playerSongs)
-    return () => { clearQueue() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { clearQueue() }  // скидаємо чергу при виході зі сторінки
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlist?._id, visibleSongs])
 
   const handleRemoveSong = async (songId: string) => {
@@ -202,18 +261,6 @@ function PlaylistPage() {
       console.error('Помилка видалення треку:', error)
     } finally {
       setRemovingId(null)
-    }
-  }
-
-  const handleSharePlaylist = async () => {
-    if (!playlist) return
-    const shareUrl = `${window.location.origin}/playlist/${playlist._id}`
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
-      console.error('Не вдалося скопіювати посилання:', error)
     }
   }
 
@@ -244,30 +291,41 @@ function PlaylistPage() {
   }
 
   if (wasDeleted) return <Navigate to="/" replace />
-  if (loading) return <LoadingScreen message="Завантаження плейлиста…" />
-  if (offline) return <ErrorScreen message="Немає з'єднання з сервером" onRetry={() => fetchPlaylist()} />
-  if (fetchError) return <ErrorScreen message={fetchError} onRetry={() => fetchPlaylist()} />
-  if (notFound || !playlist) return <Navigate to="/" replace />
+  if (loading) return <LoadingScreen label={t('loadingPlaylist')} />
+  if (notFound) return <Navigate to="/" replace />
+  if (fetchError) {
+    return (
+      <ErrorScreen
+        message={fetchError}
+        offline={offline}
+        onRetry={fetchPlaylist}
+        retryLabel={t('errorRetry')}
+      />
+    )
+  }
+  if (!playlist) return <Navigate to="/" replace />
 
   const isPlaylistPlaying = playStatus && visibleSongs.some((s) => s._id === track.id)
 
   return (
     <div className="pt-2 sm:pt-4">
       {/* шапка плейлиста */}
-      <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-linear-to-b from-[#535353] to-[#121212]">
+      <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-gradient-to-b from-[#535353] to-[#121212]">
         <button
-          onClick={() => setIsEditOpen(true)}
-          className="w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden group relative"
-          title="Редагувати плейлист"
+          onClick={() => !previewData && setIsEditOpen(true)}
+          className={`w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden relative ${previewData ? 'cursor-default' : 'group'}`}
+          title={previewData ? '' : 'Редагувати плейлист'}
         >
           <img
             src={playlist.image ? resolveUrl(playlist.image) : assets.stack_icon}
             alt={playlist.name}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-semibold">
-            Редагувати
-          </div>
+          {!previewData && (
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-semibold">
+              Редагувати
+            </div>
+          )}
         </button>
         <div className="text-center sm:text-left min-w-0">
           <p className="text-xs font-semibold uppercase text-neutral-200">Плейлист</p>
@@ -291,29 +349,18 @@ function PlaylistPage() {
 
         <button
           onClick={() => setIsAddOpen(true)}
-          className="bg-transparent border border-zinc-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:border-white transition-colors"
+          className={`bg-transparent border border-zinc-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:border-white transition-colors ${previewData ? 'hidden' : ''}`}
         >
           + Додати треки
         </button>
 
         <button
           onClick={() => setIsEditOpen(true)}
-          className="text-zinc-400 hover:text-white text-sm font-semibold transition-colors"
+          className={`text-zinc-400 hover:text-white text-sm font-semibold transition-colors ${previewData ? 'hidden' : ''}`}
         >
           Редагувати
         </button>
-
-        <button
-          onClick={handleSharePlaylist}
-          className={`text-sm font-semibold px-4 py-2 rounded-full border transition-colors ${copied
-              ? 'bg-green-600 border-green-600 text-white'
-              : 'bg-transparent border-zinc-600 text-white hover:border-white'
-            }`}
-        >
-          {copied ? '✓ Скопійовано!' : 'Поділитися'}
-        </button>
-
-        <div className="flex-1 min-w-2" />
+        <div className="flex-1 min-w-[8px]" />
 
         <input
           type="text"
@@ -377,16 +424,19 @@ function PlaylistPage() {
                 return (
                   <div
                     key={song._id}
+                    draggable={!search}
+                    onDragStart={e => handleDragStart(e, song._id)}
+                    onDragOver={e => handleDragOver(e, song._id)}
+                    onDrop={e => handleDrop(e, song._id)}
+                    onDragEnd={handleDragEnd}
                     onClick={() => {
-                      if (isActive) {
-                        if (playStatus) pause()
-                        else play()
-                      } else {
-                        playWithId(song._id)
-                      }
+                      if (isActive) { if (playStatus) pause(); else play() }
+                      else playWithId(song._id)
                     }}
-                    className={`grid grid-cols-[16px_4fr_2fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group ${isActive ? 'text-[#1db954]' : 'text-neutral-300'
-                      }`}
+                    className={`grid grid-cols-[16px_4fr_2fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 rounded-md hover:bg-[#2a2a2a] cursor-pointer group transition-all ${
+                      draggedId === song._id ? 'opacity-40 scale-[0.98]' :
+                      dragOverId === song._id ? 'border-t-2 border-[#1db954]' : ''
+                    } ${isActive ? 'text-[#1db954]' : 'text-neutral-300'}`}
                   >
                     <span className="self-center text-sm relative w-4 h-4">
                       <span className={`${isActivePlaying ? 'hidden' : 'group-hover:hidden'}`}>{index + 1}</span>
@@ -407,6 +457,7 @@ function PlaylistPage() {
                     <span className="hidden md:block self-center text-sm truncate">
                       {(song.album && albumNames[song.album]) || '—'}
                     </span>
+                    {!previewData && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -421,6 +472,7 @@ function PlaylistPage() {
                         <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
+                    )}
                     <span className="self-center text-sm justify-self-end">{song.duration}</span>
                   </div>
                 )

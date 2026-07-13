@@ -492,7 +492,7 @@ function LocalSongForm({
             <input
               value={form.image}
               onChange={set('image')}
-              placeholder="Або URL обкладинки: https://..."
+              placeholder={t('adminCoverUrlPlaceholder')}
               className="admin-input"
               disabled={!!imageFile}
             />

@@ -46,21 +46,18 @@ router.get('/top-artists', async (req, res, next) => {
       artists.map(async (artist) => {
         try {
           const r = await fetch(
-            `https://api.deezer.com/search/artist?q=${encodeURIComponent(artist.name)}&limit=5`,
+            `https://api.deezer.com/search/artist?q=${encodeURIComponent(artist.name)}&limit=1`,
             { headers: { 'User-Agent': 'SpotifyClone/1.0' }, signal: AbortSignal.timeout(3000) }
           );
           if (r.ok) {
             const d = await r.json();
-            const results = d?.data || [];
-            const artistNameLower = artist.name.toLowerCase().trim();
-
-            // Тільки точний збіг імені — ніяких partialMatch щоб не плутати виконавців
-            const found = results.find((a) =>
-              a.name.toLowerCase().trim() === artistNameLower
-            );
-
+            const found = d?.data?.[0];
             if (found?.picture_xl) {
-              return { ...artist, image: found.picture_xl };
+              const nameMatch = found.name.toLowerCase() === artist.name.toLowerCase();
+              const partialMatch = found.name.toLowerCase().includes(artist.name.split(' ')[0].toLowerCase());
+              if (nameMatch || partialMatch) {
+                return { ...artist, image: found.picture_xl };
+              }
             }
           }
         } catch { /* fallback */ }
@@ -103,12 +100,32 @@ router.get('/:id/lyrics', getSongLyrics);
 
 router.post('/:id/play', async (req, res, next) => {
   try {
-    const song = await require('../models/Song').findByIdAndUpdate(
+    const Song = require('../models/Song');
+    const song = await Song.findByIdAndUpdate(
       req.params.id,
       { $inc: { playCount: 1 } },
       { new: true }
     );
     if (!song) return res.status(404).json({ success: false, message: 'Song not found', errors: [] });
+
+    // Якщо юзер авторизований — зберігаємо в history (max 500 записів)
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
+        const User = require('../models/User');
+        await User.findByIdAndUpdate(decoded.id, {
+          $push: {
+            listenHistory: {
+              $each: [{ song: song._id, listenedAt: new Date() }],
+              $slice: -500, // зберігаємо лише останні 500
+            },
+          },
+        });
+      } catch { /* токен невалідний або юзер не знайдений — ігноруємо */ }
+    }
+
     res.json({ success: true, message: 'Play counted', data: { playCount: song.playCount } });
   } catch (err) { next(err); }
 });
