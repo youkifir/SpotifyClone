@@ -22,9 +22,11 @@ export interface Playlist {
 interface SidebarProps {
   isOpen?: boolean
   onClose?: () => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
   const { token } = useAuth()
   const { t } = useLanguage()
 
@@ -199,20 +201,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       />
 
       <div
-        className={`fixed lg:static top-0 left-0 h-full w-[78%] max-w-70 lg:w-[25%] flex flex-col text-white shrink-0 z-50 lg:z-auto transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-          }`}
+        style={{ width: collapsed ? '72px' : undefined }}
+        className={`fixed lg:static top-0 left-0 h-full flex flex-col text-white shrink-0 z-50 lg:z-auto transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} lg:w-[25%] w-[78%] max-w-70`}
       >
-        <div className="bg-[#121212] h-full lg:rounded-lg p-2 flex flex-col gap-2">
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img className="w-8" src={assets.stack_icon} alt="Library" />
+        <div className="bg-[#121212] h-full lg:rounded-lg p-2 flex flex-col gap-2 overflow-hidden">
+          <div className="p-4 flex items-center justify-between min-w-0">
+            <div
+              style={{
+                opacity: collapsed ? 0 : 1,
+                width: collapsed ? 0 : undefined,
+                overflow: 'hidden',
+                pointerEvents: collapsed ? 'none' : undefined,
+                transition: 'opacity 0.3s, width 0.3s',
+                whiteSpace: 'nowrap',
+              }}
+              className="flex items-center gap-3"
+            >
+              <img className="w-8 shrink-0" src={assets.stack_icon} alt="Library" />
               <p className="font-semibold">{t('yourLibrary')}</p>
             </div>
-            <div className="flex items-center gap-4 px-1">
+            <div style={{ margin: collapsed ? '0 auto' : undefined }} className="flex items-center gap-4 px-1 shrink-0">
               <img
-                className="w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition"
+                onClick={onToggleCollapse}
+                style={{ transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}
+                className="w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110"
                 src={assets.arrow_icon}
                 alt="Arrow"
+                title={collapsed ? 'Розгорнути' : 'Згорнути'}
               />
               <img
                 onClick={() => setIsModalOpen(true)}
@@ -231,7 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 px-2 overflow-y-auto custom-scrollbar flex-1">
+          <div style={{ display: collapsed ? "none" : undefined }} className="flex flex-col gap-3 px-2 overflow-y-auto custom-scrollbar flex-1">
             {!token ? (
               <p className="text-sm text-zinc-400 p-4">{t('loginToSeePlaylists')}</p>
             ) : loading ? (

@@ -47,6 +47,31 @@ export const Player: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false)
   const prevVolumeRef = useRef(volume || 0.7)
 
+  // Drag state for mini player
+  const [miniPos, setMiniPos] = useState({ x: window.innerWidth - 310, y: window.innerHeight - 420 })
+  const miniDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
+
+  const onMiniMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    miniDragRef.current = { startX: e.clientX, startY: e.clientY, origX: miniPos.x, origY: miniPos.y }
+    const onMove = (ev: MouseEvent) => {
+      if (!miniDragRef.current) return
+      const dx = ev.clientX - miniDragRef.current.startX
+      const dy = ev.clientY - miniDragRef.current.startY
+      setMiniPos({
+        x: Math.max(0, Math.min(window.innerWidth - 288, miniDragRef.current.origX + dx)),
+        y: Math.max(0, Math.min(window.innerHeight - 380, miniDragRef.current.origY + dy)),
+      })
+    }
+    const onUp = () => {
+      miniDragRef.current = null
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [miniPos])
+
   // Состояния для перетаскивания (громкость и таймлайн трека)
   const [isDraggingVolume, setIsDraggingVolume] = useState(false)
   const [isDraggingSeek, setIsDraggingSeek] = useState(false)
@@ -367,15 +392,29 @@ export const Player: React.FC = () => {
                 alt="Miniplayer"
               />
 
-              {/* Міні-плеєр popup */}
+              {/* Міні-плеєр popup — draggable fixed */}
               {isMiniPlayerOpen && track && (
-                <div className='absolute bottom-10 right-0 w-72 bg-[#181818] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-fadeIn'>
+                <div
+                  data-miniplayer
+                  className='fixed w-72 bg-[#181818] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-[9999] animate-fadeIn select-none'
+                  style={{ left: miniPos.x, top: miniPos.y }}
+                >
+                  {/* Drag handle */}
+                  <div
+                    onMouseDown={onMiniMouseDown}
+                    className='flex items-center justify-between px-3 py-2 bg-[#111] cursor-grab active:cursor-grabbing'
+                  >
+                    <span className='text-[10px] text-neutral-500 font-medium tracking-wide uppercase'>Міні-плеєр</span>
+                    <button
+                      onClick={() => setIsMiniPlayerOpen(false)}
+                      className='text-neutral-500 hover:text-white text-xs leading-none transition'
+                    >✕</button>
+                  </div>
+
                   {/* Обкладинка */}
                   <div className='relative w-full aspect-square'>
                     <img src={trackImageUrl} alt={track.name} className='w-full h-full object-cover' />
-                    {/* Градієнт знизу */}
                     <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent' />
-                    {/* Назва поверх */}
                     <div className='absolute bottom-3 left-3 right-3'>
                       <p className='font-bold text-sm text-white truncate'>{track.name}</p>
                       <p className='text-xs text-neutral-400 truncate mt-0.5'>

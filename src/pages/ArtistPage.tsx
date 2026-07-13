@@ -147,6 +147,13 @@ function ArtistPage() {
         className="relative flex items-end gap-6 p-6 sm:p-8 rounded-lg overflow-hidden mb-2"
         style={{ minHeight: 240, background: 'linear-gradient(180deg, #2a2a2a 0%, #121212 100%)' }}
       >
+        {/* ← Back button top-left */}
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 text-sm text-white/70 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full transition"
+        >
+          ← Назад
+        </button>
         {heroCover && (
           <div
             className="absolute inset-0 bg-cover bg-center opacity-25 blur-xl scale-110"
@@ -209,12 +216,6 @@ function ArtistPage() {
             alt="Play"
             className="w-6 h-6"
           />
-        </button>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm text-neutral-400 hover:text-white transition"
-        >
-          ← Назад
         </button>
       </div>
 
