@@ -40,13 +40,6 @@ const userSchema = new mongoose.Schema(
       message: { type: String, default: '' },
       requestedAt: { type: Date },
     },
-    // Музиканти, на яких підписаний юзер (щоб отримувати сповіщення)
-    following: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
   },
   { timestamps: true }
 );
