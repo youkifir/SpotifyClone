@@ -441,10 +441,6 @@ const getArtistSongs = async (req, res, next) => {
       console.warn('Deezer artist photo unavailable:', deezerErr.message);
     }
 
-    // musicianId — якщо є локальний трек з uploadedBy, беремо його
-    const localWithUploader = unique.find(s => s.uploadedBy);
-    const musicianId = localWithUploader ? String(localWithUploader.uploadedBy) : null;
-
     res.json({
       success: true,
       data: {
