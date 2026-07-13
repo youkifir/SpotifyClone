@@ -250,11 +250,17 @@ function UploadModal({ token, albums, initial, onClose, onSaved }: {
         onSaved(t('trackUpdated'))
         onClose()
       } else {
-        const newSongId = data.data?._id ?? data.data?.id
-        setSavedSongId(newSongId ?? null)
-        setSavedSongName(form.name)
-        fetchPlaylists()
-        setPlaylistChoiceDone(false)
+        const newSongId = data.data?._id ?? data.data?.id ?? null
+        if (!newSongId) {
+          // No ID returned — just notify and close without playlist picker
+          onSaved(t('trackUploaded'))
+          onClose()
+        } else {
+          setSavedSongId(newSongId)
+          setSavedSongName(form.name)
+          fetchPlaylists()
+          setPlaylistChoiceDone(false)
+        }
       }
     } catch (err: any) {
       setError(err.message)
@@ -833,9 +839,9 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 overflow-y-auto">
-      <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl my-auto w-full max-w-lg border border-neutral-800 flex flex-col max-h-[90vh]">
-        {/* Header */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3">
+      <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl w-full max-w-xl border border-neutral-800 flex flex-col" style={{maxHeight: 'min(92vh, 740px)'}}>
+        {/* Header — фіксований */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-neutral-800 shrink-0">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-0.5">{t('newPlaylistLabel')}</p>
@@ -846,7 +852,8 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
           </button>
         </div>
 
-        <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto flex-1">
+        {/* Статичні поля — не скроляться */}
+        <div className="px-6 pt-5 flex flex-col gap-4 shrink-0">
           {error && (
             <div className="bg-red-500/15 border border-red-500/40 text-red-400 p-3 rounded-xl text-sm">{error}</div>
           )}
@@ -872,55 +879,60 @@ function CreatePlaylistModal({ token, songs, onClose, onCreated }: {
           </Field>
 
           {/* Public toggle */}
-          <div className="flex items-center justify-between bg-[#0f0f0f] border border-neutral-800 rounded-xl px-4 py-3">
+          <div className="flex items-center justify-between bg-[#0f0f0f] border border-neutral-800 rounded-xl px-4 py-3 pr-6">
             <div>
               <p className="text-sm font-semibold text-white">{t('publicPlaylist')}</p>
               <p className="text-xs text-neutral-500 mt-0.5">{t('publicPlaylistHint')}</p>
             </div>
             <button
+              type="button"
               onClick={() => setIsPublic(v => !v)}
-              className={`w-11 h-6 rounded-full transition-colors relative ${isPublic ? 'bg-[#1db954]' : 'bg-neutral-700'}`}
+              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ml-4 ${isPublic ? 'bg-[#1db954]' : 'bg-neutral-600'}`}
             >
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isPublic ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
-
-          {/* Song picker */}
-          {songs.length > 0 && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-2">
-                {t('addTracksLabel')} ({selectedSongs.length} {t('selectedCount')})
-              </label>
-              <div className="flex flex-col gap-0.5 max-h-52 overflow-y-auto rounded-xl border border-neutral-800 bg-[#0f0f0f] p-1">
-                {songs.map(song => {
-                  const selected = selectedSongs.includes(song._id)
-                  return (
-                    <button
-                      key={song._id}
-                      onClick={() => toggleSong(song._id)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-left transition ${selected ? 'bg-[#1db954]/15' : 'hover:bg-neutral-800'}`}
-                    >
-                      <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition ${selected ? 'bg-[#1db954] border-[#1db954]' : 'border-neutral-600'}`}>
-                        {selected && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
-                      </div>
-                      <img src={imgSrc(song.image)} alt={song.name} className="w-8 h-8 rounded object-cover shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-sm font-medium truncate ${selected ? 'text-[#1db954]' : 'text-white'}`}>{song.name}</p>
-                        <p className="text-xs text-neutral-500 truncate">{song.duration}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
+        {/* Список треків — єдина зона скролу */}
+        {songs.length > 0 && (
+          <div className="flex flex-col min-h-0 flex-1 px-6 pt-4 pb-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-2 shrink-0">
+              {t('addTracksLabel')} ({selectedSongs.length} {t('selectedCount')})
+            </label>
+            <div
+              className="flex flex-col gap-0.5 overflow-y-auto rounded-xl border border-neutral-800 bg-[#0f0f0f] p-1 min-h-0"
+              style={{scrollbarWidth: 'thin', scrollbarColor: '#3a3a3a #0f0f0f'}}
+            >
+              {songs.map(song => {
+                const selected = selectedSongs.includes(song._id)
+                return (
+                  <button
+                    key={song._id}
+                    onClick={() => toggleSong(song._id)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-left transition ${selected ? 'bg-[#1db954]/15' : 'hover:bg-neutral-800'}`}
+                  >
+                    <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition ${selected ? 'bg-[#1db954] border-[#1db954]' : 'border-neutral-600'}`}>
+                      {selected && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                    </div>
+                    <img src={imgSrc(song.image)} alt={song.name} className="w-8 h-8 rounded object-cover shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-sm font-medium truncate ${selected ? 'text-[#1db954]' : 'text-white'}`}>{song.name}</p>
+                      <p className="text-xs text-neutral-500 truncate">{song.duration}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3 justify-end px-6 py-4 border-t border-neutral-800 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-700 hover:border-neutral-500 transition">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-700 hover:border-neutral-500 transition">
             {t('cancelBtn')}
           </button>
           <button
+            type="button"
             onClick={handleCreate}
             disabled={loading || !name.trim()}
             className="px-6 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-40 flex items-center gap-2"
@@ -967,6 +979,7 @@ export default function MusicianPage() {
 
   const [songs, setSongs] = useState<Song[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
+  const [myPlaylistsCount, setMyPlaylistsCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [uploadModal, setUploadModal] = useState<{ song?: Song } | null>(null)
   const [itunesModal, setItunesModal] = useState(false)
@@ -1005,10 +1018,21 @@ export default function MusicianPage() {
     } catch { /* ignore */ }
   }, [])
 
+  const fetchMyPlaylists = useCallback(async () => {
+    if (!token) return
+    try {
+      const res = await fetch(`${API}/api/playlists/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (res.ok) setMyPlaylistsCount((data.data ?? []).length)
+    } catch { /* ignore */ }
+  }, [token])
+
   useEffect(() => {
     setLoading(true)
-    Promise.all([fetchMySongs(), fetchAlbums()]).finally(() => setLoading(false))
-  }, [fetchMySongs, fetchAlbums])
+    Promise.all([fetchMySongs(), fetchAlbums(), fetchMyPlaylists()]).finally(() => setLoading(false))
+  }, [fetchMySongs, fetchAlbums, fetchMyPlaylists])
 
   const handleDelete = async () => {
     if (!deleteTarget || !token) return
@@ -1095,8 +1119,8 @@ export default function MusicianPage() {
         />
         <StatCard
           label={t('albumsCount')}
-          value={albums.length}
-          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="4"/></svg>}
+          value={myPlaylistsCount}
+          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>}
         />
         <StatCard
           label={t('topTrack')}
@@ -1303,7 +1327,7 @@ export default function MusicianPage() {
           token={token}
           songs={songs}
           onClose={() => setPlaylistModal(false)}
-          onCreated={(msg) => showToast(msg)}
+          onCreated={(msg) => { showToast(msg); fetchMyPlaylists() }}
         />
       )}
 
@@ -1335,6 +1359,22 @@ export default function MusicianPage() {
         }
         .musician-input option {
           background: #1a1a1a;
+        }
+        /* Темний скролбар — WebKit (Chrome, Edge, Safari) */
+        ::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #0f0f0f;
+          border-radius: 99px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #3a3a3a;
+          border-radius: 99px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #555;
         }
       `}</style>
     </div>
