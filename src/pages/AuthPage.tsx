@@ -18,7 +18,6 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
     const { login: ctxLogin } = useAuth();
     const { t } = useLanguage();
     const navigate = useNavigate();
