@@ -235,7 +235,9 @@ export const Player: React.FC = () => {
           {/* Лево: инфо о треке */}
           <div className='flex items-center gap-4 w-1/4 min-w-50 flex-nowrap'>
             {_hasTrack && (
-              <img className='w-14 h-14 rounded object-cover shrink-0 shadow-md' src={trackImageUrl} alt={track.name} />
+              <div className={`relative shrink-0 ${playStatus ? 'glow-active' : ''} rounded`} style={{ transition: 'box-shadow 0.5s' }}>
+                <img className='w-14 h-14 rounded object-cover shadow-md' src={trackImageUrl} alt={track.name} style={{ transition: 'transform 0.3s', transform: playStatus ? 'scale(1)' : 'scale(0.97)' }} />
+              </div>
             )}
             <div className='min-w-0 flex-1'>
               {_hasTrack && (
@@ -260,10 +262,10 @@ export const Player: React.FC = () => {
             <div className='flex items-center gap-2 shrink-0 ml-2'>
               <button
                 onClick={handleLike}
-                className={`w-6 h-6 flex items-center justify-center transition-all ${likeAnimating ? 'scale-125' : 'hover:scale-110'}`}
+                className={`w-6 h-6 flex items-center justify-center transition-all relative ${likeAnimating ? 'like-pop like-ripple' : 'hover:scale-110'}`}
                 aria-label={liked ? 'Прибрати з улюблених' : 'Додати до улюблених'}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? '#1db954' : 'none'} stroke={liked ? '#1db954' : '#b3b3b3'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? '#1db954' : 'none'} stroke={liked ? '#1db954' : '#b3b3b3'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'fill 0.2s, stroke 0.2s' }}>
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                 </svg>
               </button>

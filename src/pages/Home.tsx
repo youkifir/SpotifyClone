@@ -1,4 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { Link } from 'react-router-dom'
+import { getRecentlyPlayed, type RecentlyPlayedItem } from '../hooks/useRecentlyPlayed'
+import { useAuth } from '../context/AuthContext'
 import Card from '../components/Card'
 import { usePlayer } from '../context/usePlayer'
 import { useLanguage } from '../context/LanguageContext'
@@ -163,20 +166,140 @@ function Home() {
     setShuffledSongs(shuffle(songsData))
   }, [songsData.length])
 
+  const { user, token } = useAuth()
+  const navigate = useNavigate()
+  const [recentItems, setRecentItems] = useState<RecentlyPlayedItem[]>([])
+  const [recommendedPlaylists, setRecommendedPlaylists] = useState<any[]>([])
+  const [recLoading, setRecLoading] = useState(false)
+  // savedIds: зберігаємо id вже збережених плейлистів щоб не дублювати при повторному кліці
+  const [savedIds, setSavedIds] = useState<Map<number, string>>(new Map())
+  const [openingIdx, setOpeningIdx] = useState<number | null>(null)
+
+  // Оновлюємо список при кожному відкритті головної
+  useEffect(() => {
+    const items = getRecentlyPlayed(user?.id).slice(0, 8)
+    setRecentItems(items)
+  }, [user?.id])
+
+  // Рекомендовані плейлисти на основі listenHistory
+  useEffect(() => {
+    if (!token) return
+    setRecLoading(true)
+    fetch(`${API}/api/playlists/recommended`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(res => { if (res.success) setRecommendedPlaylists(res.data || []) })
+      .catch(() => {})
+      .finally(() => setRecLoading(false))
+  }, [token])
+
+  // При кліку — відкриваємо без збереження в БД, передаємо треки через router state
+  const handleOpenRec = (pl: any) => {
+    navigate('/playlist/preview', { state: { preview: pl } })
+  }
+
+
   return (
     <div className="pt-2 sm:pt-4 flex flex-col gap-6 sm:gap-8">
 
-      <ScrollSection title={t('playlists')} isEmpty={albumsData.length === 0} emptyText={t('noAvailablePlaylists')}>
-        {albumsData.map((album) => (
-          <Card
-            key={album.id}
-            to={`/album/${album.id}`}
-            image={album.image.startsWith('http') ? album.image : `${API}/${album.image}`}
-            name={album.name}
-            desc={album.desc}
-          />
-        ))}
-      </ScrollSection>
+{/* ── Нещодавно відкриті ── */}
+      {recentItems.length > 0 && (
+        <section>
+          <h2 className="text-white font-bold text-xl mb-4">{t('recentlyPlayed')}</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {recentItems.map((item) => (
+              <Link
+                key={item.id}
+                to={item.type === 'playlist' ? `/playlist/${item.id}` : item.type === 'album' ? `/album/${item.id}` : `/artist/${encodeURIComponent(item.name)}`}
+                className="flex items-center gap-3 bg-[#ffffff14] hover:bg-[#ffffff26] rounded-md overflow-hidden transition-colors group cursor-pointer h-16"
+              >
+                {/* Обкладинка */}
+                {item.isLikedSongs ? (
+                  <div className="w-16 h-16 shrink-0 flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                  </div>
+                ) : item.image ? (
+                  <img src={item.image} alt={item.name}
+                    className="w-16 h-16 object-cover shrink-0" />
+                ) : (
+                  <div className="w-16 h-16 shrink-0 bg-[#282828] flex items-center justify-center">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="#b3b3b3">
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                  </div>
+                )}
+                <span className="text-white text-sm font-semibold truncate pr-3 group-hover:text-white leading-tight">
+                  {item.name}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {token && (
+        <section>
+          <h2 className="text-white font-bold text-xl mb-4">Плейлисти для тебе</h2>
+          {recLoading ? (
+            <div className="flex gap-3">
+              {[1,2,3].map(i => (
+                <div key={i} className="w-44 sm:w-52 shrink-0 rounded-xl bg-[#181818] p-3 animate-pulse">
+                  <div className="w-full aspect-square rounded-lg bg-[#282828] mb-3" />
+                  <div className="h-3 bg-[#282828] rounded mb-2 w-3/4" /><div className="h-2 bg-[#282828] rounded w-full" />
+                </div>
+              ))}
+            </div>
+          ) : recommendedPlaylists.length > 0 ? (
+            <div className="flex gap-3 sm:gap-5 overflow-x-auto no-scrollbar pb-2">
+              {recommendedPlaylists.map((pl, i) => {
+                const covers = (pl.songs || []).slice(0, 4)
+                const isOpening = false
+                return (
+                  <div
+                    key={i}
+                    onClick={() => handleOpenRec(pl)}
+                    className="w-44 sm:w-52 shrink-0 rounded-xl bg-[#181818] hover:bg-[#282828] transition-colors p-3 group cursor-pointer select-none"
+                  >
+                    <div className="relative w-full aspect-square rounded-lg overflow-hidden mb-3 shadow-lg">
+                      {covers.length >= 4 ? (
+                        <div className="grid grid-cols-2 w-full h-full">
+                          {covers.map((s: any, ci: number) => (
+                            <img key={ci} src={s.image?.startsWith('http') ? s.image : `${API}/${s.image}`} alt={s.name} className="w-full h-full object-cover" onError={(e)=>{(e.target as HTMLImageElement).src='https://via.placeholder.com/80?text=music'}} />
+                          ))}
+                        </div>
+                      ) : covers.length > 0 ? (
+                        <img src={covers[0].image?.startsWith('http') ? covers[0].image : `${API}/${covers[0].image}`} alt={covers[0].name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-[#282828] flex items-center justify-center">
+                          <svg width="40" height="40" viewBox="0 0 24 24" fill="#b3b3b3"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                        </div>
+                      )}
+                      {/* Play-кнопка при hover */}
+                      <div className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-[#1db954] flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200">
+                        {isOpening ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" className="animate-spin"><circle cx="12" cy="12" r="9" strokeDasharray="56" strokeDashoffset="20"/></svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"/></svg>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-white text-sm font-semibold truncate">{pl.name}</p>
+                    <p className="text-neutral-400 text-xs mt-0.5 line-clamp-2">{pl.description || `${pl.songs?.length || 0} треків`}</p>
+                    {pl.genre && <span className="inline-block mt-1.5 text-xs bg-white/10 text-neutral-400 px-2 py-0.5 rounded-full">{pl.genre}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-zinc-400 text-sm pl-1">Послухай кілька треків — і ми підберемо плейлисти спеціально для тебе</p>
+          )}
+        </section>
+      )}
+
 
       <ScrollSection title={t('popularTracks')} isEmpty={shuffledSongs.length === 0} emptyText={t('noAvailableTracks')}>
         {shuffledSongs.map((song, i) => (

@@ -1,13 +1,207 @@
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════
+   SCROLLBARS
+══════════════════════════════════════════════ */
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #404040 transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb { background-color: #404040; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #606060; }
+
+
+/* ══════════════════════════════════════════════
+   PAGE TRANSITIONS — плавний вхід сторінки
+══════════════════════════════════════════════ */
+@keyframes page-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.page-enter {
+  animation: page-enter 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
+
+/* ══════════════════════════════════════════════
+   SKELETON LOADING — пульсуючі заглушки
+══════════════════════════════════════════════ */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.8; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #1e1e1e 25%, #2a2a2a 50%, #1e1e1e 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+
+/* ══════════════════════════════════════════════
+   CARD HOVER — підйом + тінь
+══════════════════════════════════════════════ */
+.card-hover {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.25s ease,
+              background-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+
+/* ══════════════════════════════════════════════
+   ANIMATED EQUALIZER — танцюючі стовпчики
+══════════════════════════════════════════════ */
+.equalizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  width: 14px;
+}
+.equalizer span {
+  display: block;
+  width: 3px;
+  background: #1db954;
+  border-radius: 2px 2px 0 0;
+  transform-origin: bottom;
+}
+.equalizer.playing span:nth-child(1) {
+  animation: eq-bar 0.7s ease-in-out infinite alternate;
+}
+.equalizer.playing span:nth-child(2) {
+  animation: eq-bar 0.5s ease-in-out 0.15s infinite alternate;
+}
+.equalizer.playing span:nth-child(3) {
+  animation: eq-bar 0.8s ease-in-out 0.3s infinite alternate;
+}
+@keyframes eq-bar {
+  from { height: 3px; }
+  to   { height: 14px; }
+}
+/* Пауза — стовпчики статичні */
+.equalizer.paused span:nth-child(1) { height: 8px; }
+.equalizer.paused span:nth-child(2) { height: 12px; }
+.equalizer.paused span:nth-child(3) { height: 5px; }
+
+
+/* ══════════════════════════════════════════════
+   LIKE ANIMATION — вибух серця
+══════════════════════════════════════════════ */
+@keyframes like-pop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.5); }
+  60%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.like-pop {
+  animation: like-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Ripple ефект навколо серця */
+@keyframes like-ripple {
+  0%   { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.like-ripple::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #1db954;
+  animation: like-ripple 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+
+/* ══════════════════════════════════════════════
+   GLASSMORPHISM NAVBAR
+══════════════════════════════════════════════ */
+.glass-navbar {
+  background: rgba(18, 18, 18, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+
+/* ══════════════════════════════════════════════
+   RIPPLE BUTTON — ефект хвилі при натисканні
+══════════════════════════════════════════════ */
+.ripple-btn {
+  position: relative;
+  overflow: hidden;
+}
+.ripple-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  border-radius: inherit;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.ripple-btn:active::after {
+  opacity: 0.12;
+  transition: none;
+}
+
+
+/* ══════════════════════════════════════════════
+   GLOW — зелений акцент на активних елементах
+══════════════════════════════════════════════ */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(29, 185, 84, 0.3); }
+  50%       { box-shadow: 0 0 20px rgba(29, 185, 84, 0.6); }
+}
+.glow-active {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+
+/* ══════════════════════════════════════════════
+   CONFIRM DIALOG — заміна нативного window.confirm
+══════════════════════════════════════════════ */
+@keyframes confirm-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes confirm-panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.confirm-overlay {
+  animation: confirm-overlay-in 0.18s ease-out both;
+}
+.confirm-panel {
+  animation: confirm-panel-in 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+
+/* ══════════════════════════════════════════════
+   ADMIN INPUTS
+══════════════════════════════════════════════ */
 @layer components {
   .admin-input {
     @apply w-full bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg px-3 py-2.5
@@ -15,7 +209,6 @@
            focus:outline-none focus:border-[#1db954] focus:bg-[#242424]
            transition-colors;
   }
- 
   select.admin-input option {
     background: #1f1f1f;
     color: white;

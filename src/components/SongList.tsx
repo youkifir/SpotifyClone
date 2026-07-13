@@ -101,13 +101,20 @@ function SongList({ songs }: SongListProps) {
                 isActive ? 'text-[#1db954]' : 'text-neutral-300'
               }`}
             >
-              {/* Номер / Play */}
-              <span className="self-center text-sm relative w-4 h-4">
-                <span className={`${isActivePlaying ? 'hidden' : 'group-hover:hidden'}`}>{index + 1}</span>
+              {/* Номер / Equalizer / Play */}
+              <span className="self-center text-sm relative w-4 h-4 flex items-center justify-center">
+                {/* Equalizer — тільки для активного треку, ховається при hover */}
+                {isActive ? (
+                  <span className={`equalizer ${playStatus ? 'playing' : 'paused'} group-hover:hidden`}>
+                    <span /><span /><span />
+                  </span>
+                ) : (
+                  <span className="group-hover:hidden text-neutral-400">{index + 1}</span>
+                )}
                 <img
                   src={isActivePlaying ? assets.pause_icon : assets.play_icon}
                   alt=""
-                  className={`w-3 h-3 absolute inset-0 m-auto ${isActivePlaying ? 'block' : 'hidden group-hover:block'}`}
+                  className={`w-3 h-3 absolute inset-0 m-auto ${isActivePlaying ? 'hidden group-hover:block' : 'hidden group-hover:block'}`}
                 />
               </span>
 
