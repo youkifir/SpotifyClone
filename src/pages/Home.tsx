@@ -194,31 +194,9 @@ function Home() {
       .finally(() => setRecLoading(false))
   }, [token])
 
-  // При кліку — зберігаємо плейлист (якщо ще не збережено) і відразу відкриваємо
-  const handleOpenRec = async (pl: any, idx: number) => {
-    if (!token || openingIdx !== null) return
-    // Вже збережено раніше — одразу переходимо
-    if (savedIds.has(idx)) {
-      navigate(`/playlist/${savedIds.get(idx)}`)
-      return
-    }
-    setOpeningIdx(idx)
-    try {
-      const res = await fetch(`${API}/api/playlists/recommended/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: pl.name, description: pl.description, songIds: pl.songIds }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        const newId = data.data?._id
-        if (newId) {
-          setSavedIds(prev => new Map(prev).set(idx, newId))
-          navigate(`/playlist/${newId}`)
-        }
-      }
-    } catch {}
-    finally { setOpeningIdx(null) }
+  // При кліку — відкриваємо без збереження в БД, передаємо треки через router state
+  const handleOpenRec = (pl: any) => {
+    navigate('/playlist/preview', { state: { preview: pl } })
   }
 
 
@@ -279,11 +257,11 @@ function Home() {
             <div className="flex gap-3 sm:gap-5 overflow-x-auto no-scrollbar pb-2">
               {recommendedPlaylists.map((pl, i) => {
                 const covers = (pl.songs || []).slice(0, 4)
-                const isOpening = openingIdx === i
+                const isOpening = false
                 return (
                   <div
                     key={i}
-                    onClick={() => handleOpenRec(pl, i)}
+                    onClick={() => handleOpenRec(pl)}
                     className="w-44 sm:w-52 shrink-0 rounded-xl bg-[#181818] hover:bg-[#282828] transition-colors p-3 group cursor-pointer select-none"
                   >
                     <div className="relative w-full aspect-square rounded-lg overflow-hidden mb-3 shadow-lg">

@@ -6,6 +6,7 @@ import { useLanguage } from '../context/LanguageContext'
 import { onLikeChanged } from '../hooks/Uselike'
 import { onPlaylistSongAdded } from './AddToPlaylistMenu'
 import CreatePlaylistModal from './CreatePlaylistModal'
+import ConfirmDialog from './ConfirmDialog'
 import type { Playlist as CreatedPlaylist } from './CreatePlaylistModal'
 
 type SortOrder = 'recent' | 'name' | 'artist' | 'created'
@@ -159,10 +160,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     })
   }
 
-  const handleDelete = async (e: React.MouseEvent, playlistId: string) => {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  const handleDelete = (e: React.MouseEvent, playlistId: string) => {
     e.preventDefault(); e.stopPropagation()
     if (!token) return
-    if (!window.confirm('Видалити цей плейлист?')) return
+    setConfirmDeleteId(playlistId)
+  }
+
+  const confirmDeletePlaylist = async () => {
+    if (!token || !confirmDeleteId) return
+    const playlistId = confirmDeleteId
+    setConfirmDeleteId(null)
     setDeletingId(playlistId)
     try {
       const response = await fetch(`${API_BASE}/playlists/${playlistId}`, {
@@ -441,6 +450,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCreated={handlePlaylistCreated}
+      />
+
+      <ConfirmDialog
+        isOpen={!!confirmDeleteId}
+        title="Видалити плейлист"
+        message="Ви впевнені, що хочете видалити цей плейлист? Цю дію не можна скасувати."
+        confirmText="Видалити"
+        danger
+        loading={!!deletingId}
+        onConfirm={confirmDeletePlaylist}
+        onCancel={() => setConfirmDeleteId(null)}
       />
     </>
   )

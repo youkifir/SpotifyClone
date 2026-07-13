@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
+import { useParams, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
 import { assets } from '../assets/assets'
@@ -29,6 +29,8 @@ const resolveUrl = (path: string) => {
 
 function PlaylistPage() {
   const { id } = useParams()
+  const location = useLocation()
+  const previewData = id === 'preview' ? (location.state as any)?.preview : null
   const { token, user } = useAuth()
   const { track, playStatus, playWithId, play, pause, refreshSongs, setQueue, clearQueue, addSongs } = usePlayer()
 
@@ -97,9 +99,35 @@ function PlaylistPage() {
   const handleDragEnd = () => { setDraggedId(null); setDragOverId(null) }
   const [wasDeleted, setWasDeleted] = useState(false)
 
+  // Якщо це preview — одразу будуємо playlist зі state, без запиту до БД
+  useEffect(() => {
+    if (!previewData) return
+    const songs: ApiSong[] = (previewData.songs || []).map((s: any) => ({
+      _id: s._id,
+      name: s.name,
+      artist: s.artist || '',
+      image: s.image || '',
+      file: s.file || '',
+      desc: s.desc || '',
+      duration: s.duration || '0:00',
+      album: s.album || null,
+    }))
+    setPlaylist({
+      _id: 'preview',
+      name: previewData.name,
+      description: previewData.description || '',
+      image: songs[0]?.image || '',
+      owner: '',
+      songs,
+      isPublic: false,
+      isLikedSongs: false,
+    } as any)
+    setLoading(false)
+  }, [previewData])
+
   // завантаження плейлиста
   const fetchPlaylist = useCallback(async () => {
-    if (!token || !id) return
+    if (!token || !id || id === 'preview') return
     setLoading(true)
     setNotFound(false)
     setFetchError(null)
@@ -284,18 +312,20 @@ function PlaylistPage() {
       {/* шапка плейлиста */}
       <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-gradient-to-b from-[#535353] to-[#121212]">
         <button
-          onClick={() => setIsEditOpen(true)}
-          className="w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden group relative"
-          title="Редагувати плейлист"
+          onClick={() => !previewData && setIsEditOpen(true)}
+          className={`w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden relative ${previewData ? 'cursor-default' : 'group'}`}
+          title={previewData ? '' : 'Редагувати плейлист'}
         >
           <img
             src={playlist.image ? resolveUrl(playlist.image) : assets.stack_icon}
             alt={playlist.name}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-semibold">
-            Редагувати
-          </div>
+          {!previewData && (
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-semibold">
+              Редагувати
+            </div>
+          )}
         </button>
         <div className="text-center sm:text-left min-w-0">
           <p className="text-xs font-semibold uppercase text-neutral-200">Плейлист</p>
@@ -319,14 +349,14 @@ function PlaylistPage() {
 
         <button
           onClick={() => setIsAddOpen(true)}
-          className="bg-transparent border border-zinc-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:border-white transition-colors"
+          className={`bg-transparent border border-zinc-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:border-white transition-colors ${previewData ? 'hidden' : ''}`}
         >
           + Додати треки
         </button>
 
         <button
           onClick={() => setIsEditOpen(true)}
-          className="text-zinc-400 hover:text-white text-sm font-semibold transition-colors"
+          className={`text-zinc-400 hover:text-white text-sm font-semibold transition-colors ${previewData ? 'hidden' : ''}`}
         >
           Редагувати
         </button>
@@ -427,6 +457,7 @@ function PlaylistPage() {
                     <span className="hidden md:block self-center text-sm truncate">
                       {(song.album && albumNames[song.album]) || '—'}
                     </span>
+                    {!previewData && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -441,6 +472,7 @@ function PlaylistPage() {
                         <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
+                    )}
                     <span className="self-center text-sm justify-self-end">{song.duration}</span>
                   </div>
                 )
