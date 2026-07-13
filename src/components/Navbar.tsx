@@ -8,32 +8,44 @@ import SearchBar from './SearchBar'
 import { useNotifications } from '../context/NotificationContext.tsx'
 import NotificationPanel from './NotificationPanel'
 
-
 interface NavbarProps {
   onToggleSidebar?: () => void
+  onToggleCollapse?: () => void     // Исправлено: Добавлено в интерфейс
+  sidebarCollapsed?: boolean        // Исправлено: Добавлено в интерфейс
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, sidebarCollapsed }) => {
-  const [notifOpen, setNotifOpen] = useState(false)        // ← add this
+  const [notifOpen, setNotifOpen] = useState(false)
   const { unreadCount } = useNotifications()  
   const { user, logout } = useAuth()
   const { t, language, setLanguage } = useLanguage()
   const navigate = useNavigate()
+  
   const [menuOpen, setMenuOpen] = useState(false)
   const [langMenuOpen, setLangMenuOpen] = useState(false)
+  
   const menuRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null) // Добавлено: Реф для панели уведомлений
 
-  // Закриваємо меню при кліку поза ним
+  // Закрываем все меню при клике вне их области
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-        setLangMenuOpen(false)
+      const target = e.target as Node;
+
+      // Клики вне меню профиля
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setMenuOpen(false);
+        setLangMenuOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+      // Клики вне колокольчика и панели уведомлений
+      if (notifRef.current && !notifRef.current.contains(target)) {
+        setNotifOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     logout()
@@ -46,13 +58,13 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, side
     navigate('/admin')
   }
 
-  // Перша літера імені для аватара
-  const avatarLetter = user?.username?.charAt(0).toUpperCase() ?? 'U'
+  // Безопасное получение первой буквы имени
+  const avatarLetter = user?.username ? user.username.charAt(0).toUpperCase() : 'U'
 
   return (
-    <div className='bg-[#121212] h-14 rounded-lg grid grid-cols-3 items-center px-2 sm:px-4 w-full select-none shrink-0'>
+    <div className='bg-[#121212] h-14 rounded-lg grid grid-cols-3 items-center px-2 sm:px-4 w-full select-none shrink-0 relative z-50'>
 
-      {/* Лівий блок */}
+      {/* Левый блок */}
       <div className='flex items-center gap-2 justify-start min-w-0'>
         <button
           onClick={onToggleSidebar}
@@ -73,7 +85,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, side
         />
       </div>
 
-      {/* Центральний блок — пошук */}
+      {/* Центральный блок — поиск */}
       <div className='flex items-center justify-center gap-2 w-full max-w-125 justify-self-center min-w-0'>
         <div
           onClick={() => navigate('/')}
@@ -84,14 +96,14 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, side
         <SearchBar />
       </div>
 
-      {/* Правий блок — профіль */}
+      {/* Правый блок — профиль */}
       <div className='flex items-center justify-end gap-2 sm:gap-3'>
         <button className='bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 hover:bg-neutral-200 transition hidden xl:block shadow-sm'>
           {t('watchPremium')}
         </button>
 
         {/* Дзвіночок */}
-        <div className='relative'>
+        <div className='relative' ref={notifRef}>
           <button
             onClick={() => setNotifOpen(o => !o)}
             aria-label="Сповіщення"
@@ -129,8 +141,8 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, side
 
               {/* Інфо про юзера */}
               <div className='px-4 py-3 border-b border-[#3e3e3e]'>
-                <p className='text-white font-semibold text-sm truncate'>{user?.username}</p>
-                <p className='text-neutral-400 text-xs truncate'>{user?.email}</p>
+                <p className='text-white font-semibold text-sm truncate'>{user?.username || 'Guest'}</p>
+                <p className='text-neutral-400 text-xs truncate'>{user?.email || ''}</p>
               </div>
 
               {/* Адмін панель — тільки для адміна */}

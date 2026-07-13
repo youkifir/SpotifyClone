@@ -9,14 +9,12 @@ import { useNavigate } from 'react-router-dom'
 
 const API = 'http://localhost:5000'
 
-// Функція для безпечного визначення шляху до зображення (захищає від помилки 431)
+// Функция для безопасного определения пути к изображению
 const getSafeImgSrc = (imgStr: string | undefined | null): string => {
   if (!imgStr) return ''
-  // Якщо це пряме посилання або Base64 рядок, повертаємо його без змін
   if (imgStr.startsWith('http') || imgStr.startsWith('data:')) {
     return imgStr
   }
-  // Якщо це звичайний локальний шлях, додаємо URL бекенду
   return `${API}/${imgStr}`
 }
 
@@ -29,12 +27,27 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-function ScrollSection({ title, children, isEmpty, emptyText }: {
+// Исправлено: Описаны все пропсы, которые передаются в ScrollSection в JSX ниже
+interface ScrollSectionProps {
   title: string
   children: React.ReactNode
   isEmpty: boolean
   emptyText: string
-}) {
+  isLoading?: boolean
+  error?: string | null
+  onRetry?: () => void
+}
+
+function ScrollSection({ 
+  title, 
+  children, 
+  isEmpty, 
+  emptyText, 
+  isLoading, 
+  error, 
+  onRetry 
+}: ScrollSectionProps) {
+  const { t } = useLanguage()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canLeft, setCanLeft] = useState(false)
   const [canRight, setCanRight] = useState(false)
@@ -90,7 +103,18 @@ function ScrollSection({ title, children, isEmpty, emptyText }: {
         </div>
       </div>
 
-      {isEmpty ? (
+      {isLoading ? (
+        <p className="text-zinc-400 text-sm pl-1">{t ? t('loading' as any) : 'Loading...'}</p>
+      ) : error ? (
+        <div className="flex items-center gap-3 pl-1">
+          <p className="text-red-500 text-sm">{error}</p>
+          {onRetry && (
+            <button onClick={onRetry} className="text-xs text-[#1db954] hover:underline cursor-pointer">
+              Retry
+            </button>
+          )}
+        </div>
+      ) : isEmpty ? (
         <p className="text-zinc-400 text-sm pl-1">{emptyText}</p>
       ) : (
         <div
@@ -141,66 +165,45 @@ function ArtistCard({ artist }: { artist: Artist }) {
       </div>
 
       <p className="text-sm font-semibold text-white truncate text-center">{artist.name}</p>
-      <p className="text-xs text-neutral-400 mt-0.5 text-center">{t('artistLabel2')}</p>
+      <p className="text-xs text-neutral-400 mt-0.5 text-center">{t('artistLabel2' as any)}</p>
     </div>
-  )
-}
-
-function RecentlyPlayedTile({ item }: { item: RecentlyPlayedItem }) {
-  const { t } = useLanguage()
-  const to = item.type === 'album' ? `/album/${item.id}` : `/playlist/${item.id}`
-  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=282828&color=fff`
-  const imgSrc = item.image ? getSafeImgSrc(item.image) : fallbackAvatar
-
-  return (
-    <Link
-      to={to}
-      className="flex items-center gap-3 sm:gap-4 bg-[#2a2a2a]/60 hover:bg-[#3a3a3a] transition-colors rounded-md overflow-hidden group min-w-0"
-    >
-      {item.isLikedSongs ? (
-        <div
-          className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-          </svg>
-        </div>
-      ) : (
-        <img
-          src={imgSrc}
-          alt={item.name}
-          className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = fallbackAvatar
-          }}
-        />
-      )}
-      <p className="text-sm sm:text-base font-semibold text-white truncate pr-3">
-        {item.isLikedSongs ? t('likedSongsLabel') : item.name}
-      </p>
-    </Link>
   )
 }
 
 function Home() {
   const { track, playStatus, playWithId, songsData } = usePlayer()
   const { t } = useLanguage()
-  const [albumsData, setAlbumsData] = useState<any[]>([])
-  const [artists, setArtists] = useState<Artist[]>([])
-  const [shuffledSongs, setShuffledSongs] = useState<any[]>([])
+  const { user, token } = useAuth()
+  const navigate = useNavigate()
 
+  // Исправлено: Добавлены недостающие стейты
+  const [albumsData, setAlbumsData] = useState<any[]>([])
+  const [albumsLoading, setAlbumsLoading] = useState(false)
+  const [albumsError, setAlbumsError] = useState<string | null>(null)
+
+  const [artists, setArtists] = useState<Artist[]>([])
+  const [artistsLoading, setArtistsLoading] = useState(false)
+  const [artistsError, setArtistsError] = useState<string | null>(null)
+
+  const [shuffledSongs, setShuffledSongs] = useState<any[]>([])
+  const [songsLoading, setSongsLoading] = useState(false)
+  const [songsError, setSongsError] = useState<string | null>(null)
+
+  const [recentItems, setRecentItems] = useState<RecentlyPlayedItem[]>([])
+
+  // Исправлено: Вместо неопределенного apiFetch используем встроенный fetch
   const fetchAlbums = useCallback(async () => {
     setAlbumsLoading(true)
     setAlbumsError(null)
     try {
-      const r = await apiFetch(`${API}/api/albums`)
+      const r = await fetch(`${API}/api/albums`)
+      if (!r.ok) throw new Error('Failed to load')
       const res = await r.json()
       const albums = Array.isArray(res) ? res : (res.data || [])
       setAlbumsData(albums.map((a: any) => ({ ...a, id: a.id || a._id })))
     } catch (err) {
-      // Додано 'as any' для усунення помилок суворої типізації i18n
-      setAlbumsError(isOfflineError(err) ? t('errorNetwork' as any) : t('errorLoadAlbums' as any))
+      const isOffline = !navigator.onLine
+      setAlbumsError(isOffline ? t('errorNetwork' as any) : t('errorLoadAlbums' as any))
     } finally {
       setAlbumsLoading(false)
     }
@@ -210,12 +213,13 @@ function Home() {
     setArtistsLoading(true)
     setArtistsError(null)
     try {
-      const r = await apiFetch(`${API}/api/songs/top-artists?limit=20`)
+      const r = await fetch(`${API}/api/songs/top-artists?limit=20`)
+      if (!r.ok) throw new Error('Failed to load')
       const res = await r.json()
       setArtists(res.data || [])
     } catch (err) {
-      // Додано 'as any' для усунення помилок суворої типізації i18n
-      setArtistsError(isOfflineError(err) ? t('errorNetwork' as any) : t('errorGeneric' as any))
+      const isOffline = !navigator.onLine
+      setArtistsError(isOffline ? t('errorNetwork' as any) : t('errorGeneric' as any))
     } finally {
       setArtistsLoading(false)
     }
@@ -224,52 +228,30 @@ function Home() {
   useEffect(() => { fetchAlbums() }, [fetchAlbums])
   useEffect(() => { fetchArtists() }, [fetchArtists])
 
+  // Логика загрузки песен из контекста плеера
   useEffect(() => {
-    if (songsData.length === 0) return
-    setShuffledSongs(shuffle(songsData))
-  }, [songsData.length])
+    if (songsData && songsData.length > 0) {
+      setSongsLoading(false)
+      setShuffledSongs(shuffle(songsData))
+    } else {
+      // Имитируем загрузку, пока songsData пустой
+      setSongsLoading(true)
+    }
+  }, [songsData])
 
-  const { user, token } = useAuth()
-  const navigate = useNavigate()
-  const [recentItems, setRecentItems] = useState<RecentlyPlayedItem[]>([])
-  const [recommendedPlaylists, setRecommendedPlaylists] = useState<any[]>([])
-  const [recLoading, setRecLoading] = useState(false)
-  // savedIds: зберігаємо id вже збережених плейлистів щоб не дублювати при повторному кліці
-  const [savedIds, setSavedIds] = useState<Map<number, string>>(new Map())
-  const [openingIdx, setOpeningIdx] = useState<number | null>(null)
-
-  // Оновлюємо список при кожному відкритті головної
+  // Обновляем список недавно прослушанных
   useEffect(() => {
     const items = getRecentlyPlayed(user?.id).slice(0, 8)
     setRecentItems(items)
   }, [user?.id])
 
-  // Рекомендовані плейлисти на основі listenHistory
-  useEffect(() => {
-    if (!token) return
-    setRecLoading(true)
-    fetch(`${API}/api/playlists/recommended`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(res => { if (res.success) setRecommendedPlaylists(res.data || []) })
-      .catch(() => {})
-      .finally(() => setRecLoading(false))
-  }, [token])
-
-  // При кліку — відкриваємо без збереження в БД, передаємо треки через router state
-  const handleOpenRec = (pl: any) => {
-    navigate('/playlist/preview', { state: { preview: pl } })
-  }
-
-
   return (
     <div className="pt-2 sm:pt-4 flex flex-col gap-6 sm:gap-8">
 
-{/* ── Нещодавно відкриті ── */}
+      {/* ── Недавно открытые ── */}
       {recentItems.length > 0 && (
         <section>
-          <h2 className="text-white font-bold text-xl mb-4">{t('recentlyPlayed')}</h2>
+          <h2 className="text-white font-bold text-xl mb-4">{t('recentlyPlayed' as any)}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {recentItems.map((item) => (
               <Link
@@ -277,7 +259,7 @@ function Home() {
                 to={item.type === 'playlist' ? `/playlist/${item.id}` : item.type === 'album' ? `/album/${item.id}` : `/artist/${encodeURIComponent(item.name)}`}
                 className="flex items-center gap-3 bg-[#ffffff14] hover:bg-[#ffffff26] rounded-md overflow-hidden transition-colors group cursor-pointer h-16"
               >
-                {/* Обкладинка */}
+                {/* Обложка */}
                 {item.isLikedSongs ? (
                   <div className="w-16 h-16 shrink-0 flex items-center justify-center"
                     style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}>
@@ -286,7 +268,7 @@ function Home() {
                     </svg>
                   </div>
                 ) : item.image ? (
-                  <img src={item.image} alt={item.name}
+                  <img src={getSafeImgSrc(item.image)} alt={item.name}
                     className="w-16 h-16 object-cover shrink-0" />
                 ) : (
                   <div className="w-16 h-16 shrink-0 bg-[#282828] flex items-center justify-center">
@@ -304,10 +286,11 @@ function Home() {
         </section>
       )}
 
+      {/* Раздел плейлистов/альбомов */}
       <ScrollSection
-        title={t('playlists')}
+        title={t('playlists' as any)}
         isEmpty={albumsData.length === 0}
-        emptyText={t('noAvailablePlaylists')}
+        emptyText={t('noAvailablePlaylists' as any)}
         isLoading={albumsLoading}
         error={albumsError}
         onRetry={fetchAlbums}
@@ -323,12 +306,13 @@ function Home() {
         ))}
       </ScrollSection>
 
+      {/* Раздел треков */}
       <ScrollSection
-        title={t('popularTracks')}
+        title={t('popularTracks' as any)}
         isEmpty={shuffledSongs.length === 0}
-        emptyText={t('noAvailableTracks')}
+        emptyText={t('noAvailableTracks' as any)}
         isLoading={songsLoading}
-        error={songsError ? (songsError === 'network' ? t('errorNetwork' as any) : t('errorLoadSongs' as any)) : null}
+        error={songsError}
       >
         {shuffledSongs.map((song, i) => (
           <Card
@@ -343,7 +327,15 @@ function Home() {
         ))}
       </ScrollSection>
 
-      <ScrollSection title={t('popularArtists')} isEmpty={artists.length === 0} emptyText={t('noArtists')}>
+      {/* Раздел исполнителей */}
+      <ScrollSection 
+        title={t('popularArtists' as any)} 
+        isEmpty={artists.length === 0} 
+        emptyText={t('noArtists' as any)}
+        isLoading={artistsLoading}
+        error={artistsError}
+        onRetry={fetchArtists}
+      >
         {artists.map((artist) => (
           <ArtistCard key={artist.name} artist={artist} />
         ))}
