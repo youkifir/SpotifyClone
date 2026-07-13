@@ -6,27 +6,14 @@ import Player from './Player'
 
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-black text-white flex flex-col">
       <div className="flex flex-1 min-h-0 gap-2 p-2 pb-0">
 
-        {/* Десктоп сайдбар — без overflow-hidden щоб не обрізати контент */}
-        <div
-          className="hidden lg:block shrink-0 transition-all duration-300 ease-in-out"
-          style={{
-            width: sidebarCollapsed ? '56px' : 'min(25%, 280px)',
-          }}
-        >
-          <div style={{ width: sidebarCollapsed ? '56px' : 'min(25vw, 280px)' }} className="h-full">
-            <Sidebar
-              isOpen={false}
-              onClose={() => {}}
-              collapsed={sidebarCollapsed}
-              onToggleCollapse={() => setSidebarCollapsed(c => !c)}
-            />
-          </div>
+        {/* Десктоп сайдбар — сам керує своєю шириною */}
+        <div className="hidden lg:block shrink-0">
+          <Sidebar isOpen={false} onClose={() => {}} />
         </div>
 
         {/* Мобільний сайдбар */}
