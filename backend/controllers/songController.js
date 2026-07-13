@@ -170,29 +170,6 @@ const createSong = async (req, res, next) => {
       uploadedBy: req.user?.id || null,
     });
 
-    // Розсилаємо сповіщення всім підписникам цього музиканта
-    if (req.user?.id) {
-      try {
-        const uploader = await User.findById(req.user.id).select('username').lean();
-        // Знаходимо всіх, хто підписаний на цього музиканта
-        const subscribers = await User.find({ following: req.user.id }).select('_id').lean();
-        if (subscribers.length > 0) {
-          const notifications = subscribers.map(sub => ({
-            recipient: sub._id,
-            type: 'new_song',
-            triggeredBy: req.user.id,
-            title: song.name,
-            artist: uploader?.username || song.artist || '',
-            entityId: String(song._id),
-          }));
-          await Notification.insertMany(notifications);
-        }
-      } catch (notifErr) {
-        // Не ламаємо основний флоу через помилку сповіщень
-        console.error('Notification dispatch error:', notifErr.message);
-      }
-    }
-
     res.status(201).json({
       success: true,
       message: 'Song created successfully',
@@ -419,16 +396,11 @@ const getArtistSongs = async (req, res, next) => {
     // Artist image: first available cover
     const artistImage = unique[0]?.image || '';
 
-    // musicianId — якщо є локальний трек з uploadedBy, беремо його
-    const localWithUploader = unique.find(s => s.uploadedBy);
-    const musicianId = localWithUploader ? String(localWithUploader.uploadedBy) : null;
-
     res.json({
       success: true,
       data: {
         artist: artistName,
         image: artistImage,
-        musicianId,
         songs: unique,
       },
     });

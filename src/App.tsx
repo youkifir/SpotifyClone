@@ -11,7 +11,6 @@ import ArtistPage from './pages/ArtistPage'
 import MusicianPage from './pages/MusicianPage'
 import SearchPage from './pages/SearchPage'
 import { PlayerContextProvider } from './context/PlayerContext'
-import { NotificationProvider } from './context/NotificationContext' // ← Додано імпорт провайдера
 import { useAuth } from './context/AuthContext'
 import { Sidebar } from './components/Sidebar'
 import PlaylistPage from './pages/PlaylistPage'
@@ -45,42 +44,40 @@ function App() {
     )
   }
 
-  // ── Основний рендер додатку ──
+  // ── Основний рендер додатку (Адаптивна сітка без жорстких відсотків) ──
   return (
     <PlayerContextProvider>
-      <NotificationProvider> {/* ← Огортаємо сповіщеннями тут, щоб Navbar мав до них доступ */}
-        <div className="h-screen w-screen bg-black flex flex-col p-2 gap-2 overflow-hidden select-none">
-          {/* Верхній Navbar */}
-          <Navbar onToggleSidebar={() => setIsSidebarOpen((open) => !open)} />
+      <div className="h-screen w-screen bg-black flex flex-col p-2 gap-2 overflow-hidden select-none">
+        {/* Верхній Navbar */}
+        <Navbar onToggleSidebar={() => setIsSidebarOpen((open) => !open)} />
 
-          {/* Головна контентна зона */}
-          <div className="flex flex-1 min-h-0 gap-2 relative overflow-hidden">
-            {/* Бокова панель (Sidebar) */}
-            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+        {/* Головна контентна зона */}
+        <div className="flex flex-1 min-h-0 gap-2 relative overflow-hidden">
+          {/* Бокова панель (Sidebar) */}
+          <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-            {/* Сторінки додатку */}
-            <div className="flex-1 min-w-0 bg-[#121212] rounded-lg text-white p-3 sm:p-5 overflow-y-auto custom-scrollbar">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/album/:id" element={<AlbumPage />} />
-                <Route path="/playlist/:id" element={<PlaylistPage />} />
-                <Route path="/artist/:name" element={<ArtistPage />} />
-                <Route path="/admin" element={<AdminPanel />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/musician" element={<MusicianPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            </div>
+          {/* Сторінки додатку */}
+          <div className="flex-1 min-w-0 bg-[#121212] rounded-lg text-white p-3 sm:p-5 overflow-y-auto custom-scrollbar">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/album/:id" element={<AlbumPage />} />
+              <Route path="/playlist/:id" element={<PlaylistPage />} />
+              <Route path="/artist/:name" element={<ArtistPage />} />
+              <Route path="/admin" element={<AdminPanel />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/musician" element={<MusicianPage />} />
+              <Route path="/search" element={<SearchPage />} />  {/* ← НОВИЙ МАРШРУТ */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
           </div>
-
-          {/* Нижній адаптивний плеєр */}
-          <Player />
         </div>
 
-        {/* Повноекранний програвач */}
-        <FullScreenPlayer />
-      </NotificationProvider>
+        {/* Нижній адаптивний плеєр */}
+        <Player />
+      </div>
+
+      {/* Повноекранний програвач */}
+      <FullScreenPlayer />
     </PlayerContextProvider>
   )
 }

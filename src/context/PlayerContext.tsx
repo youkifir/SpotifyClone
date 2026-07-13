@@ -6,7 +6,6 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { apiFetch, isOfflineError, ApiError } from '../utils/apiError'
 
 export interface Song {
   id: number | string
@@ -27,8 +26,6 @@ interface TimeParts {
 interface PlayerContextType {
   audioRef: React.RefObject<HTMLAudioElement | null>
   songsData: Song[]
-  songsLoading: boolean
-  songsError: string | null
   track: Song
   _hasTrack: boolean
   playStatus: boolean
@@ -50,8 +47,6 @@ interface PlayerContextType {
   changeVolume: (ratio: number) => void
   toggleShuffle: () => void
   toggleLoop: () => void
-  audioError: string | null
-  clearAudioError: () => void
   refreshSongs: () => Promise<void>
   addSongs: (songs: Song[]) => void
   setQueue: (songs: Song[]) => void
@@ -97,9 +92,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const lastTimeRef = useRef(0)
 
   const [songsData, setSongsData] = useState<Song[]>([])
-  const [songsLoading, setSongsLoading] = useState(true)
-  const [songsError, setSongsError] = useState<string | null>(null)
-  const [audioError, setAudioError] = useState<string | null>(null)
   const [trackId, setTrackId] = useState<Song['id'] | null>(null)
 
   const [playStatus, setPlayStatus] = useState(false)
@@ -125,10 +117,9 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const track = songsData.find((s) => s.id === trackId) ?? null
 
   const fetchSongs = useCallback(async () => {
-    setSongsLoading(true)
-    setSongsError(null)
     try {
-      const response = await apiFetch('http://localhost:5000/api/songs')
+      const response = await fetch('http://localhost:5000/api/songs')
+      if (!response.ok) return
       const resData = await response.json()
       const raw = Array.isArray(resData) ? resData : (resData.data || [])
 
@@ -140,15 +131,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
       setSongsData(normalized)
     } catch (error) {
       console.error('Помилка завантаження пісень:', error)
-      if (isOfflineError(error)) {
-        setSongsError('network')
-      } else if (error instanceof ApiError) {
-        setSongsError(error.kind)
-      } else {
-        setSongsError('unknown')
-      }
-    } finally {
-      setSongsLoading(false)
     }
   }, [])
 
@@ -179,7 +161,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     let cancelled = false
 
     const loadAudio = async () => {
-      setAudioError(null)
       try {
         if (currentBlobUrl.current) {
           URL.revokeObjectURL(currentBlobUrl.current)
@@ -211,16 +192,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
           }
         }
       } catch (err) {
-        if (cancelled) return
         console.error("Помилка завантаження аудіо:", err)
-        if (isOfflineError(err)) {
-          setAudioError('Немає з\'єднання. Перевір мережу.')
-        } else if (err instanceof ApiError && err.kind === 'auth') {
-          setAudioError('Потрібна авторизація для відтворення.')
-        } else {
-          setAudioError('Не вдалося завантажити аудіо.')
-        }
-        setPlayStatus(false)
       }
     }
 
@@ -361,7 +333,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
 
   const toggleShuffle = () => setShuffle((s) => !s)
   const toggleLoop = () => setLoop((l) => !l)
-  const clearAudioError = () => setAudioError(null)
 
   // Встановити чергу (наприклад, пісні плейліста).
   // Треки також додаються в songsData щоб аудіо міг завантажитись.
@@ -385,8 +356,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
   const value: PlayerContextType = {
     audioRef,
     songsData,
-    songsLoading,
-    songsError,
     track: currentTrack,
     _hasTrack: track !== null,
     playStatus,
@@ -408,8 +377,6 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     changeVolume,
     toggleShuffle,
     toggleLoop,
-    audioError,
-    clearAudioError,
     refreshSongs: fetchSongs,
     addSongs,
     setQueue,

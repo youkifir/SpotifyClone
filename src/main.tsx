@@ -4,7 +4,6 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext'
-import { NotificationProvider } from './context/NotificationContext'
 import { LanguageProvider } from './context/LanguageContext'
 
 createRoot(document.getElementById('root')!).render(
