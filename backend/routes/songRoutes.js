@@ -14,6 +14,7 @@ router.get('/my', protect, isMusician, getMySongs);
 router.get('/artist/:name', getArtistSongs);
 
 // GET /api/songs/top-artists — топ виконавці по кількості треків і прослуховувань
+// Фото береться з Deezer (реальне фото виконавця), fallback — обкладинка треку
 router.get('/top-artists', async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
@@ -24,7 +25,7 @@ router.get('/top-artists', async (req, res, next) => {
           _id: '$artist',
           songCount: { $sum: 1 },
           totalPlays: { $sum: '$playCount' },
-          image: { $first: '$image' }, // беремо обкладинку першого треку
+          image: { $first: '$image' },
         },
       },
       { $sort: { totalPlays: -1, songCount: -1 } },
@@ -39,11 +40,40 @@ router.get('/top-artists', async (req, res, next) => {
         },
       },
     ]);
-    res.json({ success: true, data: artists });
+
+    // Паралельно підтягуємо реальні фото з Deezer для всіх виконавців
+    const withPhotos = await Promise.all(
+      artists.map(async (artist) => {
+        try {
+          const r = await fetch(
+            `https://api.deezer.com/search/artist?q=${encodeURIComponent(artist.name)}&limit=5`,
+            { headers: { 'User-Agent': 'SpotifyClone/1.0' }, signal: AbortSignal.timeout(3000) }
+          );
+          if (r.ok) {
+            const d = await r.json();
+            const results = d?.data || [];
+            const artistNameLower = artist.name.toLowerCase().trim();
+
+            // Тільки точний збіг імені — ніяких partialMatch щоб не плутати виконавців
+            const found = results.find((a) =>
+              a.name.toLowerCase().trim() === artistNameLower
+            );
+
+            if (found?.picture_xl) {
+              return { ...artist, image: found.picture_xl };
+            }
+          }
+        } catch { /* fallback */ }
+        return artist;
+      })
+    );
+
+    res.json({ success: true, data: withPhotos });
   } catch (err) {
     next(err);
   }
 });
+
 
 router.get('/', getSongs);
 

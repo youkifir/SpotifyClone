@@ -12,6 +12,8 @@ import { apiFetch, isOfflineError } from '../utils/apiError'
 import { ErrorScreen, LoadingScreen } from '../components/StateScreens'
 import { useLanguage } from '../context/LanguageContext'
 import { addRecentlyPlayed } from '../hooks/useRecentlyPlayed'
+import { onLikeChanged } from '../hooks/Uselike'
+import { onPlaylistSongAdded } from '../components/AddToPlaylistMenu'
 
 interface PlaylistDetail extends Omit<Playlist, 'songs'> {
   songs: ApiSong[]
@@ -50,9 +52,9 @@ function PlaylistPage() {
   const [wasDeleted, setWasDeleted] = useState(false)
 
   // завантаження плейлиста
-  const fetchPlaylist = useCallback(async () => {
+  const fetchPlaylist = useCallback(async (silent = false) => {
     if (!token || !id) return
-    setLoading(true)
+    if (!silent) setLoading(true)
     setNotFound(false)
     setFetchError(null)
     setOffline(false)
@@ -93,6 +95,16 @@ function PlaylistPage() {
   }, [id, token, t, user])
 
   useEffect(() => { fetchPlaylist() }, [fetchPlaylist])
+
+  // Оновлюємо список одразу після лайку або додавання треку до плейлісту
+  useEffect(() => {
+    const unsubLike = onLikeChanged(() => fetchPlaylist(true))
+    const unsubAdd = onPlaylistSongAdded((playlistId) => {
+      // Оновлюємо тільки якщо подія стосується цього плейлісту
+      if (!playlistId || playlistId === id) fetchPlaylist(true)
+    })
+    return () => { unsubLike(); unsubAdd() }
+  }, [fetchPlaylist, id])
 
   // резолвимо назви альбомів
   useEffect(() => {

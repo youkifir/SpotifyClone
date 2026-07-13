@@ -3,6 +3,20 @@ import { useAuth } from '../context/AuthContext'
 
 const API = 'http://localhost:5000'
 
+// Подія: трек додано до плейлісту — слухається у PlaylistPage для live-оновлення
+const playlistEventTarget = new EventTarget()
+const PLAYLIST_SONG_ADDED = 'playlist-song-added'
+
+export function emitPlaylistSongAdded(playlistId: string) {
+  const e = new CustomEvent(PLAYLIST_SONG_ADDED, { detail: { playlistId } })
+  playlistEventTarget.dispatchEvent(e)
+}
+export function onPlaylistSongAdded(cb: (playlistId: string) => void) {
+  const handler = (e: Event) => cb((e as CustomEvent).detail.playlistId)
+  playlistEventTarget.addEventListener(PLAYLIST_SONG_ADDED, handler)
+  return () => playlistEventTarget.removeEventListener(PLAYLIST_SONG_ADDED, handler)
+}
+
 interface Playlist {
   _id: string
   name: string
@@ -104,6 +118,7 @@ function AddToPlaylistMenu({ songId, onClose, anchorEl }: AddToPlaylistMenuProps
       })
       if (res.ok || res.status === 409) {
         setAddedIds(prev => new Set([...prev, playlistId]))
+        if (res.ok) emitPlaylistSongAdded(playlistId)
       } else {
         setErrorId(playlistId)
         setTimeout(() => setErrorId(null), 2000)

@@ -4,6 +4,7 @@ import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { onLikeChanged } from '../hooks/Uselike'
+import { onPlaylistSongAdded } from './AddToPlaylistMenu'
 import CreatePlaylistModal from './CreatePlaylistModal'
 import type { Playlist as CreatedPlaylist } from './CreatePlaylistModal'
 
@@ -34,12 +35,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const fetchPlaylists = useCallback(async () => {
+  const fetchPlaylists = useCallback(async (silent = false) => {
     if (!token) {
       setPlaylists([])
       return
     }
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       const res = await fetch(`${API_BASE}/playlists/my`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -54,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     } catch (e) {
       console.error('Sidebar: помилка завантаження плейлистів', e)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [token])
 
@@ -81,9 +82,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     fetchSharedPlaylists()
   }, [fetchPlaylists, fetchSharedPlaylists])
 
-  // Слухаємо подію лайку
+  // Слухаємо подію лайку (silent — без спінера)
   useEffect(() => {
-    return onLikeChanged(fetchPlaylists)
+    return onLikeChanged(() => fetchPlaylists(true))
+  }, [fetchPlaylists])
+
+  // Слухаємо додавання пісні до плейліста — оновлюємо кількість у сайдбарі
+  useEffect(() => {
+    return onPlaylistSongAdded(() => fetchPlaylists(true))
   }, [fetchPlaylists])
 
   const handlePlaylistCreated = (newPlaylist: CreatedPlaylist) => {
