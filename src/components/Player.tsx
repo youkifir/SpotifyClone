@@ -30,6 +30,8 @@ export const Player: React.FC = () => {
     changeVolume,
     toggleShuffle,
     toggleLoop,
+    audioError,
+    clearAudioError,
   } = usePlayer()
 
   const { isLiked, toggleLike } = useLike()
@@ -170,6 +172,41 @@ export const Player: React.FC = () => {
     return () => window.removeEventListener('mousedown', handleClick)
   }, [isMiniPlayerOpen])
 
+  // Drag мініплеєра
+  const handleMiniDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const rect = miniPlayerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    miniDragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    setIsDraggingMini(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isDraggingMini) return
+    const onMove = (e: MouseEvent) => {
+      const x = e.clientX - miniDragOffset.current.x
+      const y = e.clientY - miniDragOffset.current.y
+      const maxX = window.innerWidth - (miniPlayerRef.current?.offsetWidth ?? 288)
+      const maxY = window.innerHeight - (miniPlayerRef.current?.offsetHeight ?? 400)
+      setMiniPos({ x: Math.max(0, Math.min(x, maxX)), y: Math.max(0, Math.min(y, maxY)) })
+    }
+    const onUp = () => setIsDraggingMini(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [isDraggingMini])
+
+  // Встановити початкову позицію при відкритті мініплеєра
+  useEffect(() => {
+    if (isMiniPlayerOpen && miniPos === null) {
+      setMiniPos({ x: window.innerWidth - 300, y: window.innerHeight - 460 })
+    }
+    if (!isMiniPlayerOpen) setMiniPos(null)
+  }, [isMiniPlayerOpen])
+
   const trackImageUrl = track.image?.startsWith('http')
     ? track.image
     : `http://localhost:5000/${track.image}`
@@ -178,6 +215,24 @@ export const Player: React.FC = () => {
 
   return (
     <>
+      {/* ── Аудіо-помилка: тост над плеєром ── */}
+      {audioError && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-red-900/80 border-t border-red-700/50 text-sm text-red-200 select-none shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span className="flex-1">{audioError}</span>
+          <button
+            onClick={clearAudioError}
+            className="shrink-0 text-red-300 hover:text-white transition"
+            aria-label="Закрити"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      )}
       <div className='h-[12%] sm:h-[10%] min-h-16 lg:min-h-20 bg-black text-white flex flex-col justify-center select-none shrink-0 border-t border-neutral-900 lg:border-none px-2 lg:px-4'>
 
         {/* ── МОБИЛЬНЫЙ МИНИ-ПЛЕЕР ── */}
@@ -412,7 +467,11 @@ export const Player: React.FC = () => {
                   </div>
 
                   {/* Обкладинка */}
-                  <div className='relative w-full aspect-square'>
+                  <div
+                    className='relative w-full aspect-square'
+                    onMouseDown={handleMiniDragStart}
+                    style={{ cursor: isDraggingMini ? 'grabbing' : 'grab' }}
+                  >
                     <img src={trackImageUrl} alt={track.name} className='w-full h-full object-cover' />
                     <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent' />
                     <div className='absolute bottom-3 left-3 right-3'>

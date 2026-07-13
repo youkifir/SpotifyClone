@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
@@ -15,7 +16,7 @@ function Layout() {
           onToggleCollapse={() => setSidebarCollapsed(c => !c)}
         />
         <div className="flex-1 min-w-0 flex flex-col bg-[#121212] rounded-lg overflow-hidden">
-          <Navbar />
+          <Navbar onToggleSidebar={() => setSidebarOpen(o => !o)} />
           <main className="flex-1 overflow-y-auto px-6 pb-6">
             <Outlet />
           </main>

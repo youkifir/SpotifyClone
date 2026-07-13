@@ -5,17 +5,25 @@ import { useLanguage } from '../context/LanguageContext'
 import { LANGUAGES } from '../i18n/translations'
 import { useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar'
+import { useNotifications } from '../context/NotificationContext.tsx'
+import NotificationPanel from './NotificationPanel'
+
 
 interface NavbarProps {
   onToggleSidebar?: () => void
+  onToggleCollapse?: () => void
+  sidebarCollapsed?: boolean
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
+const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, sidebarCollapsed }) => {
+  const [notifOpen, setNotifOpen] = useState(false)        // ← add this
+  const { unreadCount } = useNotifications()  
   const { user, logout } = useAuth()
   const { t, language, setLanguage } = useLanguage()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [langMenuOpen, setLangMenuOpen] = useState(false)
+  const [premiumOpen, setPremiumOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Закриваємо меню при кліку поза ним
@@ -49,6 +57,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
       {/* Лівий блок */}
       <div className='flex items-center gap-2 justify-start min-w-0'>
+        {/* Мобільний бургер */}
         <button
           onClick={onToggleSidebar}
           aria-label="Відкрити бібліотеку"
@@ -81,15 +90,48 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
       {/* Правий блок — профіль */}
       <div className='flex items-center justify-end gap-2 sm:gap-3'>
-        <button className='bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 hover:bg-neutral-200 transition hidden xl:block shadow-sm'>
+        <button onClick={() => setPremiumOpen(true)} className='bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 hover:bg-neutral-200 transition hidden xl:block shadow-sm'>
           {t('watchPremium')}
         </button>
 
+        {/* Premium модалка */}
+        {premiumOpen && (
+          <div className='fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm' onClick={() => setPremiumOpen(false)}>
+            <div className='bg-[#1a1a1a] border border-[#333] rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 flex flex-col items-center gap-4 text-center' onClick={e => e.stopPropagation()}>
+              <div className='w-16 h-16 rounded-full bg-[#1db954]/20 flex items-center justify-center'>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1db954" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </div>
+              <h2 className='text-white text-xl font-bold'>{t('premiumTitle')}</h2>
+              <p className='text-neutral-400 text-sm leading-relaxed'>{t('premiumDesc')}</p>
+              <button
+                onClick={() => setPremiumOpen(false)}
+                className='mt-2 bg-[#1db954] hover:bg-[#1ed760] text-black font-bold text-sm px-8 py-2.5 rounded-full transition hover:scale-105 active:scale-95'
+              >
+                {t('premiumClose')}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Дзвіночок */}
-        <div className='bg-[#1f1f1f] p-2.5 rounded-full hover:bg-[#2a2a2a] hover:scale-105 cursor-pointer transition flex items-center justify-center w-9 h-9 text-[#b3b3b3] hover:text-white'>
-          <svg role="img" height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 1.5a3 3 0 0 0-3 3v2.37l-1.283 1.283A1 1 0 0 0 3 8.862V10.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8.862a1 1 0 0 0-.717-.71l-1.283-1.282V4.5a3 3 0 0 0-3-3zM6.5 13a1.5 1.5 0 0 0 3 0h-3z" />
-          </svg>
+        <div className='relative'>
+          <button
+            onClick={() => setNotifOpen(o => !o)}
+            aria-label="Сповіщення"
+            className='relative bg-[#1f1f1f] p-2.5 rounded-full hover:bg-[#2a2a2a] hover:scale-105 cursor-pointer transition flex items-center justify-center w-9 h-9 text-[#b3b3b3] hover:text-white'
+          >
+            <svg role="img" height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1.5a3 3 0 0 0-3 3v2.37l-1.283 1.283A1 1 0 0 0 3 8.862V10.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8.862a1 1 0 0 0-.717-.71l-1.283-1.282V4.5a3 3 0 0 0-3-3zM6.5 13a1.5 1.5 0 0 0 3 0h-3z" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className='absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#1db954] text-black text-[9px] font-bold flex items-center justify-center leading-none'>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
         </div>
 
         {/* Аватар з дропдауном */}
