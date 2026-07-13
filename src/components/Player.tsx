@@ -396,7 +396,7 @@ export const Player: React.FC = () => {
               {isMiniPlayerOpen && track && (
                 <div
                   data-miniplayer
-                  className='fixed w-72 bg-[#181818] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-[9999] animate-fadeIn select-none'
+                  className='fixed w-72 bg-[#181818] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-9999 animate-fadeIn select-none'
                   style={{ left: miniPos.x, top: miniPos.y }}
                 >
                   {/* Drag handle */}
@@ -414,7 +414,7 @@ export const Player: React.FC = () => {
                   {/* Обкладинка */}
                   <div className='relative w-full aspect-square'>
                     <img src={trackImageUrl} alt={track.name} className='w-full h-full object-cover' />
-                    <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent' />
+                    <div className='absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent' />
                     <div className='absolute bottom-3 left-3 right-3'>
                       <p className='font-bold text-sm text-white truncate'>{track.name}</p>
                       <p className='text-xs text-neutral-400 truncate mt-0.5'>
