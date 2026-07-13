@@ -1,7 +1,13 @@
+require('dotenv').config();
+const { OAuth2Client } = require('google-auth-library'); // ДОБАВЛЕНО
+const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Playlist = require('../models/Playlist');
+
+// Инициализируем клиент Google OAuth
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID); // ДОБАВЛЕНО
 
 const generateToken = (user) => {
   return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
@@ -62,6 +68,11 @@ const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password', errors: [] });
     }
 
+    // Если пользователь регистрировался через Google/FB и не имеет пароля
+    if (!user.password) {
+      return res.status(401).json({ success: false, message: 'This account uses social login. Please log in with Google or Facebook.', errors: [] });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid email or password', errors: [] });
@@ -76,6 +87,108 @@ const login = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+};
+
+// POST /api/auth/google
+const googleLogin = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ success: false, message: 'Google token is required' });
+    }
+
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture } = payload;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email not provided by Google' });
+    }
+
+    let user = await User.findOne({ $or: [{ googleId }, { email: email.toLowerCase() }] });
+
+    if (!user) {
+      user = await User.create({
+        username: name || email.split('@')[0],
+        email: email.toLowerCase(),
+        googleId,
+        avatar: picture || null,
+        role: 'user',
+      });
+    } else if (!user.googleId) {
+      user.googleId = googleId;
+      if (!user.avatar && picture) user.avatar = picture;
+      await user.save();
+    }
+
+    const token = generateToken(user);
+
+    res.json({
+      message: 'Google login successful',
+      token,
+      user: { id: user._id, username: user.username, email: user.email, role: user.role, avatar: user.avatar },
+    });
+  } catch (err) {
+    console.error('Google Auth Error:', err);
+    res.status(401).json({ success: false, message: 'Invalid Google token' });
+  }
+};
+
+// POST /api/auth/facebook
+const facebookLogin = async (req, res, next) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken) {
+      return res.status(400).json({ success: false, message: 'Facebook access token is required' });
+    }
+
+    const fbResponse = await axios.get(`https://graph.facebook.com/me`, {
+      params: {
+        fields: 'id,name,email,picture.type(large)',
+        access_token: accessToken,
+      },
+    });
+
+    const { id: facebookId, name, email, picture } = fbResponse.data;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email not provided by Facebook or authorized' });
+    }
+
+    let user = await User.findOne({ $or: [{ facebookId }, { email: email.toLowerCase() }] });
+
+    const avatarUrl = picture?.data?.url || null;
+
+    if (!user) {
+      user = await User.create({
+        username: name || email.split('@')[0],
+        email: email.toLowerCase(),
+        facebookId,
+        avatar: avatarUrl,
+        role: 'user',
+      });
+    } else if (!user.facebookId) {
+      user.facebookId = facebookId;
+      if (!user.avatar && avatarUrl) user.avatar = avatarUrl;
+      await user.save();
+    }
+
+    const token = generateToken(user);
+
+    res.json({
+      message: 'Facebook login successful',
+      token,
+      user: { id: user._id, username: user.username, email: user.email, role: user.role, avatar: user.avatar },
+    });
+  } catch (err) {
+    console.error('Facebook Auth Error:', err);
+    res.status(401).json({ success: false, message: 'Invalid Facebook token' });
   }
 };
 
@@ -101,7 +214,6 @@ const getMe = async (req, res, next) => {
 // PUT /api/auth/avatar
 const updateAvatar = async (req, res, next) => {
   try {
-    // avatar може бути base64 рядком або null (для видалення)
     const { avatar } = req.body;
     if (avatar !== null && typeof avatar !== 'string') {
       return res.status(400).json({ success: false, message: 'Невірний формат аватара' });
@@ -110,7 +222,6 @@ const updateAvatar = async (req, res, next) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Зберігаємо як base64 або шлях (залежно від реалізації)
     user.avatar = avatar;
     await user.save();
 
@@ -150,13 +261,18 @@ const updateProfile = async (req, res, next) => {
     }
 
     if (newPassword) {
-      if (!currentPassword) {
-        return res.status(400).json({ success: false, message: 'Введіть поточний пароль' });
+      if (user.password) {
+        // Если у пользователя есть пароль в базе (обычная регистрация) — требуем старый
+        if (!currentPassword) {
+          return res.status(400).json({ success: false, message: 'Введіть поточний пароль' });
+        }
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+          return res.status(401).json({ success: false, message: 'Поточний пароль невірний' });
+        }
       }
-      const isMatch = await bcrypt.compare(currentPassword, user.password);
-      if (!isMatch) {
-        return res.status(401).json({ success: false, message: 'Поточний пароль невірний' });
-      }
+      // Если пароля нет (OAuth аккаунт), он может просто установить новый без ввода старого
+
       if (newPassword.length < 6) {
         return res.status(400).json({ success: false, message: 'Новий пароль має бути мінімум 6 символів' });
       }
@@ -178,7 +294,7 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-// GET /api/auth/likes — повертає список лайкнутих пісень
+// GET /api/auth/likes
 const getLikedSongs = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).populate('likedSongs');
@@ -189,7 +305,7 @@ const getLikedSongs = async (req, res, next) => {
   }
 };
 
-// POST /api/auth/likes/:songId — toggle лайк + автоматично створює/оновлює плейлист "Liked Songs"
+// POST /api/auth/likes/:songId
 const toggleLike = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
@@ -199,19 +315,15 @@ const toggleLike = async (req, res, next) => {
     const alreadyLiked = user.likedSongs.some((id) => id.toString() === songId);
 
     if (alreadyLiked) {
-      // Прибираємо лайк
       user.likedSongs = user.likedSongs.filter((id) => id.toString() !== songId);
     } else {
-      // Додаємо лайк
       user.likedSongs.push(songId);
     }
     await user.save();
 
-    // --- Синхронізуємо плейлист "Liked Songs" ---
     let likedPlaylist = await Playlist.findOne({ owner: user._id, isLikedSongs: true });
 
     if (!likedPlaylist) {
-      // Перший лайк — створюємо плейлист
       likedPlaylist = await Playlist.create({
         name: 'Liked Songs',
         description: 'Songs you liked',
@@ -235,7 +347,7 @@ const toggleLike = async (req, res, next) => {
   }
 };
 
-// GET /api/auth/users — admin only
+// GET /api/auth/users
 const getUsers = async (req, res, next) => {
   try {
     const users = await User.find({}).sort({ createdAt: -1 });
@@ -254,7 +366,7 @@ const getUsers = async (req, res, next) => {
   }
 };
 
-// DELETE /api/auth/users/:id — admin only
+// DELETE /api/auth/users/:id
 const deleteUser = async (req, res, next) => {
   try {
     if (String(req.params.id) === String(req.user.id)) {
@@ -268,4 +380,4 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe, updateProfile, updateAvatar, getLikedSongs, toggleLike, getUsers, deleteUser };
+module.exports = { register, login, getMe, updateProfile, updateAvatar, getLikedSongs, toggleLike, getUsers, deleteUser, googleLogin, facebookLogin };

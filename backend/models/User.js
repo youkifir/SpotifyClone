@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// ... предыдущий код mongoose
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -17,8 +18,17 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: false, // Для OAuth пользователей
       select: false,
+    },
+    // НОВЫЕ ПОЛЯ ДЛЯ СОЦСЕТЕЙ
+    googleId: {
+      type: String,
+      default: null,
+    },
+    facebookId: {
+      type: String,
+      default: null,
     },
     role: {
       type: String,
