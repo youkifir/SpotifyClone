@@ -167,15 +167,12 @@ function ArtistPage() {
         className="relative flex items-end gap-6 p-6 sm:p-8 rounded-lg overflow-hidden mb-2"
         style={{ minHeight: 240, background: 'linear-gradient(180deg, #2a2a2a 0%, #121212 100%)' }}
       >
-        {/* Кнопка Назад */}
+        {/* ← Back button top-left */}
         <button
           onClick={() => navigate(-1)}
-          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 hover:bg-black/80 text-white text-sm font-medium backdrop-blur transition hover:scale-105 active:scale-95"
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 text-sm text-white/70 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full transition"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-          Назад
+          ← Назад
         </button>
         {heroCover && (
           <div

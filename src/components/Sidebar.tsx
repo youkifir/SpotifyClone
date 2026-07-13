@@ -26,7 +26,7 @@ interface SidebarProps {
   onToggleCollapse?: () => void
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
   const { token } = useAuth()
   const { t } = useLanguage()
 
@@ -204,24 +204,66 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
       {/* Сайдбар — на десктопі анімуємо ширину через inline style */}
       <div
-        className={`fixed lg:static top-0 left-0 h-full flex flex-col text-white shrink-0 z-50 lg:z-auto transition-transform duration-300 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          w-[78%] max-w-[280px] lg:max-w-none`}
-        style={{
-          // на десктопі — анімуємо ширину тут, не в Layout
-          ...(typeof window !== 'undefined' && window.innerWidth >= 1024
-            ? { width: collapsed ? '52px' : 'min(25vw, 280px)', transition: 'width 0.3s ease' }
-            : {})
-        }}
+        style={{ width: collapsed ? '72px' : undefined }}
+        className={`fixed lg:static top-0 left-0 h-full flex flex-col text-white shrink-0 z-50 lg:z-auto transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} lg:w-[25%] w-[78%] max-w-70`}
       >
-        <div className="bg-[#121212] h-full lg:rounded-lg flex flex-col gap-2 overflow-hidden">
+        <div className="bg-[#121212] h-full lg:rounded-lg p-2 flex flex-col gap-2 overflow-hidden">
+          <div className="p-4 flex items-center justify-between min-w-0">
+            <div
+              style={{
+                opacity: collapsed ? 0 : 1,
+                width: collapsed ? 0 : undefined,
+                overflow: 'hidden',
+                pointerEvents: collapsed ? 'none' : undefined,
+                transition: 'opacity 0.3s, width 0.3s',
+                whiteSpace: 'nowrap',
+              }}
+              className="flex items-center gap-3"
+            >
+              <img className="w-8 shrink-0" src={assets.stack_icon} alt="Library" />
+              <p className="font-semibold">{t('yourLibrary')}</p>
+            </div>
+            <div style={{ margin: collapsed ? '0 auto' : undefined }} className="flex items-center gap-4 px-1 shrink-0">
+              <img
+                onClick={onToggleCollapse}
+                style={{ transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}
+                className="w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110"
+                src={assets.arrow_icon}
+                alt="Arrow"
+                title={collapsed ? 'Розгорнути' : 'Згорнути'}
+              />
+              <img
+                onClick={() => setIsModalOpen(true)}
+                className="w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition"
+                src={assets.plus_icon}
+                alt="Створити плейлист"
+                title="Створити плейлист"
+              />
+              <button
+                onClick={onClose}
+                aria-label="Закрити бібліотеку"
+                className="lg:hidden w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white hover:scale-110 transition text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
 
-          {/* Шапка */}
-          <div className="p-4 flex items-center justify-between shrink-0">
-            {collapsed ? (
-              // Згорнутий стан: лише стрілка вправо по центру
-              <div className="w-full flex justify-center">
-                <CollapseBtn dir="right" />
+          <div style={{ display: collapsed ? "none" : undefined }} className="flex flex-col gap-3 px-2 overflow-y-auto custom-scrollbar flex-1">
+            {!token ? (
+              <p className="text-sm text-zinc-400 p-4">{t('loginToSeePlaylists')}</p>
+            ) : loading ? (
+              <p className="text-sm text-zinc-400 p-4">{t('loading')}</p>
+            ) : playlists.length === 0 ? (
+              <div className="p-4 bg-[#242424] hover:bg-[#2a2a2a] transition-colors rounded-lg flex flex-col items-start gap-1">
+                <h1 className="font-bold text-base text-white">{t('createFirstPlaylist')}</h1>
+                <p className="text-sm text-white font-light opacity-90">{t('itsEasy')}</p>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-white text-black text-sm font-bold px-4 py-1.5 rounded-full mt-4 hover:scale-105 hover:bg-neutral-200 transition"
+                >
+                  {t('createPlaylist')}
+                </button>
               </div>
             ) : (
               <>

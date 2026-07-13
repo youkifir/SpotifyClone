@@ -200,6 +200,14 @@ function AlbumPage() {
         className="relative flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-8 rounded-lg overflow-hidden"
         style={{ background: `linear-gradient(160deg, ${bgColor}cc 0%, #121212 100%)` }}
       >
+        {/* ← Back button top-left */}
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 text-sm text-white/70 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full transition"
+        >
+          ← Назад
+        </button>
+
         {/* Розмитий фон */}
         <div
           className="absolute inset-0 opacity-15 blur-2xl scale-110 bg-cover bg-center"
@@ -259,12 +267,6 @@ function AlbumPage() {
           />
         </button>
 
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm text-neutral-400 hover:text-white transition"
-        >
-          ← Назад
-        </button>
       </div>
 
       {/* ── Список треків ── */}
