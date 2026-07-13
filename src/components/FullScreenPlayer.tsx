@@ -255,7 +255,8 @@ export const FullScreenPlayer: React.FC = () => {
         </svg>
         <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Текст пісні</h2>
         {lrcLoading && <span className="ml-2 text-xs text-neutral-500 animate-pulse">Завантаження...</span>}
-        {hasLrc && <span className="ml-2 text-xs text-[#1db954] font-semibold">● синхронізовано</span>}
+        {hasLrc && !isItunes && <span className="ml-2 text-xs text-[#1db954] font-semibold">● синхронізовано</span>}
+        {isItunes && <span className="ml-2 text-xs text-neutral-500">прев'ю · синхронізація недоступна</span>}
       </div>
 
       <div
@@ -276,8 +277,10 @@ export const FullScreenPlayer: React.FC = () => {
         {hasLrc && (
           <div className="flex flex-col gap-3 pb-20">
             {lrcLines!.map((line, i) => {
-              const isActive = i === activeIndex
-              const isPast = i < activeIndex
+              // Для iTunes прев'ю LRC таймкоди від повного треку — offset невідомий,
+              // тому підсвічування вимикаємо щоб не йшло не в такт
+              const isActive = !isItunes && i === activeIndex
+              const isPast = !isItunes && i < activeIndex
               return (
                 <p
                   key={i}
@@ -312,8 +315,10 @@ export const FullScreenPlayer: React.FC = () => {
           <div className="flex flex-col gap-2 pb-20">
             {displayLines.map(({ line, idx, i }) => {
               if (line.length === 0) return <div key={i} className="h-4" />
-              const isActive = idx === currentLineIndex
-              const isPast = idx < currentLineIndex
+              // Для iTunes прев'ю offset невідомий — підсвічування буде брехнею,
+              // тому просто показуємо весь текст однаково без активного рядка
+              const isActive = !isItunes && idx === currentLineIndex
+              const isPast = !isItunes && idx < currentLineIndex
               return (
                 <p
                   key={i}

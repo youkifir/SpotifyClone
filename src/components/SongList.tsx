@@ -5,6 +5,10 @@ import ArtistPopup from './ArtistProup'
 import { useLike } from '../hooks/Uselike'
 import AddToPlaylistMenu from './AddToPlaylistMenu'
 
+const API = 'http://localhost:5000'
+const getImageUrl = (url: string) =>
+  !url || url.startsWith('http') || url.startsWith('data:') ? url : `${API}/${url.replace(/^\//, '')}`
+
 interface Song {
   id: number | string
   name: string
@@ -109,7 +113,7 @@ function SongList({ songs }: SongListProps) {
 
               {/* Фото + Назва + Артист */}
               <div className="flex items-center gap-3 min-w-0">
-                <img src={song.image} alt={song.name} className="w-10 h-10 rounded object-cover shrink-0" />
+                <img src={getImageUrl(song.image)} alt={song.name} className="w-10 h-10 rounded object-cover shrink-0" />
                 <div className="min-w-0">
                   <span className={`text-sm truncate block ${isActive ? 'text-[#1db954]' : 'text-white'}`}>{song.name}</span>
                   {song.artist && (

@@ -393,8 +393,30 @@ const getArtistSongs = async (req, res, next) => {
       new Map(combined.map((s) => [String(s._id), s])).values()
     );
 
-    // Artist image: first available cover
-    const artistImage = unique[0]?.image || '';
+    // Artist image: спочатку пробуємо реальне фото з Deezer, fallback — обкладинка треку
+    let artistImage = unique[0]?.image || '';
+    try {
+      const deezerRes = await fetch(
+        `https://api.deezer.com/search/artist?q=${encodeURIComponent(artistName)}&limit=5`,
+        { headers: { 'User-Agent': 'SpotifyClone/1.0' } }
+      );
+      if (deezerRes.ok) {
+        const deezerData = await deezerRes.json();
+        const results = deezerData?.data || [];
+        const artistNameLower = artistName.toLowerCase().trim();
+
+        // Тільки точний збіг — без partialMatch щоб не плутати виконавців
+        const deezerArtist = results.find((a) =>
+          a.name.toLowerCase().trim() === artistNameLower
+        );
+
+        if (deezerArtist?.picture_xl) {
+          artistImage = deezerArtist.picture_xl; // 1000x1000 реальне фото
+        }
+      }
+    } catch (deezerErr) {
+      console.warn('Deezer artist photo unavailable:', deezerErr.message);
+    }
 
     res.json({
       success: true,
