@@ -27,10 +27,10 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
     useEffect(() => {
         window.fbAsyncInit = function () {
             window.FB.init({
-                appId: 'ТВОЙ_FACEBOOK_APP_ID', // Вставь сюда реальный App ID из FB Developer Console
+                appId: import.meta.env.VITE_FACEBOOK_CLIENT_ID,
                 cookie: true,
                 xfbml: true,
-                version: 'v18.0'
+                version: 'v16.0' // Вместо v25.0 поставь v16.0 или v12.0
             });
         };
 
@@ -73,20 +73,24 @@ export default function AuthPage({ isLoginMode = true }: { isLoginMode?: boolean
 
     // Логика вызова окна Facebook Login
     const handleFacebookLogin = () => {
-        setError('');
         if (!window.FB) {
-            setError('Facebook SDK не завантажено. Спробуйте пізніше.');
+            console.error("Facebook SDK не загружен");
             return;
         }
 
         window.FB.login((response: any) => {
             if (response.authResponse) {
                 const accessToken = response.authResponse.accessToken;
+
+                // Отправляем токен на бэкенд
                 sendFacebookTokenToBackend(accessToken);
             } else {
-                setError('Користувач скасував авторизацію через Facebook');
+                console.log('Пользователь отменил авторизацию или не дал прав.');
             }
-        }, { scope: 'email,public_profile' });
+        }, {
+            scope: 'email,public_profile', // СТРОГО ТАК: свойство scope, строка через запятую
+            auth_type: 'rerequest' // Позволяет запросить email повторно, если юзер его убрал
+        });
     };
 
     // Отправка токена Facebook на бэкенд
