@@ -6,6 +6,10 @@ export const LANGUAGES: { code: Language; label: string }[] = [
   { code: 'en', label: 'English' },
 ]
 
+// Словник перекладів. Ключі — короткі смислові ідентифікатори, а не самі
+// фрази, щоб можна було легко міняти формулювання, не чіпаючи компоненти.
+// Щоб додати новий текст: додай ключ сюди для всіх трьох мов, а в компоненті
+// виклич t('твійКлюч') замість хардкоду рядка.
 export const translations = {
   uk: {
     home: 'Головна',
@@ -91,6 +95,7 @@ export const translations = {
     passwordMismatch: 'Паролі не збігаються',
     passwordChanged: 'Пароль змінено!',
     changePasswordBtn: 'Змінити пароль',
+    // MusicianPage
     musicianStudio: 'Студія музиканта',
     myTracks: 'Мої треки',
     createPlaylistBtn: 'Плейлист',
@@ -326,6 +331,7 @@ export const translations = {
     passwordMismatch: 'Пароли не совпадают',
     passwordChanged: 'Пароль изменён!',
     changePasswordBtn: 'Изменить пароль',
+    // MusicianPage
     musicianStudio: 'Студия музыканта',
     myTracks: 'Мои треки',
     createPlaylistBtn: 'Плейлист',
@@ -561,6 +567,7 @@ export const translations = {
     passwordMismatch: 'Passwords do not match',
     passwordChanged: 'Password changed!',
     changePasswordBtn: 'Change password',
+    // MusicianPage
     musicianStudio: 'Musician Studio',
     myTracks: 'My Tracks',
     createPlaylistBtn: 'Playlist',
