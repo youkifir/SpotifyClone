@@ -9,7 +9,7 @@ import { durationToSeconds } from '../utils/parseDuration'
 import type { Playlist } from '../components/CreatePlaylistModal'
 import type { Song } from '../context/PlayerContext'
 import { apiFetch, isOfflineError } from '../utils/apiError'
-import { ErrorScreen, LoadingScreen } from '../components/StateScreens'
+import { ErrorScreen, LoadingScreen } from '../components/StateScreen'
 import { useLanguage } from '../context/LanguageContext'
 import { addRecentlyPlayed } from '../hooks/useRecentlyPlayed'
 import { onLikeChanged } from '../hooks/Uselike'
@@ -31,12 +31,15 @@ const resolveUrl = (path: string) => {
 
 function PlaylistPage() {
   const { id } = useParams()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const { t } = useLanguage()
   const { track, playStatus, playWithId, play, pause, refreshSongs, setQueue, clearQueue, addSongs } = usePlayer()
 
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [offline, setOffline] = useState(false)
   const [albumNames, setAlbumNames] = useState<Record<string, string>>({})
 
   const [search, setSearch] = useState('')
@@ -76,29 +79,27 @@ function PlaylistPage() {
           image: loadedPlaylist.image ? resolveUrl(loadedPlaylist.image) : '',
           isLikedSongs: !!loadedPlaylist.isLikedSongs,
         })
-        if (response.status === 404 || response.status === 403) {
-          setNotFound(true)
-          return
-        }
-        if (response.ok) {
-          const resData = await response.json()
-          setPlaylist(resData.data || resData)
-        }
-      } catch (error) {
-        console.error('Помилка завантаження плейлиста:', error)
-      } finally {
-        setLoading(false)
       }
+    } catch (error) {
+      console.error('Помилка завантаження плейлиста:', error)
+      if (isOfflineError(error)) {
+        setOffline(true)
+      } else {
+        setFetchError('Не вдалося завантажити плейлист')
+      }
+    } finally {
+      setLoading(false)
     }
+  }, [id, token, user?.id, t])
 
+  useEffect(() => {
     fetchPlaylist()
-  }, [id, token])
+  }, [fetchPlaylist])
 
-  // Оновлюємо список одразу після лайку або додавання треку до плейлісту
+  // Оновлюємо список одразу після лайку або додавання треку до плейліcту
   useEffect(() => {
     const unsubLike = onLikeChanged(() => fetchPlaylist(true))
     const unsubAdd = onPlaylistSongAdded((playlistId) => {
-      // Оновлюємо тільки якщо подія стосується цього плейлісту
       if (!playlistId || playlistId === id) fetchPlaylist(true)
     })
     return () => { unsubLike(); unsubAdd() }
@@ -180,9 +181,9 @@ function PlaylistPage() {
   useEffect(() => {
     if (!playlist || visibleSongs.length === 0) return
     const playerSongs = visibleSongs.map(toPlayerSong)
-    addSongs(playerSongs)   // гарантуємо що треки є в songsData
+    addSongs(playerSongs)
     setQueue(playerSongs)
-    return () => { clearQueue() }  // скидаємо чергу при виході зі сторінки
+    return () => { clearQueue() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlist?._id, visibleSongs])
 
@@ -206,14 +207,11 @@ function PlaylistPage() {
 
   const handleSharePlaylist = async () => {
     if (!playlist) return
-
-    // Формируем ссылку на текущую страницу
     const shareUrl = `${window.location.origin}/playlist/${playlist._id}`
-
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000) // Сбрасываем текст кнопки через 2 секунды
+      setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('Не вдалося скопіювати посилання:', error)
     }
@@ -246,7 +244,9 @@ function PlaylistPage() {
   }
 
   if (wasDeleted) return <Navigate to="/" replace />
-  if (loading) return <div className="text-white p-6">Завантаження плейлиста...</div>
+  if (loading) return <LoadingScreen message="Завантаження плейлиста…" />
+  if (offline) return <ErrorScreen message="Немає з'єднання з сервером" onRetry={() => fetchPlaylist()} />
+  if (fetchError) return <ErrorScreen message={fetchError} onRetry={() => fetchPlaylist()} />
   if (notFound || !playlist) return <Navigate to="/" replace />
 
   const isPlaylistPlaying = playStatus && visibleSongs.some((s) => s._id === track.id)
@@ -303,7 +303,6 @@ function PlaylistPage() {
           Редагувати
         </button>
 
-        {/* Кнопка "Поділитися" */}
         <button
           onClick={handleSharePlaylist}
           className={`text-sm font-semibold px-4 py-2 rounded-full border transition-colors ${copied
@@ -379,9 +378,6 @@ function PlaylistPage() {
                   <div
                     key={song._id}
                     onClick={() => {
-                      // Явно розрізняємо клік по вже активному треку (пауза/плей)
-                      // від кліку по іншому треку (перемикання) — щоб кнопка паузи
-                      // в плейлисті гарантовано зупиняла відтворення.
                       if (isActive) {
                         if (playStatus) pause()
                         else play()
