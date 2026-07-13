@@ -108,7 +108,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
           {/* Дропдаун меню */}
           {menuOpen && (
-            <div className='absolute right-0 top-11 z-50 w-52 bg-[#282828] rounded-lg shadow-2xl border border-[#3e3e3e] overflow-hidden py-1'>
+            <div className='absolute right-0 top-11 z-[9999] w-52 bg-[#282828] rounded-lg shadow-2xl border border-[#3e3e3e] overflow-hidden py-1'>
 
               {/* Інфо про юзера */}
               <div className='px-4 py-3 border-b border-[#3e3e3e]'>

@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 
-// ... предыдущий код mongoose
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -18,17 +17,8 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: false, // Для OAuth пользователей
+      required: [true, 'Password is required'],
       select: false,
-    },
-    // НОВЫЕ ПОЛЯ ДЛЯ СОЦСЕТЕЙ
-    googleId: {
-      type: String,
-      default: null,
-    },
-    facebookId: {
-      type: String,
-      default: null,
     },
     role: {
       type: String,
@@ -50,6 +40,15 @@ const userSchema = new mongoose.Schema(
       message: { type: String, default: '' },
       requestedAt: { type: Date },
     },
+    // Підписки на артистів (ім'я артиста, рядок)
+    followedArtists: [{ type: String, trim: true }],
+    // Історія прослуховування
+    listenHistory: [
+      {
+        song: { type: mongoose.Schema.Types.ObjectId, ref: 'Song' },
+        listenedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

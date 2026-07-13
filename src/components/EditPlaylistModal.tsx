@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { fileToCompressedDataUrl } from '../utils/imageCompression'
+import ConfirmDialog from './ConfirmDialog'
 import type { Playlist } from './CreatePlaylistModal'
 
 interface EditPlaylistModalProps {
@@ -23,6 +24,7 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   if (!isOpen) return null
 
@@ -92,9 +94,14 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
     }
   }
 
+  const requestDelete = () => {
+    if (!token) return
+    setConfirmDeleteOpen(true)
+  }
+
   const handleDelete = async () => {
     if (!token) return
-    if (!window.confirm('Видалити цей плейлист? Цю дію не можна скасувати.')) return
+    setConfirmDeleteOpen(false)
 
     setDeleting(true)
     try {
@@ -204,7 +211,7 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
 
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={requestDelete}
             disabled={deleting}
             className="text-red-400 hover:text-red-300 text-sm font-medium mt-2 disabled:opacity-50 transition-colors"
           >
@@ -212,6 +219,18 @@ function EditPlaylistModal({ isOpen, playlist, onClose, onSaved, onDeleted }: Ed
           </button>
         </form>
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDeleteOpen}
+        title="Видалити плейлист"
+        message="Видалити цей плейлист? Цю дію не можна скасувати."
+        confirmText="Видалити"
+        danger
+        loading={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        zIndexClass="z-70"
+      />
     </div>
   )
 }

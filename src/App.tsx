@@ -28,7 +28,6 @@ function App() {
     )
   }
 
-  // ── Рендер для неавторизованого користувача ──
   if (!token) {
     return (
       <div className="h-screen w-screen bg-[#09090b] relative flex items-center justify-center overflow-hidden">
@@ -44,7 +43,6 @@ function App() {
     )
   }
 
-  // ── Основний рендер додатку (Адаптивна сітка без жорстких відсотків) ──
   return (
     <PlayerContextProvider>
       <div className="h-screen w-screen bg-black flex flex-col p-2 gap-2 overflow-hidden select-none">
@@ -52,7 +50,7 @@ function App() {
         <Navbar onToggleSidebar={() => setIsSidebarOpen((open) => !open)} />
 
         {/* Головна контентна зона */}
-        <div className="flex flex-1 min-h-0 gap-2 relative overflow-hidden">
+        <div className="flex flex-1 min-h-0 gap-2 relative">
           {/* Бокова панель (Sidebar) */}
           <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
@@ -66,7 +64,7 @@ function App() {
               <Route path="/admin" element={<AdminPanel />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/musician" element={<MusicianPage />} />
-              <Route path="/search" element={<SearchPage />} />  {/* ← НОВИЙ МАРШРУТ */}
+              <Route path="/search" element={<SearchPage />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </div>
