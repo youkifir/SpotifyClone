@@ -35,8 +35,8 @@ const QueuePanel: React.FC<QueuePanelProps> = ({ isOpen, onClose }) => {
 
   return (
     <>
-      <div onClick={onClose} className="fixed inset-0 bg-black/50 z-[70]" />
-      <div className="fixed right-2 bottom-[calc(12%+8px)] lg:bottom-[calc(10%+8px)] top-2 w-[90vw] max-w-sm bg-[#121212] border border-zinc-800 rounded-lg z-[71] shadow-2xl flex flex-col overflow-hidden">
+      <div onClick={onClose} className="fixed inset-0 bg-black/50 z-70" />
+      <div className="fixed right-2 bottom-[calc(12%+8px)] lg:bottom-[calc(10%+8px)] top-2 w-[90vw] max-w-sm bg-[#121212] border border-zinc-800 rounded-lg z-71 shadow-2xl flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
           <h2 className="text-white font-bold text-base">{t('queue')}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-white text-xl leading-none">✕</button>

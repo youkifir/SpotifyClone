@@ -8,6 +8,10 @@ import AddSongsModal, { type ApiSong } from '../components/AddSongsModal'
 import { durationToSeconds } from '../utils/parseDuration'
 import type { Playlist } from '../components/CreatePlaylistModal'
 import type { Song } from '../context/PlayerContext'
+import { apiFetch, isOfflineError } from '../utils/apiError'
+import { ErrorScreen, LoadingScreen } from '../components/StateScreens'
+import { useLanguage } from '../context/LanguageContext'
+import { addRecentlyPlayed } from '../hooks/useRecentlyPlayed'
 
 interface PlaylistDetail extends Omit<Playlist, 'songs'> {
   songs: ApiSong[]
@@ -25,12 +29,15 @@ const resolveUrl = (path: string) => {
 
 function PlaylistPage() {
   const { id } = useParams()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const { track, playStatus, playWithId, play, pause, refreshSongs, setQueue, clearQueue, addSongs } = usePlayer()
 
+  const { t } = useLanguage()
   const [playlist, setPlaylist] = useState<PlaylistDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [offline, setOffline] = useState(false)
   const [albumNames, setAlbumNames] = useState<Record<string, string>>({})
 
   const [search, setSearch] = useState('')
@@ -43,53 +50,63 @@ function PlaylistPage() {
   const [wasDeleted, setWasDeleted] = useState(false)
 
   // завантаження плейлиста
-  useEffect(() => {
+  const fetchPlaylist = useCallback(async () => {
     if (!token || !id) return
+    setLoading(true)
+    setNotFound(false)
+    setFetchError(null)
+    setOffline(false)
+    try {
+      const response = await apiFetch(`${API_BASE}/playlists/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const resData = await response.json()
+      const loadedPlaylist = resData.data || resData
+      setPlaylist(loadedPlaylist)
 
-    const fetchPlaylist = async () => {
-      setLoading(true)
-      setNotFound(false)
-      try {
-        const response = await fetch(`${API_BASE}/playlists/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
+      // Позначаємо плейлист як "недавно прослуханий" на головній сторінці
+      if (loadedPlaylist?._id) {
+        addRecentlyPlayed(user?.id, {
+          id: loadedPlaylist._id,
+          type: 'playlist',
+          name: loadedPlaylist.name,
+          desc: loadedPlaylist.isLikedSongs
+            ? ''
+            : `${t('playlistLabel2')} • ${loadedPlaylist.songs?.length ?? 0} ${loadedPlaylist.songs?.length === 1 ? 'трек' : 'треків'}`,
+          image: loadedPlaylist.image ? resolveUrl(loadedPlaylist.image) : '',
+          isLikedSongs: !!loadedPlaylist.isLikedSongs,
         })
-        if (response.status === 404 || response.status === 403) {
-          setNotFound(true)
-          return
-        }
-        if (response.ok) {
-          const resData = await response.json()
-          setPlaylist(resData.data || resData)
-        }
-      } catch (error) {
-        console.error('Помилка завантаження плейлиста:', error)
-      } finally {
-        setLoading(false)
       }
+    } catch (error: any) {
+      console.error('Помилка завантаження плейлиста:', error)
+      if (error?.status === 404 || error?.status === 403) {
+        setNotFound(true)
+      } else if (isOfflineError(error)) {
+        setOffline(true)
+        setFetchError(t('errorNetwork'))
+      } else {
+        setFetchError(t('errorLoadPlaylist'))
+      }
+    } finally {
+      setLoading(false)
     }
+  }, [id, token, t, user])
 
-    fetchPlaylist()
-  }, [id, token])
+  useEffect(() => { fetchPlaylist() }, [fetchPlaylist])
 
   // резолвимо назви альбомів
   useEffect(() => {
-    const fetchAlbums = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/albums`)
-        if (response.ok) {
-          const resData = await response.json()
-          const list = Array.isArray(resData) ? resData : resData.data || []
-          const map: Record<string, string> = {}
-          for (const album of list) {
-            map[album._id || album.id] = album.name
-          }
-          setAlbumNames(map)
+    apiFetch(`${API_BASE}/albums`)
+      .then(r => r.json())
+      .then(resData => {
+        const list = Array.isArray(resData) ? resData : resData.data || []
+        const map: Record<string, string> = {}
+        for (const album of list) {
+          map[album._id || album.id] = album.name
         }
-      } catch (error) {
-        console.error('Помилка завантаження альбомів:', error)
-      }
-    }
-    fetchAlbums()
+        setAlbumNames(map)
+      })
+      .catch(() => {/* non-critical, album names just show — */})
   }, [])
 
   const existingSongIds = useMemo(
@@ -198,8 +215,19 @@ function PlaylistPage() {
   }
 
   if (wasDeleted) return <Navigate to="/" replace />
-  if (loading) return <div className="text-white p-6">Завантаження плейлиста...</div>
-  if (notFound || !playlist) return <Navigate to="/" replace />
+  if (loading) return <LoadingScreen label={t('loadingPlaylist')} />
+  if (notFound) return <Navigate to="/" replace />
+  if (fetchError) {
+    return (
+      <ErrorScreen
+        message={fetchError}
+        offline={offline}
+        onRetry={fetchPlaylist}
+        retryLabel={t('errorRetry')}
+      />
+    )
+  }
+  if (!playlist) return <Navigate to="/" replace />
 
   const isPlaylistPlaying = playStatus && visibleSongs.some((s) => s._id === track.id)
 

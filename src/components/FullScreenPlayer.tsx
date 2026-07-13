@@ -36,13 +36,15 @@ export const FullScreenPlayer: React.FC = () => {
   const seekBgRef = useRef<HTMLDivElement>(null)
   const mobileSeekBgRef = useRef<HTMLDivElement>(null)
   const volumeBgRef = useRef<HTMLDivElement>(null)
+  const mobileVolumeBgRef = useRef<HTMLDivElement>(null)
   const lyricsRef = useRef<HTMLDivElement>(null)
   const activeLineRef = useRef<HTMLParagraphElement>(null)
   const userScrolledRef = useRef(false)
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [isDraggingVolume, setIsDraggingVolume] = useState(false)
-  const [isDraggingSeek, setIsDraggingSeek] = useState(false) // Состояние перетаскивания таймлайна
+  const [isDraggingMobileVolume, setIsDraggingMobileVolume] = useState(false)
+  const [isDraggingSeek, setIsDraggingSeek] = useState(false)
   const [mobileTab, setMobileTab] = useState<'player' | 'lyrics'>('player')
 
   // ── LRCLIB синхронізований текст ──────────────────────────
@@ -58,6 +60,15 @@ export const FullScreenPlayer: React.FC = () => {
     if (!el) return
     const rect = el.getBoundingClientRect()
     const ratio = (clientX - rect.left) / rect.width
+    changeVolume(Math.min(1, Math.max(0, ratio)))
+  }, [changeVolume])
+
+  // ── Вертикальна гучність для мобілки (знизу вгору) ──
+  const updateMobileVolumePosition = useCallback((clientY: number) => {
+    const el = mobileVolumeBgRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const ratio = 1 - (clientY - rect.top) / rect.height
     changeVolume(Math.min(1, Math.max(0, ratio)))
   }, [changeVolume])
 
@@ -111,6 +122,29 @@ export const FullScreenPlayer: React.FC = () => {
       window.removeEventListener('touchend', handleMouseUp)
     }
   }, [isDraggingVolume, isDraggingSeek, updateVolumePosition, updateSeekPosition])
+
+  // ── Глобальні слухачі для вертикального слайдера мобілки ──
+  useEffect(() => {
+    if (!isDraggingMobileVolume) return
+
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+      updateMobileVolumePosition(clientY)
+    }
+    const handleUp = () => setIsDraggingMobileVolume(false)
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('touchmove', handleMove, { passive: true })
+    window.addEventListener('mouseup', handleUp)
+    window.addEventListener('touchend', handleUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('touchmove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      window.removeEventListener('touchend', handleUp)
+    }
+  }, [isDraggingMobileVolume, updateMobileVolumePosition])
 
   // Плавний скрол до активного рядка (тільки якщо юзер не скролить вручну)
   useEffect(() => {
@@ -358,34 +392,71 @@ export const FullScreenPlayer: React.FC = () => {
       {/* ── МОБИЛЬНАЯ СЕТКА ── */}
       <div className="flex md:hidden flex-col flex-1 items-center justify-center w-full min-h-0">
         {mobileTab === 'player' ? (
-          <div className="flex flex-col items-center justify-center text-center gap-6 w-full py-4 animate-fadeIn">
-            <img
-              className="w-64 h-64 sm:w-80 sm:h-80 rounded-xl object-cover shadow-[0_20px_40px_rgba(0,0,0,0.6)]"
-              src={trackImageUrl}
-              alt={track.name}
-            />
-            <div className="w-full px-4 mt-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight line-clamp-1">{track.name}</h1>
-              <p className="text-neutral-400 text-sm sm:text-base mt-1 line-clamp-1">
-                {(track as any).artist || track.desc?.slice(0, 40)}
-              </p>
-            </div>
+          <div className="flex flex-row items-center justify-center w-full flex-1 gap-4 py-4 animate-fadeIn">
 
-            {/* Компактный прогресс-бар для мобилок с поддержкой тача */}
-            <div className="w-full px-4 flex items-center gap-3 text-[10px] text-neutral-400 mt-4">
-              <p className="w-8 text-right">{formatTime(currentTime)}</p>
+            {/* Вертикальний слайдер гучності зліва */}
+            <div className="flex flex-col items-center gap-2 h-64 sm:h-72 shrink-0">
+              {/* Іконка гучно зверху */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-neutral-400 shrink-0">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" strokeWidth="2" fill="none" />
+              </svg>
+
+              {/* Вертикальний трек */}
               <div
-                ref={mobileSeekBgRef}
-                onMouseDown={handleSeekMouseDown}
-                onTouchStart={handleSeekMouseDown}
-                className="flex-1 bg-neutral-800 h-1.5 rounded-full relative cursor-pointer select-none"
+                ref={mobileVolumeBgRef}
+                onMouseDown={(e) => { setIsDraggingMobileVolume(true); updateMobileVolumePosition(e.clientY) }}
+                onTouchStart={(e) => { setIsDraggingMobileVolume(true); updateMobileVolumePosition(e.touches[0].clientY) }}
+                className="flex-1 w-1.5 bg-neutral-700 rounded-full cursor-pointer relative flex flex-col-reverse"
               >
-                <div className="h-1.5 rounded-full bg-white" style={{ width: `${progress * 100}%` }}>
-                  <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white transition-opacity ${isDraggingSeek ? 'opacity-100 bg-[#1db954]' : 'opacity-0'
-                    }`} />
+                {/* Заповнена частина знизу вгору */}
+                <div
+                  className={`w-full rounded-full transition-colors ${isDraggingMobileVolume ? 'bg-[#1db954]' : 'bg-neutral-300'}`}
+                  style={{ height: `${volume * 100}%` }}
+                >
+                  {/* Кружечок-повзунок */}
+                  <div
+                    className={`absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white shadow-lg transition-opacity ${isDraggingMobileVolume ? 'opacity-100' : 'opacity-70'}`}
+                    style={{ top: `${(1 - volume) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                  />
                 </div>
               </div>
-              <p className="w-8 text-left">{formatTime(totalTime)}</p>
+
+              {/* Іконка тихо знизу */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-neutral-400 shrink-0">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              </svg>
+            </div>
+
+            {/* Права частина: обкладинка + назва + прогрес */}
+            <div className="flex flex-col items-center text-center gap-4 flex-1 min-w-0">
+              <img
+                className="w-52 h-52 sm:w-64 sm:h-64 rounded-xl object-cover shadow-[0_20px_40px_rgba(0,0,0,0.6)]"
+                src={trackImageUrl}
+                alt={track.name}
+              />
+              <div className="w-full px-2">
+                <h1 className="text-lg sm:text-xl font-black tracking-tight line-clamp-1">{track.name}</h1>
+                <p className="text-neutral-400 text-sm mt-0.5 line-clamp-1">
+                  {(track as any).artist || track.desc?.slice(0, 40)}
+                </p>
+              </div>
+
+              {/* Прогрес-бар */}
+              <div className="w-full flex items-center gap-2 text-[10px] text-neutral-400">
+                <p className="w-7 text-right shrink-0">{formatTime(currentTime)}</p>
+                <div
+                  ref={mobileSeekBgRef}
+                  onMouseDown={handleSeekMouseDown}
+                  onTouchStart={handleSeekMouseDown}
+                  className="flex-1 bg-neutral-800 h-1.5 rounded-full relative cursor-pointer select-none"
+                >
+                  <div className="h-1.5 rounded-full bg-white" style={{ width: `${progress * 100}%` }}>
+                    <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white transition-opacity ${isDraggingSeek ? 'opacity-100 bg-[#1db954]' : 'opacity-0'}`} />
+                  </div>
+                </div>
+                <p className="w-7 text-left shrink-0">{formatTime(totalTime)}</p>
+              </div>
             </div>
           </div>
         ) : (

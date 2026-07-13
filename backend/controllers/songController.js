@@ -270,7 +270,7 @@ const getSongLyrics = async (req, res, next) => {
     }
 
     if (!lyrics) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Lyrics not found',
         errors: [],

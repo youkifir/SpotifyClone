@@ -30,6 +30,8 @@ export const Player: React.FC = () => {
     changeVolume,
     toggleShuffle,
     toggleLoop,
+    audioError,
+    clearAudioError,
   } = usePlayer()
 
   const { isLiked, toggleLike } = useLike()
@@ -43,6 +45,15 @@ export const Player: React.FC = () => {
   const [playlistMenuAnchor, setPlaylistMenuAnchor] = useState<HTMLElement | null>(null)
   const [isQueueOpen, setIsQueueOpen] = useState(false)
   const [isDevicesOpen, setIsDevicesOpen] = useState(false)
+  const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
+  const prevVolumeRef = useRef(volume || 0.7)
+
+  // Drag стан мініплеєра
+  const [miniPos, setMiniPos] = useState<{ x: number; y: number } | null>(null)
+  const [isDraggingMini, setIsDraggingMini] = useState(false)
+  const miniDragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const miniPlayerRef = useRef<HTMLDivElement>(null)
 
   // Состояния для перетаскивания (громкость и таймлайн трека)
   const [isDraggingVolume, setIsDraggingVolume] = useState(false)
@@ -114,7 +125,68 @@ export const Player: React.FC = () => {
 
   const stop = (e: React.MouseEvent) => e.stopPropagation()
 
-  if (!track) return null
+  const handleToggleMute = () => {
+    if (isMuted) {
+      changeVolume(prevVolumeRef.current)
+      setIsMuted(false)
+    } else {
+      prevVolumeRef.current = volume > 0 ? volume : 0.7
+      changeVolume(0)
+      setIsMuted(true)
+    }
+  }
+
+  // Якщо юзер рухає слайдер гучності — автоматично знімаємо mute
+  useEffect(() => {
+    if (volume > 0 && isMuted) setIsMuted(false)
+    if (volume === 0 && !isMuted) setIsMuted(true)
+  }, [volume])
+
+  // Закрити міні-плеєр при кліку поза ним
+  useEffect(() => {
+    if (!isMiniPlayerOpen) return
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-miniplayer]')) setIsMiniPlayerOpen(false)
+    }
+    window.addEventListener('mousedown', handleClick)
+    return () => window.removeEventListener('mousedown', handleClick)
+  }, [isMiniPlayerOpen])
+
+  // Drag мініплеєра
+  const handleMiniDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const rect = miniPlayerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    miniDragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    setIsDraggingMini(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isDraggingMini) return
+    const onMove = (e: MouseEvent) => {
+      const x = e.clientX - miniDragOffset.current.x
+      const y = e.clientY - miniDragOffset.current.y
+      const maxX = window.innerWidth - (miniPlayerRef.current?.offsetWidth ?? 288)
+      const maxY = window.innerHeight - (miniPlayerRef.current?.offsetHeight ?? 400)
+      setMiniPos({ x: Math.max(0, Math.min(x, maxX)), y: Math.max(0, Math.min(y, maxY)) })
+    }
+    const onUp = () => setIsDraggingMini(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [isDraggingMini])
+
+  // Встановити початкову позицію при відкритті мініплеєра
+  useEffect(() => {
+    if (isMiniPlayerOpen && miniPos === null) {
+      setMiniPos({ x: window.innerWidth - 300, y: window.innerHeight - 460 })
+    }
+    if (!isMiniPlayerOpen) setMiniPos(null)
+  }, [isMiniPlayerOpen])
 
   const trackImageUrl = track.image?.startsWith('http')
     ? track.image
@@ -124,6 +196,24 @@ export const Player: React.FC = () => {
 
   return (
     <>
+      {/* ── Аудіо-помилка: тост над плеєром ── */}
+      {audioError && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-red-900/80 border-t border-red-700/50 text-sm text-red-200 select-none shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span className="flex-1">{audioError}</span>
+          <button
+            onClick={clearAudioError}
+            className="shrink-0 text-red-300 hover:text-white transition"
+            aria-label="Закрити"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      )}
       <div className='h-[12%] sm:h-[10%] min-h-16 lg:min-h-20 bg-black text-white flex flex-col justify-center select-none shrink-0 border-t border-neutral-900 lg:border-none px-2 lg:px-4'>
 
         {/* ── МОБИЛЬНЫЙ МИНИ-ПЛЕЕР ── */}
@@ -132,7 +222,7 @@ export const Player: React.FC = () => {
           <div
             ref={seekBgRef}
             onMouseDown={handleSeekMouseDown}
-            className='w-full bg-neutral-700 h-[3px] cursor-pointer relative'
+            className='w-full bg-neutral-700 h-0.75 cursor-pointer relative'
           >
             <div className='h-full bg-white transition-[width]' style={{ width: `${progress * 100}%` }} />
           </div>
@@ -179,7 +269,7 @@ export const Player: React.FC = () => {
         <div className='hidden lg:flex justify-between items-center h-full gap-4'>
 
           {/* Лево: инфо о треке */}
-          <div className='flex items-center gap-4 w-1/4 min-w-[200px] flex-nowrap'>
+          <div className='flex items-center gap-4 w-1/4 min-w-50 flex-nowrap'>
             {_hasTrack && (
               <img className='w-14 h-14 rounded object-cover shrink-0 shadow-md' src={trackImageUrl} alt={track.name} />
             )}
@@ -274,7 +364,7 @@ export const Player: React.FC = () => {
           </div>
 
           {/* Право: громкость и кнопки дополнительных режимов */}
-          <div className='flex items-center gap-3 w-1/4 justify-end shrink-0 min-w-[180px]'>
+          <div className='flex items-center gap-3 w-1/4 justify-end shrink-0 min-w-45'>
             <img
               onClick={() => setIsQueueOpen((o) => !o)}
               className={`w-4 cursor-pointer transition hover:scale-110 ${isQueueOpen ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
@@ -300,7 +390,28 @@ export const Player: React.FC = () => {
               />
               <DevicesMenu isOpen={isDevicesOpen} onClose={() => setIsDevicesOpen(false)} />
             </div>
-            <img className='w-4 opacity-70' src={assets.volume_icon} alt="Volume" />
+            <button
+              onClick={handleToggleMute}
+              className="w-4 h-4 flex items-center justify-center opacity-70 hover:opacity-100 hover:scale-110 transition shrink-0"
+              aria-label={isMuted ? 'Увімкнути звук' : 'Вимкнути звук'}
+            >
+              {isMuted || volume === 0 ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+                </svg>
+              ) : volume < 0.5 ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              )}
+            </button>
             
             <div ref={volumeBgRef} onMouseDown={handleVolumeMouseDown} className='w-20 bg-neutral-800 h-1 rounded-full cursor-pointer group relative flex items-center mr-1 select-none'>
               <div className='h-1 rounded-full bg-white group-hover:bg-[#1db954] transition-colors relative flex items-center' style={{ width: `${volume * 100}%` }}>
@@ -308,7 +419,91 @@ export const Player: React.FC = () => {
               </div>
             </div>
             
-            <img className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.mini_player_icon} alt="Miniplayer" />
+            <div className='relative' data-miniplayer>
+              <img
+                onClick={() => setIsMiniPlayerOpen(o => !o)}
+                className={`w-4 cursor-pointer transition hover:scale-110 ${isMiniPlayerOpen ? 'opacity-100' : 'opacity-70 hover:opacity-100'}`}
+                style={isMiniPlayerOpen ? { filter: 'invert(56%) sepia(90%) saturate(500%) hue-rotate(80deg)' } : undefined}
+                src={assets.mini_player_icon}
+                alt="Miniplayer"
+              />
+
+              {/* Міні-плеєр popup */}
+              {isMiniPlayerOpen && track && miniPos && (
+                <div
+                  ref={miniPlayerRef}
+                  className='w-72 bg-[#181818] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-fadeIn'
+                  style={{ position: 'fixed', left: miniPos.x, top: miniPos.y, cursor: isDraggingMini ? 'grabbing' : 'default' }}
+                >
+                  {/* Top drag bar */}
+                  <div
+                    className='flex items-center justify-between px-3 py-2 bg-[#111] select-none'
+                    onMouseDown={handleMiniDragStart}
+                    style={{ cursor: isDraggingMini ? 'grabbing' : 'grab' }}
+                  >
+                    <div className='flex gap-1.5'>
+                      {/* Закрити */}
+                      <button
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={() => setIsMiniPlayerOpen(false)}
+                        className='w-3 h-3 rounded-full bg-[#ff5f56] hover:brightness-110 transition flex items-center justify-center group'
+                        title='Закрити'
+                      >
+                        <span className='text-[8px] text-black/60 opacity-0 group-hover:opacity-100 leading-none'>✕</span>
+                      </button>
+                      {/* Згорнути (відкрити fullscreen) */}
+                      <button
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={() => { setIsMiniPlayerOpen(false); setIsFullScreen(true) }}
+                        className='w-3 h-3 rounded-full bg-[#28c940] hover:brightness-110 transition flex items-center justify-center group'
+                        title='Відкрити повний плеєр'
+                      >
+                        <span className='text-[8px] text-black/60 opacity-0 group-hover:opacity-100 leading-none'>↗</span>
+                      </button>
+                    </div>
+                    <span className='text-[10px] text-neutral-500 truncate max-w-35'>{track.name}</span>
+                    <div className='w-10' />
+                  </div>
+
+                  {/* Обкладинка */}
+                  <div
+                    className='relative w-full aspect-square'
+                    onMouseDown={handleMiniDragStart}
+                    style={{ cursor: isDraggingMini ? 'grabbing' : 'grab' }}
+                  >
+                    <img src={trackImageUrl} alt={track.name} className='w-full h-full object-cover' />
+                    {/* Градієнт знизу */}
+                    <div className='absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent' />
+                    {/* Назва поверх */}
+                    <div className='absolute bottom-3 left-3 right-3'>
+                      <p className='font-bold text-sm text-white truncate'>{track.name}</p>
+                      <p className='text-xs text-neutral-400 truncate mt-0.5'>
+                        {(track as any).artist || track.desc?.slice(0, 30)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Прогрес-бар */}
+                  <div className='w-full h-0.5 bg-neutral-700'>
+                    <div className='h-full bg-[#1db954] transition-all' style={{ width: `${progress * 100}%` }} />
+                  </div>
+
+                  {/* Контролс */}
+                  <div className='flex items-center justify-between px-4 py-3'>
+                    <span className='text-[10px] text-neutral-500'>{formatTime(currentTime)}</span>
+                    <div className='flex items-center gap-5'>
+                      <img onClick={previous} className='w-4 cursor-pointer opacity-70 hover:opacity-100 transition' src={assets.prev_icon} alt="Prev" />
+                      {playStatus
+                        ? <img onClick={pause} className='w-8 h-8 cursor-pointer hover:scale-105 transition' src={assets.pause_icon} alt="Pause" />
+                        : <img onClick={play} className='w-8 h-8 cursor-pointer hover:scale-105 transition' src={assets.play_icon} alt="Play" />
+                      }
+                      <img onClick={next} className='w-4 cursor-pointer opacity-70 hover:opacity-100 transition' src={assets.next_icon} alt="Next" />
+                    </div>
+                    <span className='text-[10px] text-neutral-500'>{formatTime(totalTime)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
             <img onClick={() => setIsFullScreen(true)} className='w-4 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition' src={assets.zoom_icon} alt="Fullscreen" />
           </div>
         </div>

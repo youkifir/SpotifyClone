@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
 import { Navigate } from 'react-router-dom'
+import { useLanguage } from '../context/LanguageContext'
 
 const API = 'http://localhost:5000'
 
@@ -102,6 +103,7 @@ function ConfirmModal({
   onConfirm: () => void
   onCancel: () => void
 }) {
+  const { t } = useLanguage()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <div className="bg-[#282828] rounded-xl p-6 w-full max-w-sm shadow-2xl">
@@ -111,13 +113,13 @@ function ConfirmModal({
             onClick={onCancel}
             className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition"
           >
-            Скасувати
+            {t('adminCancelBtn')}
           </button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 rounded-full text-sm font-bold bg-red-500 hover:bg-red-400 text-white transition"
           >
-            Видалити
+            {t('adminDeleteBtn')}
           </button>
         </div>
       </div>
@@ -149,6 +151,7 @@ function AlbumModal({
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { t } = useLanguage()
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -171,7 +174,7 @@ function AlbumModal({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка збереження альбому')
-      onSaved(mode === 'create' ? 'Альбом створено!' : 'Альбом оновлено!')
+      onSaved(mode === 'create' ? t('adminAlbumCreated') : t('adminAlbumUpdated'))
       onClose()
     } catch (err: any) {
       setError(err.message)
@@ -185,7 +188,7 @@ function AlbumModal({
       <div className="bg-[#282828] rounded-xl p-6 w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-white font-bold text-lg">
-            {mode === 'create' ? 'Новий альбом' : 'Редагувати альбом'}
+            {mode === 'create' ? t('adminAddAlbum').replace('+ ', '') : `${t('adminEditBtn')} ${t('adminTabAlbums').toLowerCase()}`}
           </h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-white text-xl leading-none transition">✕</button>
         </div>
@@ -197,17 +200,17 @@ function AlbumModal({
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label="Назва" required>
+          <Field label={t('adminAlbumNameLabel')} required>
             <input
               required
               value={form.name}
               onChange={set('name')}
-              placeholder="Назва альбому"
+              placeholder={t('adminAlbumNamePlaceholder')}
               className="admin-input"
             />
           </Field>
 
-          <Field label="Обкладинка">
+          <Field label={t('coverLabel')}>
             <div className="flex flex-col gap-2">
               <input
                 type="file"
@@ -215,7 +218,7 @@ function AlbumModal({
                 onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
                 className="admin-input text-sm file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#1db954]/20 file:text-[#1db954] hover:file:bg-[#1db954]/30"
               />
-              <p className="text-neutral-500 text-xs">або вкажіть URL:</p>
+              <p className="text-neutral-500 text-xs">URL:</p>
               <input
                 value={form.image}
                 onChange={set('image')}
@@ -226,17 +229,17 @@ function AlbumModal({
             </div>
           </Field>
 
-          <Field label="Опис">
+          <Field label={t('adminAlbumDescLabel')}>
             <textarea
               value={form.desc}
               onChange={set('desc')}
-              placeholder="Короткий опис альбому"
+              placeholder={t('adminAlbumDescPlaceholder')}
               rows={2}
               className="admin-input resize-none"
             />
           </Field>
           
-          <Field label="Фоновий колір">
+          <Field label={t('adminAlbumColorLabel')}>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -259,14 +262,14 @@ function AlbumModal({
               onClick={onClose}
               className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition"
             >
-              Скасувати
+              {t('adminCancelBtn')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-50"
             >
-              {loading ? 'Збереження...' : 'Зберегти'}
+              {loading ? t('adminSavingDots') : t('adminSaveBtn')}
             </button>
           </div>
         </form>
@@ -308,13 +311,14 @@ function SongModal({
   onSaved: (msg: string) => void
 }) {
   const [source, setSource] = useState<'local' | 'itunes'>(initial?.source ?? 'local')
+  const { t } = useLanguage()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 overflow-y-auto">
       <div className="bg-[#282828] rounded-xl shadow-2xl my-auto w-full max-w-lg">
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <h3 className="text-white font-bold text-lg">
-            {mode === 'create' ? 'Нова пісня' : 'Редагувати пісню'}
+            {mode === 'create' ? t('adminAddSong').replace('+ ', '') : `${t('adminEditBtn')} ${t('adminTabSongs').toLowerCase()}`}
           </h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-white text-xl leading-none transition">✕</button>
         </div>
@@ -328,7 +332,7 @@ function SongModal({
                   source === 'local' ? 'bg-[#1db954] text-black' : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                📁 Local — файл
+                📁 Local
               </button>
               <button
                 onClick={() => setSource('itunes')}
@@ -336,7 +340,7 @@ function SongModal({
                   source === 'itunes' ? 'bg-purple-500 text-white' : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                🎵 iTunes — пошук
+                🎵 iTunes
               </button>
             </div>
           </div>
@@ -398,6 +402,8 @@ function LocalSongForm({
   const [loading, setLoading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState('')
   const [error, setError] = useState('')
+  const { t } = useLanguage()
+
 
   const set =
     (k: keyof typeof form) =>
@@ -429,15 +435,15 @@ function LocalSongForm({
       let fileUrl = form.file
 
       if (imageFile) {
-        setUploadProgress('Завантаження обкладинки...')
+        setUploadProgress(t('adminUploadingCover'))
         imageUrl = await uploadFile(imageFile, token)
       }
       if (audioFile) {
-        setUploadProgress('Завантаження аудіо...')
+        setUploadProgress(t('adminUploadingAudio'))
         fileUrl = await uploadFile(audioFile, token)
       }
 
-      setUploadProgress('Збереження...')
+      setUploadProgress(t('adminSavingDots'))
       const body = { ...form, image: imageUrl, file: fileUrl, album: form.album || null, source: 'local' }
       const url = mode === 'create' ? `${API}/api/songs` : `${API}/api/songs/${initial!._id}`
       const res = await fetch(url, {
@@ -447,7 +453,7 @@ function LocalSongForm({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка збереження треку')
-      onSaved(mode === 'create' ? 'Пісню додано!' : 'Пісню оновлено!')
+      onSaved(mode === 'create' ? t('adminSongAdded') : t('adminSongUpdated'))
       onClose()
     } catch (err: any) {
       setError(err.message)
@@ -467,15 +473,15 @@ function LocalSongForm({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Назва пісні" required>
-            <input required value={form.name} onChange={set('name')} placeholder="Назва" className="admin-input" />
+          <Field label={t('adminSongNameLabel')} required>
+            <input required value={form.name} onChange={set('name')} placeholder={t('adminSongNamePlaceholder')} className="admin-input" />
           </Field>
-          <Field label="Виконавець">
-            <input value={form.artist} onChange={set('artist')} placeholder="Автор" className="admin-input" />
+          <Field label={t('adminColArtist')}>
+            <input value={form.artist} onChange={set('artist')} placeholder={t('adminSongArtistPlaceholder')} className="admin-input" />
           </Field>
         </div>
 
-        <Field label="Обкладинка">
+        <Field label={t('coverLabel')}>
           <div className="flex flex-col gap-2">
             <input
               type="file"
@@ -493,7 +499,7 @@ function LocalSongForm({
           </div>
         </Field>
 
-        <Field label="Аудіофайл" required>
+        <Field label={t('audioLabel')} required>
           <div className="flex flex-col gap-2">
             <input
               type="file"
@@ -504,7 +510,7 @@ function LocalSongForm({
             <input
               value={form.file}
               onChange={set('file')}
-              placeholder="Або URL аудіо: /songs/track.mp3"
+placeholder={t('chooseAudio')}
               className="admin-input"
               disabled={!!audioFile}
             />
@@ -512,25 +518,25 @@ function LocalSongForm({
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Жанр">
-            <input value={form.genre} onChange={set('genre')} placeholder="Pop, Rock..." className="admin-input" />
+          <Field label={t('genreLabel')}>
+            <input value={form.genre} onChange={set('genre')} placeholder={t('adminSongGenrePlaceholder')} className="admin-input" />
           </Field>
-          <Field label="Тривалість">
-            <input value={form.duration} onChange={set('duration')} placeholder="3:45" className="admin-input" />
+          <Field label={t('durationLabel')}>
+            <input value={form.duration} onChange={set('duration')} placeholder={t('adminSongDurationPlaceholder')} className="admin-input" />
           </Field>
         </div>
 
-        <Field label="Альбом">
+        <Field label={t('albumLabel')}>
           <select value={form.album} onChange={set('album')} className="admin-input">
-            <option value="">— Без альбому —</option>
+            <option value="">{t('noAlbum')}</option>
             {albums.map((a) => (
               <option key={a._id} value={a._id}>{a.name}</option>
             ))}
           </select>
         </Field>
 
-        <Field label="Опис">
-          <textarea value={form.desc} onChange={set('desc')} placeholder="Короткий опис..." rows={2} className="admin-input resize-none" />
+        <Field label={t('descLabel')}>
+          <textarea value={form.desc} onChange={set('desc')} placeholder={t('adminSongDescPlaceholder')} rows={2} className="admin-input resize-none" />
         </Field>
 
         <div className="flex gap-3 justify-end mt-2 items-center">
@@ -542,14 +548,14 @@ function LocalSongForm({
             onClick={onClose}
             className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition"
           >
-            Скасувати
+            {t('adminCancelBtn')}
           </button>
           <button
             type="submit"
             disabled={loading || (!form.file && !audioFile)}
             className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-50"
           >
-            {loading ? 'Збереження...' : 'Зберегти'}
+            {loading ? t('adminSavingDots') : t('adminSaveBtn')}
           </button>
         </div>
       </form>
@@ -578,6 +584,7 @@ function ItunesSongSearch({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set())
+  const { t } = useLanguage()
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -594,7 +601,7 @@ function ItunesSongSearch({
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка пошуку')
       setResults(data.data)
-      if (data.data.length === 0) setSearchError('Нічого не знайдено.')
+      if (data.data.length === 0) setSearchError(t('searchNotFound'))
     } catch (err: any) {
       setSearchError(err.message)
     } finally {
@@ -631,7 +638,7 @@ function ItunesSongSearch({
         prev.map(t => t.externalId === selected.externalId ? { ...t, alreadyAdded: true } : t)
       )
       setSelected(null)
-      onSaved('Трек з iTunes додано!')
+      onSaved(t('adminSongAdded'))
     } catch (err: any) {
       setSaveError(err.message)
     } finally {
@@ -647,7 +654,7 @@ function ItunesSongSearch({
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="Пошук в iTunes: назва, артист..."
+          placeholder={t('adminItunesSearchPlaceholder')}
           className="admin-input flex-1"
           autoFocus
         />
@@ -656,7 +663,7 @@ function ItunesSongSearch({
           disabled={searching || !query.trim()}
           className="px-4 py-2 rounded-full text-sm font-bold bg-purple-500 hover:bg-purple-400 text-white transition disabled:opacity-40"
         >
-          {searching ? '...' : 'Знайти'}
+          {searching ? '...' : t('itunesSearch')}
         </button>
       </form>
 
@@ -686,7 +693,7 @@ function ItunesSongSearch({
                   <p className="text-white text-sm font-medium truncate">{track.name}</p>
                   <p className="text-neutral-400 text-xs truncate">{track.artist} · {track.duration}</p>
                 </div>
-                {added && <span className="text-xs text-neutral-500">Додано</span>}
+                {added && <span className="text-xs text-neutral-500">{t('alreadyAdded')}</span>}
                 {!added && isSelected && <span className="text-xs text-purple-300">✓</span>}
               </button>
             )
@@ -696,9 +703,9 @@ function ItunesSongSearch({
 
       {selected && (
         <div className="border border-purple-500/30 bg-purple-500/5 rounded-xl p-4 flex flex-col gap-3">
-          <Field label="Прив'язати до альбому">
+          <Field label={t('adminSongBindAlbum')}>
             <select value={albumId} onChange={e => setAlbumId(e.target.value)} className="admin-input">
-              <option value="">— Без альбому —</option>
+              <option value="">{t('noAlbum')}</option>
               {albums.map(a => (
                 <option key={a._id} value={a._id}>{a.name}</option>
               ))}
@@ -712,14 +719,14 @@ function ItunesSongSearch({
               onClick={() => setSelected(null)}
               className="px-4 py-1.5 rounded-full text-xs font-bold text-neutral-300 hover:text-white border border-neutral-600"
             >
-              Скасувати
+              {t('adminCancelBtn')}
             </button>
             <button
               onClick={handleImport}
               disabled={saving}
               className="px-4 py-1.5 rounded-full text-xs font-bold bg-purple-500 text-white hover:bg-purple-400"
             >
-              {saving ? 'Імпорт...' : 'Імпортувати'}
+              {saving ? t('adminSavingDots') : t('addBtn')}
             </button>
           </div>
         </div>
@@ -746,6 +753,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
 export default function AdminPanel() {
   const { user, token } = useAuth()
   const { refreshSongs } = usePlayer()
+  const { t } = useLanguage()
 
   const [tab, setTab] = useState<Tab>('albums')
   const [albums, setAlbums] = useState<Album[]>([])
@@ -794,7 +802,7 @@ export default function AdminPanel() {
       const data = await res.json()
       setUsers(data.data ?? [])
     } catch {
-      showToast('Не вдалося завантажити користувачів', false)
+      showToast(t('adminLoadUsersFail'), false)
     } finally {
       setUsersLoading(false)
     }
@@ -810,7 +818,7 @@ export default function AdminPanel() {
       const data = await res.json()
       setMusicianRequests(data.data ?? [])
     } catch {
-      showToast('Не вдалося завантажити заявки', false)
+      showToast(t('adminLoadRequestsFail'), false)
     } finally {
       setRequestsLoading(false)
     }
@@ -827,7 +835,7 @@ export default function AdminPanel() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка')
-      showToast(action === 'approve' ? '🎵 Музиканта схвалено!' : 'Заявку відхилено')
+      showToast(action === 'approve' ? t('adminMusicianApproved') : t('adminRequestRejected'))
       fetchMusicianRequests()
     } catch (err: any) {
       showToast(err.message, false)
@@ -855,7 +863,7 @@ export default function AdminPanel() {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) throw new Error('Помилка сервера при видаленні')
-      showToast(type === 'album' ? 'Альбом видалено!' : 'Пісню видалено!')
+      showToast(type === 'album' ? t('adminAlbumDeleted') : t('adminSongDeleted'))
       if (type === 'album') {
         fetchAlbums()
       } else {
@@ -880,7 +888,7 @@ export default function AdminPanel() {
         const data = await res.json()
         throw new Error(data.message || 'Помилка')
       }
-      showToast('Користувача видалено!')
+      showToast(t('adminUserDeleted'))
       fetchUsers()
     } catch (err: any) {
       showToast(err.message, false)
@@ -894,8 +902,8 @@ export default function AdminPanel() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">Панель адміністратора</p>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">Управління контентом</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">{t('adminPanelTitle')}</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white">{t('adminContentManagement')}</h1>
         </div>
         <div className="flex items-center gap-2 bg-[#1db954]/10 border border-[#1db954]/30 rounded-full px-3 py-1.5">
           <span className="w-2 h-2 rounded-full bg-[#1db954] animate-pulse shrink-0" />
@@ -906,11 +914,11 @@ export default function AdminPanel() {
       {/* ── Stats Strip ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
         {[
-          { label: 'Користувачів', value: users.length, color: 'text-white' },
-          { label: 'Альбомів', value: albums.length, color: 'text-white' },
-          { label: 'Пісень', value: songs.length, color: 'text-white' },
-          { label: 'Жанрів', value: [...new Set(songs.map((s) => s.genre).filter(Boolean))].length, color: 'text-white' },
-          { label: 'iTunes треків', value: songs.filter((s) => s.source === 'itunes').length, color: 'text-purple-400' },
+          { label: t('adminUsersCount'), value: users.length, color: 'text-white' },
+          { label: t('adminAlbumsCount'), value: albums.length, color: 'text-white' },
+          { label: t('adminSongsCount'), value: songs.length, color: 'text-white' },
+          { label: t('adminGenresCount'), value: [...new Set(songs.map((s) => s.genre).filter(Boolean))].length, color: 'text-white' },
+          { label: t('adminItunesCount'), value: songs.filter((s) => s.source === 'itunes').length, color: 'text-purple-400' },
         ].map((stat) => (
           <div key={stat.label} className="bg-[#181818] rounded-xl p-4">
             <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
@@ -922,17 +930,17 @@ export default function AdminPanel() {
       {/* ── Tabs & Actions ── */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
         <div className="flex bg-[#181818] rounded-full p-1 gap-1">
-          {(['albums', 'songs', 'users', 'musicians'] as Tab[]).map((t) => (
+          {(['albums', 'songs', 'users', 'musicians'] as Tab[]).map((tabKey) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
               className={`px-5 py-2 rounded-full text-sm font-bold transition ${
-                tab === t ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
+                tab === tabKey ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
-              {t === 'albums' ? 'Альбоми' : t === 'songs' ? 'Пісні' : t === 'users' ? 'Користувачі' : (
+              {tabKey === 'albums' ? t('adminTabAlbums') : tabKey === 'songs' ? t('adminTabSongs') : tabKey === 'users' ? t('adminTabUsers') : (
                 <span className="flex items-center gap-1.5">
-                  Заявки
+                  {t('adminTabRequests')}
                   {musicianRequests.length > 0 && (
                     <span className="bg-[#1db954] text-black text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center leading-none">
                       {musicianRequests.length}
@@ -949,7 +957,7 @@ export default function AdminPanel() {
             onClick={() => tab === 'albums' ? setAlbumModal({ mode: 'create' }) : setSongModal({ mode: 'create' })}
             className="bg-[#1db954] hover:bg-[#1ed760] text-black px-5 py-2 rounded-full text-sm font-bold transition"
           >
-            + Додати {tab === 'albums' ? 'альбом' : 'пісню'}
+            {tab === 'albums' ? t('adminAddAlbum') : t('adminAddSong')}
           </button>
         )}
       </div>
@@ -958,21 +966,21 @@ export default function AdminPanel() {
       <div className="flex-1">
         {loadingData || (tab === 'users' && usersLoading) ? (
           <div className="flex items-center justify-center py-20 text-neutral-400 text-sm animate-pulse">
-            Завантаження даних...
+            {t('adminLoadingData')}
           </div>
         ) : (
           <div>
             {/* 1. ALBUMS TAB */}
             {tab === 'albums' && (
               albums.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm">Альбомів не знайдено</div>
+                <div className="text-center py-12 text-neutral-500 text-sm">{t('adminNoAlbums')}</div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {albums.map((album) => (
                     <div key={album._id} className="bg-[#181818] hover:bg-[#282828] p-4 rounded-xl transition group relative">
                       <img src={imgSrc(album.image)} alt={album.name} className="w-full aspect-square object-cover rounded-md mb-3 shadow-lg" />
                       <h3 className="text-white font-bold text-sm truncate">{album.name}</h3>
-                      <p className="text-neutral-400 text-xs truncate mt-1">{album.desc || 'Немає опису'}</p>
+                      <p className="text-neutral-400 text-xs truncate mt-1">{album.desc || t('adminNoDesc')}</p>
                       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
                         <button onClick={() => setAlbumModal({ mode: 'edit', item: album })} className="bg-black/80 p-2 rounded-full text-white text-xs">✏️</button>
                         <button onClick={() => setDeleteTarget({ type: 'album', id: album._id, name: album.name })} className="bg-red-600/90 p-2 rounded-full text-white text-xs">🗑️</button>
@@ -986,18 +994,18 @@ export default function AdminPanel() {
             {/* 2. SONGS TAB */}
             {tab === 'songs' && (
               songs.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm">Пісень не знайдено</div>
+                <div className="text-center py-12 text-neutral-500 text-sm">{t('adminNoSongs')}</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-neutral-400 text-sm border-collapse">
                     <thead>
                       <tr className="border-b border-neutral-800 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                        <th className="py-3 px-4">Назва</th>
-                        <th className="py-3 px-4">Виконавець</th>
-                        <th className="py-3 px-4">Жанр</th>
-                        <th className="py-3 px-4">Альбом</th>
-                        <th className="py-3 px-4">Дж.</th>
-                        <th className="py-3 px-4 text-right">Дії</th>
+                        <th className="py-3 px-4">{t('adminColName')}</th>
+                        <th className="py-3 px-4">{t('adminColArtist')}</th>
+                        <th className="py-3 px-4">{t('adminColGenre')}</th>
+                        <th className="py-3 px-4">{t('adminColAlbum')}</th>
+                        <th className="py-3 px-4">{t('adminColSource')}</th>
+                        <th className="py-3 px-4 text-right">{t('adminColActions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1023,8 +1031,8 @@ export default function AdminPanel() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                            <button onClick={() => setSongModal({ mode: 'edit', item: song })} className="text-neutral-400 hover:text-white mr-3 font-semibold text-xs">Редагувати</button>
-                            <button onClick={() => setDeleteTarget({ type: 'song', id: song._id, name: song.name })} className="text-red-500 hover:text-red-400 font-semibold text-xs">Видалити</button>
+                            <button onClick={() => setSongModal({ mode: 'edit', item: song })} className="text-neutral-400 hover:text-white mr-3 font-semibold text-xs">{t('adminEditBtn')}</button>
+                            <button onClick={() => setDeleteTarget({ type: 'song', id: song._id, name: song.name })} className="text-red-500 hover:text-red-400 font-semibold text-xs">{t('adminDeleteBtn')}</button>
                           </td>
                         </tr>
                       ))}
@@ -1039,18 +1047,18 @@ export default function AdminPanel() {
               users.length === 0 ? (
                 <div className="flex flex-col items-center justify-center bg-[#121212] rounded-xl p-12 text-center border border-neutral-800/40">
                   <div className="w-12 h-12 rounded-full border border-neutral-800 flex items-center justify-center text-neutral-500 text-xl mb-4">ⓘ</div>
-                  <p className="text-white font-bold text-base">Користувачів немає</p>
-                  <p className="text-neutral-500 text-xs mt-1">Жоден користувач ще не зареєструвався</p>
+                  <p className="text-white font-bold text-base">{t('adminNoUsers')}</p>
+                  <p className="text-neutral-500 text-xs mt-1">{t('adminNoUsersHint')}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-neutral-400 text-sm border-collapse">
                     <thead>
                       <tr className="border-b border-neutral-800 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                        <th className="py-3 px-4">Користувач</th>
-                        <th className="py-3 px-4">Email</th>
-                        <th className="py-3 px-4">Роль</th>
-                        <th className="py-3 px-4 text-right">Дії</th>
+                        <th className="py-3 px-4">{t('adminColUser')}</th>
+                        <th className="py-3 px-4">{t('adminColEmail')}</th>
+                        <th className="py-3 px-4">{t('adminColRole')}</th>
+                        <th className="py-3 px-4 text-right">{t('adminColActions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1069,9 +1077,9 @@ export default function AdminPanel() {
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap opacity-0 group-hover:opacity-100 transition">
                             {u.id !== user.id ? (
-                              <button onClick={() => setUserDeleteTarget({ id: u.id, name: u.username })} className="text-red-500 hover:text-red-400 font-semibold text-xs">Видалити</button>
+                              <button onClick={() => setUserDeleteTarget({ id: u.id, name: u.username })} className="text-red-500 hover:text-red-400 font-semibold text-xs">{t('adminDeleteBtn')}</button>
                             ) : (
-                              <span className="text-xs text-neutral-600 italic">Це ви</span>
+                              <span className="text-xs text-neutral-600 italic">{t('adminThisIsYou')}</span>
                             )}
                           </td>
                         </tr>
@@ -1085,12 +1093,12 @@ export default function AdminPanel() {
             {/* 4. MUSICIAN REQUESTS TAB */}
             {tab === 'musicians' && (
               requestsLoading ? (
-                <div className="py-16 text-center text-neutral-500 text-sm animate-pulse">Завантаження заявок...</div>
+                <div className="py-16 text-center text-neutral-500 text-sm animate-pulse">{t('adminLoadingRequests')}</div>
               ) : musicianRequests.length === 0 ? (
                 <div className="flex flex-col items-center justify-center bg-[#121212] rounded-xl p-12 text-center border border-neutral-800/40">
                   <div className="w-14 h-14 rounded-full bg-[#181818] flex items-center justify-center text-2xl mb-4">🎵</div>
-                  <p className="text-white font-bold text-base">Нових заявок немає</p>
-                  <p className="text-neutral-500 text-xs mt-1">Усі заявки музикантів розглянуто</p>
+                  <p className="text-white font-bold text-base">{t('adminNoRequests')}</p>
+                  <p className="text-neutral-500 text-xs mt-1">{t('adminNoRequestsHint')}</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -1107,7 +1115,7 @@ export default function AdminPanel() {
                         <p className="text-neutral-500 text-xs truncate">{req.email}</p>
                         {req.musicianRequest.requestedAt && (
                           <p className="text-neutral-600 text-[10px] mt-0.5">
-                            Подано: {new Date(req.musicianRequest.requestedAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {t('adminSubmittedAt')} {new Date(req.musicianRequest.requestedAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </p>
                         )}
                       </div>
@@ -1124,7 +1132,7 @@ export default function AdminPanel() {
                           disabled={processingId === req._id}
                           className="px-3 py-1.5 rounded-full text-xs font-bold text-neutral-300 border border-neutral-700 hover:border-red-500/50 hover:text-red-400 transition disabled:opacity-40"
                         >
-                          Відхилити
+                          {t('adminRejectBtn')}
                         </button>
                         <button
                           onClick={() => handleMusicianRequest(req._id, 'approve')}
@@ -1136,7 +1144,7 @@ export default function AdminPanel() {
                               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
                             </svg>
                           ) : null}
-                          ✓ Схвалити
+                          {t('adminApproveBtn')}
                         </button>
                       </div>
                     </div>
@@ -1172,7 +1180,7 @@ export default function AdminPanel() {
 
       {deleteTarget && (
         <ConfirmModal
-          title={`Ви впевнені, що хочете видалити ${deleteTarget.type === 'album' ? 'альбом' : 'пісню'} "${deleteTarget.name}"?`}
+          title={`${deleteTarget.type === 'album' ? t('adminConfirmDeleteAlbum') : t('adminConfirmDeleteSong')} "${deleteTarget.name}"?`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />
@@ -1180,7 +1188,7 @@ export default function AdminPanel() {
 
       {userDeleteTarget && (
         <ConfirmModal
-          title={`Ви впевнені, що хочете видалити користувача "${userDeleteTarget.name}"?`}
+          title={`${t('adminConfirmDeleteUser')} "${userDeleteTarget.name}"?`}
           onConfirm={handleDeleteUser}
           onCancel={() => setUserDeleteTarget(null)}
         />
