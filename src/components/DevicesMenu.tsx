@@ -13,8 +13,8 @@ const DevicesMenu: React.FC<DevicesMenuProps> = ({ isOpen, onClose }) => {
 
   return (
     <>
-      <div onClick={onClose} className="fixed inset-0 z-[70]" />
-      <div className="absolute bottom-full right-0 mb-3 w-64 bg-[#282828] border border-zinc-700 rounded-lg shadow-2xl z-[71] overflow-hidden">
+      <div onClick={onClose} className="fixed inset-0 z-70" />
+      <div className="absolute bottom-full right-0 mb-3 w-64 bg-[#282828] border border-zinc-700 rounded-lg shadow-2xl z-71 overflow-hidden">
         <div className="px-4 py-3 border-b border-zinc-700">
           <p className="text-white font-semibold text-sm">{t('connectDevice')}</p>
         </div>

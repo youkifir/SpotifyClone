@@ -2,11 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import Card from '../components/Card'
 import { usePlayer } from '../context/usePlayer'
 import { useLanguage } from '../context/LanguageContext'
-import { useAuth } from '../context/AuthContext'
-import { useNavigate, Link } from 'react-router-dom'
-import { apiFetch, isOfflineError } from '../utils/apiError'
-import { SkeletonCard } from '../components/StateScreens'
-import { useRecentlyPlayed, type RecentlyPlayedItem } from '../hooks/useRecentlyPlayed'
+import { useNavigate } from 'react-router-dom'
 
 const API = 'http://localhost:5000'
 
@@ -19,14 +15,11 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-function ScrollSection({ title, children, isEmpty, emptyText, isLoading, error, onRetry }: {
+function ScrollSection({ title, children, isEmpty, emptyText }: {
   title: string
   children: React.ReactNode
   isEmpty: boolean
   emptyText: string
-  isLoading?: boolean
-  error?: string | null
-  onRetry?: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canLeft, setCanLeft] = useState(false)
@@ -83,25 +76,7 @@ function ScrollSection({ title, children, isEmpty, emptyText, isLoading, error, 
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex gap-3 sm:gap-5 overflow-x-hidden pb-2">
-          {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
-        </div>
-      ) : error ? (
-        <div className="flex items-center gap-3 py-3 pl-1">
-          <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-          </div>
-          <p className="text-neutral-400 text-sm flex-1">{error}</p>
-          {onRetry && (
-            <button onClick={onRetry} className="text-xs text-[#1db954] hover:text-[#1ed760] font-semibold shrink-0 transition-colors">
-              Повторити
-            </button>
-          )}
-        </div>
-      ) : isEmpty ? (
+      {isEmpty ? (
         <p className="text-zinc-400 text-sm pl-1">{emptyText}</p>
       ) : (
         <div
@@ -159,87 +134,29 @@ function ArtistCard({ artist }: { artist: Artist }) {
   )
 }
 
-// Плитка "недавно прослуханого" плейлиста/альбому — компактна горизонтальна
-// картка з обкладинкою зліва, як на головній сторінці справжнього Spotify.
-function RecentlyPlayedTile({ item }: { item: RecentlyPlayedItem }) {
-  const { t } = useLanguage()
-  const to = item.type === 'album' ? `/album/${item.id}` : `/playlist/${item.id}`
-
-  return (
-    <Link
-      to={to}
-      className="flex items-center gap-3 sm:gap-4 bg-[#2a2a2a]/60 hover:bg-[#3a3a3a] transition-colors rounded-md overflow-hidden group min-w-0"
-    >
-      {item.isLikedSongs ? (
-        <div
-          className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-          </svg>
-        </div>
-      ) : (
-        <img
-          src={item.image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.name) + '&background=282828&color=fff'}
-          alt={item.name}
-          className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 object-cover"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=282828&color=fff`
-          }}
-        />
-      )}
-      <p className="text-sm sm:text-base font-semibold text-white truncate pr-3">
-        {item.isLikedSongs ? t('likedSongsLabel') : item.name}
-      </p>
-    </Link>
-  )
-}
-
 function Home() {
-  const { track, playStatus, playWithId, songsData, songsLoading, songsError } = usePlayer()
+  const { track, playStatus, playWithId, songsData } = usePlayer()
   const { t } = useLanguage()
-  const { user } = useAuth()
-  const recentlyPlayed = useRecentlyPlayed(user?.id)
   const [albumsData, setAlbumsData] = useState<any[]>([])
-  const [albumsLoading, setAlbumsLoading] = useState(true)
-  const [albumsError, setAlbumsError] = useState<string | null>(null)
   const [artists, setArtists] = useState<Artist[]>([])
-  const [artistsLoading, setArtistsLoading] = useState(true)
-  const [artistsError, setArtistsError] = useState<string | null>(null)
   const [shuffledSongs, setShuffledSongs] = useState<any[]>([])
 
-  const fetchAlbums = useCallback(async () => {
-    setAlbumsLoading(true)
-    setAlbumsError(null)
-    try {
-      const r = await apiFetch(`${API}/api/albums`)
-      const res = await r.json()
-      const albums = Array.isArray(res) ? res : (res.data || [])
-      setAlbumsData(albums.map((a: any) => ({ ...a, id: a.id || a._id })))
-    } catch (err) {
-      setAlbumsError(isOfflineError(err) ? t('errorNetwork') : t('errorLoadAlbums'))
-    } finally {
-      setAlbumsLoading(false)
-    }
-  }, [t])
+  useEffect(() => {
+    fetch(`${API}/api/albums`)
+      .then(r => r.json())
+      .then(res => {
+        const albums = Array.isArray(res) ? res : (res.data || [])
+        setAlbumsData(albums.map((a: any) => ({ ...a, id: a.id || a._id })))
+      })
+      .catch(() => {})
+  }, [])
 
-  const fetchArtists = useCallback(async () => {
-    setArtistsLoading(true)
-    setArtistsError(null)
-    try {
-      const r = await apiFetch(`${API}/api/songs/top-artists?limit=20`)
-      const res = await r.json()
-      setArtists(res.data || [])
-    } catch (err) {
-      setArtistsError(isOfflineError(err) ? t('errorNetwork') : t('errorGeneric'))
-    } finally {
-      setArtistsLoading(false)
-    }
-  }, [t])
-
-  useEffect(() => { fetchAlbums() }, [fetchAlbums])
-  useEffect(() => { fetchArtists() }, [fetchArtists])
+  useEffect(() => {
+    fetch(`${API}/api/songs/top-artists?limit=20`)
+      .then(r => r.json())
+      .then(res => setArtists(res.data || []))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (songsData.length === 0) return
@@ -249,27 +166,7 @@ function Home() {
   return (
     <div className="pt-2 sm:pt-4 flex flex-col gap-6 sm:gap-8">
 
-      {recentlyPlayed.length > 0 && (
-        <section>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-3 sm:mb-4">
-            {t('recentlyPlayed')}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-            {recentlyPlayed.map((item) => (
-              <RecentlyPlayedTile key={`${item.type}-${item.id}`} item={item} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <ScrollSection
-        title={t('playlists')}
-        isEmpty={albumsData.length === 0}
-        emptyText={t('noAvailablePlaylists')}
-        isLoading={albumsLoading}
-        error={albumsError}
-        onRetry={fetchAlbums}
-      >
+      <ScrollSection title={t('playlists')} isEmpty={albumsData.length === 0} emptyText={t('noAvailablePlaylists')}>
         {albumsData.map((album) => (
           <Card
             key={album.id}
@@ -281,13 +178,7 @@ function Home() {
         ))}
       </ScrollSection>
 
-      <ScrollSection
-        title={t('popularTracks')}
-        isEmpty={shuffledSongs.length === 0}
-        emptyText={t('noAvailableTracks')}
-        isLoading={songsLoading}
-        error={songsError ? (songsError === 'network' ? t('errorNetwork') : t('errorLoadSongs')) : null}
-      >
+      <ScrollSection title={t('popularTracks')} isEmpty={shuffledSongs.length === 0} emptyText={t('noAvailableTracks')}>
         {shuffledSongs.map((song, i) => (
           <Card
             key={`${song.id}-${i}`}
@@ -301,14 +192,7 @@ function Home() {
         ))}
       </ScrollSection>
 
-      <ScrollSection
-        title={t('popularArtists')}
-        isEmpty={artists.length === 0}
-        emptyText={t('noArtists')}
-        isLoading={artistsLoading}
-        error={artistsError}
-        onRetry={fetchArtists}
-      >
+      <ScrollSection title={t('popularArtists')} isEmpty={artists.length === 0} emptyText={t('noArtists')}>
         {artists.map((artist) => (
           <ArtistCard key={artist.name} artist={artist} />
         ))}

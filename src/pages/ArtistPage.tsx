@@ -1,12 +1,8 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/usePlayer'
 import { useAuth } from '../context/AuthContext'
 import { assets } from '../assets/assets'
-import { apiFetch, isOfflineError } from '../utils/apiError'
-import { ErrorScreen, LoadingScreen, EmptyScreen } from '../components/StateScreens'
-import { useLanguage } from '../context/LanguageContext'
-import { useArtistBio } from '../hooks/useArtistBio'
 
 interface ArtistSong {
   id: string
@@ -51,65 +47,54 @@ function ArtistPage() {
   const [showFullBio, setShowFullBio] = useState(false)
   const [activeTab, setActiveTab] = useState<'tracks' | 'about'>('tracks')
 
-  const { t, language } = useLanguage()
   const artistName = decodeURIComponent(name || '')
-  const [offline, setOffline] = useState(false)
 
-  // Підтягуємо біографію з MusicBrainz + Wikipedia автоматично,
-  // перекладаємо на поточну мову сайту
-  const artistBio = useArtistBio(artistName, language)
-
-  const fetchArtist = useCallback(async () => {
+  useEffect(() => {
     if (!artistName) return
     setLoading(true)
     setError('')
-    setOffline(false)
 
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
 
-    try {
-      const r = await apiFetch(
-        `http://localhost:5000/api/songs/artist/${encodeURIComponent(artistName)}`,
-        { headers }
-      )
-      const res = await r.json()
-      if (!res.success) throw new Error(res.message || 'Помилка сервера')
-      const data = res.data
-
-      const image = data.image || ''
-      const rawSongs: ArtistSong[] = (data.songs || []).map((s: any) => ({
-        ...s,
-        id: s.id ?? s._id,
-      }))
-
-      setSongs(rawSongs)
-      addSongs(rawSongs)
-
-      const genres = [...new Set(rawSongs.map((s) => s.genre).filter(Boolean))] as string[]
-
-      setArtistInfo({
-        name: artistName,
-        image,
-        bio: data.bio || data.description || null,
-        genres,
-        monthlyListeners: data.monthlyListeners || null,
-        country: data.country || null,
-        formedYear: data.formedYear || null,
+    fetch(`http://localhost:5000/api/songs/artist/${encodeURIComponent(artistName)}`, { headers })
+      .then(async (r) => {
+        const text = await r.text()
+        try { return JSON.parse(text) }
+        catch { throw new Error(`Server error ${r.status}: ${text.slice(0, 100)}`) }
       })
-    } catch (e) {
-      console.error('ArtistPage fetch error:', e)
-      if (isOfflineError(e)) {
-        setOffline(true)
-        setError(t('errorNetwork'))
-      } else {
-        setError(t('errorLoadArtist'))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [artistName, token, t, addSongs])
+      .then((res) => {
+        if (!res.success) throw new Error(res.message || 'Помилка сервера')
+        const data = res.data
 
-  useEffect(() => { fetchArtist() }, [fetchArtist])
+        // Збираємо інфо про виконавця з відповіді + генеруємо доп. поля
+        const image = data.image || ''
+        const rawSongs: ArtistSong[] = (data.songs || []).map((s: any) => ({
+          ...s,
+          id: s.id ?? s._id,
+        }))
+
+        setSongs(rawSongs)
+        addSongs(rawSongs)
+
+        // Genres — збираємо унікальні жанри з пісень
+        const genres = [...new Set(rawSongs.map((s) => s.genre).filter(Boolean))] as string[]
+
+        setArtistInfo({
+          name: artistName,
+          image,
+          bio: data.bio || data.description || null,
+          genres,
+          monthlyListeners: data.monthlyListeners || null,
+          country: data.country || null,
+          formedYear: data.formedYear || null,
+        })
+      })
+      .catch((e) => {
+        console.error('ArtistPage fetch error:', e)
+        setError('Не вдалося завантажити дані виконавця')
+      })
+      .finally(() => setLoading(false))
+  }, [artistName, token])
 
   const resolveUrl = (url: string) =>
     url?.startsWith('http') ? url : `http://localhost:5000/${url}`
@@ -136,23 +121,21 @@ function ArtistPage() {
   const topTracks = songs.slice(0, 5)
 
   if (loading) {
-    return <LoadingScreen label={t('loadingArtist')} />
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="w-10 h-10 border-2 border-[#1db954] border-t-transparent rounded-full animate-spin" />
+        <p className="text-neutral-400 text-sm">Завантаження виконавця...</p>
+      </div>
+    )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col gap-2">
-        <ErrorScreen
-          message={error}
-          offline={offline}
-          onRetry={fetchArtist}
-          retryLabel={t('errorRetry')}
-        />
-        <div className="text-center">
-          <button onClick={() => navigate(-1)} className="text-sm text-neutral-400 hover:text-white transition underline">
-            ← Назад
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-red-400">{error}</p>
+        <button onClick={() => navigate(-1)} className="text-sm text-neutral-400 hover:text-white transition underline">
+          ← Назад
+        </button>
       </div>
     )
   }
@@ -164,6 +147,13 @@ function ArtistPage() {
         className="relative flex items-end gap-6 p-6 sm:p-8 rounded-lg overflow-hidden mb-2"
         style={{ minHeight: 240, background: 'linear-gradient(180deg, #2a2a2a 0%, #121212 100%)' }}
       >
+        {/* ← Back button top-left */}
+        <button
+          onClick={() => navigate(-1)}
+          className="absolute top-4 left-4 z-20 flex items-center gap-1.5 text-sm text-white/70 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full transition"
+        >
+          ← Назад
+        </button>
         {heroCover && (
           <div
             className="absolute inset-0 bg-cover bg-center opacity-25 blur-xl scale-110"
@@ -227,12 +217,6 @@ function ArtistPage() {
             className="w-6 h-6"
           />
         </button>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm text-neutral-400 hover:text-white transition"
-        >
-          ← Назад
-        </button>
       </div>
 
       {/* ── Таби ── */}
@@ -256,7 +240,7 @@ function ArtistPage() {
       {activeTab === 'tracks' && (
         <>
           {songs.length === 0 ? (
-            <EmptyScreen title={t('emptyArtistSongs')} />
+            <div className="text-center text-neutral-500 py-12">Треків не знайдено</div>
           ) : (
             <div className="flex flex-col px-2">
               {/* Заголовок */}
@@ -345,21 +329,16 @@ function ArtistPage() {
             <div className="flex flex-col gap-3 min-w-0">
               <h2 className="text-white text-2xl font-bold">{artistName}</h2>
 
-              {/* Жанри: спочатку з треків, потім з MusicBrainz якщо треків нема */}
-              {(() => {
-                const genreList = (artistInfo?.genres || []).length > 0
-                  ? artistInfo!.genres!
-                  : artistBio.tags
-                return genreList.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {genreList.map((g) => (
-                      <span key={g} className="bg-[#1db954]/20 text-[#1db954] text-xs font-semibold px-3 py-1 rounded-full capitalize">
-                        {g}
-                      </span>
-                    ))}
-                  </div>
-                ) : null
-              })()}
+              {/* Жанри */}
+              {(artistInfo?.genres || []).length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {(artistInfo?.genres || []).map((g) => (
+                    <span key={g} className="bg-[#1db954]/20 text-[#1db954] text-xs font-semibold px-3 py-1 rounded-full">
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Статистика */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-1">
@@ -373,97 +352,44 @@ function ArtistPage() {
                     <p className="text-xs text-neutral-400">Хвилин музики</p>
                   </div>
                 )}
-                {/* Рік початку — з MusicBrainz або з бекенду */}
-                {(artistBio.beginYear || artistInfo?.formedYear) && (
+                {artistInfo?.formedYear && (
                   <div className="bg-white/5 rounded-lg p-3">
-                    <p className="text-2xl font-bold text-white">
-                      {artistBio.beginYear || artistInfo?.formedYear}
-                    </p>
-                    <p className="text-xs text-neutral-400">
-                      {artistBio.type === 'Group' ? 'Рік заснування' : 'Рік народження'}
-                    </p>
+                    <p className="text-2xl font-bold text-white">{artistInfo.formedYear}</p>
+                    <p className="text-xs text-neutral-400">Рік початку</p>
                   </div>
                 )}
-                {/* Країна */}
-                {(artistBio.country || artistInfo?.country) && (
+                {artistInfo?.country && (
                   <div className="bg-white/5 rounded-lg p-3">
-                    <p className="text-2xl font-bold text-white">
-                      {artistBio.country || artistInfo?.country}
-                    </p>
+                    <p className="text-2xl font-bold text-white">{artistInfo.country}</p>
                     <p className="text-xs text-neutral-400">Країна</p>
                   </div>
                 )}
-                {/* Тип виконавця */}
-                {artistBio.type && (
-                  <div className="bg-white/5 rounded-lg p-3">
-                    <p className="text-lg font-bold text-white">
-                      {artistBio.type === 'Person' ? 'Соліст' :
-                       artistBio.type === 'Group' ? 'Гурт' :
-                       artistBio.type === 'Orchestra' ? 'Оркестр' :
-                       artistBio.type === 'Choir' ? 'Хор' : artistBio.type}
-                    </p>
-                    <p className="text-xs text-neutral-400">Тип</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Біографія — з Wikipedia через MusicBrainz */}
-          <div className="bg-white/5 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-bold text-lg">Біографія</h3>
-              {artistBio.loading && (
-                <span className="text-xs text-neutral-500 animate-pulse">Завантаження...</span>
-              )}
-              {artistBio.wikiUrl && !artistBio.loading && (
-                <a
-                  href={artistBio.wikiUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-neutral-400 hover:text-white transition flex items-center gap-1"
-                  title="Відкрити у Wikipedia"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
-                  </svg>
-                  Wikipedia
-                </a>
-              )}
-            </div>
-
-            {artistBio.loading ? (
-              <div className="flex flex-col gap-2">
-                {[100, 90, 95, 80].map((w, i) => (
-                  <div key={i} className="h-3 bg-white/10 rounded animate-pulse" style={{ width: `${w}%` }} />
-                ))}
-              </div>
-            ) : artistBio.bio ? (
-              <>
-                <p className={`text-neutral-300 text-sm leading-relaxed ${!showFullBio ? 'line-clamp-5' : ''}`}>
-                  {artistBio.bio}
-                </p>
-                {artistBio.bio.length > 300 && (
-                  <button
-                    onClick={() => setShowFullBio((v) => !v)}
-                    className="mt-3 text-xs text-neutral-400 hover:text-white transition underline"
-                  >
-                    {showFullBio ? 'Показати менше' : 'Читати більше'}
-                  </button>
-                )}
-              </>
-            ) : artistInfo?.bio ? (
-              <p className="text-neutral-300 text-sm leading-relaxed">{artistInfo.bio}</p>
-            ) : (
-              <p className="text-neutral-500 text-sm">
-                {artistBio.error
-                  ? 'Не вдалося завантажити біографію.'
-                  : 'Біографія виконавця поки що недоступна.'}
+          {/* Біографія */}
+          {artistInfo?.bio ? (
+            <div className="bg-white/5 rounded-xl p-5">
+              <h3 className="text-white font-bold text-lg mb-3">Біографія</h3>
+              <p className={`text-neutral-300 text-sm leading-relaxed whitespace-pre-line ${!showFullBio ? 'line-clamp-4' : ''}`}>
+                {artistInfo.bio}
               </p>
-            )}
-          </div>
+              {artistInfo.bio.length > 200 && (
+                <button
+                  onClick={() => setShowFullBio((v) => !v)}
+                  className="mt-2 text-xs text-neutral-400 hover:text-white transition underline"
+                >
+                  {showFullBio ? 'Показати менше' : 'Читати більше'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white/5 rounded-xl p-5">
+              <h3 className="text-white font-bold text-lg mb-2">Біографія</h3>
+              <p className="text-neutral-500 text-sm">Біографія виконавця поки що недоступна.</p>
+            </div>
+          )}
 
           {/* Топ-треки */}
           {topTracks.length > 0 && (
@@ -484,6 +410,11 @@ function ArtistPage() {
                       <span className="w-5 text-center text-sm text-neutral-500 group-hover:hidden shrink-0">
                         {isPlaying ? '▶' : i + 1}
                       </span>
+                      <img
+                        src={resolveUrl(song.image)}
+                        alt={song.name}
+                        className="hidden group-hover:inline w-4 h-4 shrink-0"
+                      />
                       <img
                         src={resolveUrl(song.image)}
                         alt={song.name}

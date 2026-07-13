@@ -51,15 +51,17 @@ const getMyPlaylists = async (req, res, next) => {
 const getPlaylistById = async (req, res, next) => {
   try {
     const playlist = await Playlist.findById(req.params.id).populate('songs');
-    if (!playlist) return res.status(404).json({ success: false, message: 'Playlist not found', errors: [] });
 
-    const isOwner = playlist.owner.toString() === req.user.id;
-    const isAdmin = req.user.role === 'admin';
-    if (!playlist.isPublic && !isOwner && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'You do not have permission to access this playlist', errors: [] });
+    if (!playlist) {
+      return res.status(404).json({ success: false, message: 'Playlist not found' });
     }
 
-    res.json({ success: true, message: "Request completed successfully", data: playlist });
+    // Проверка прав: доступ разрешен владельцу ИЛИ если плейлист публичный
+    if (playlist.owner.toString() !== req.user.id && !playlist.isPublic) {
+      return res.status(403).json({ success: false, message: 'Access denied to this private playlist' });
+    }
+
+    res.status(200).json({ success: true, data: playlist });
   } catch (err) {
     next(err);
   }
