@@ -4,6 +4,7 @@ const {
   register, login, getMe, updateProfile, updateAvatar,
   getLikedSongs, toggleLike,
   getUsers, deleteUser,
+  getUsers, deleteUser, googleLogin, facebookLogin 
 } = require('../controllers/authController');
 const { protect, isAdmin } = require('../middleware/auth');
 const User = require('../models/User');
