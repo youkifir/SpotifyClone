@@ -14,6 +14,7 @@ const playlistRoutes = require('./routes/playlistRoutes');
 const adminRoutes    = require('./routes/adminRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { protect, isAdmin, isMusician } = require('./middleware/auth');
+const { proxyAIPlaylist } = require('./controllers/recommendedController');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -88,6 +89,9 @@ app.use('/api/songs',     songRoutes);
 app.use('/api/albums',    albumRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/admin',     adminRoutes);
+
+// POST /api/ai-playlist — проксі до Claude API (API-ключ на сервері, не на фронті)
+app.post('/api/ai-playlist', protect, proxyAIPlaylist);
 
 // ── Захищений аудіо-стрімінг ─────────────────────────────────────────────────
 // Всі аудіо-запити йдуть через цей маршрут з JWT-токеном

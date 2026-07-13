@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { usePlayer } from '../context/usePlayer'
 import { useLanguage } from '../context/LanguageContext'
 
 const API = 'http://localhost:5000'
@@ -76,6 +75,15 @@ function MusicianRequestButton({ token, t }: { token: string | null; t: (key: an
   )
 }
 
+// ─── Listen History Types ─────────────────────────────────────────────────────
+interface HistorySong { _id: string; name: string; artist: string; image: string; duration: string }
+interface HistoryItem { song: HistorySong; listenedAt: string }
+interface HistoryStats {
+  totalListens: number; uniqueSongs: number; uniqueArtists: number
+  topSongs: { song: HistorySong; count: number }[]
+  topArtists: { name: string; count: number }[]
+}
+
 export default function ProfilePage() {
   const { user, token, login: ctxLogin } = useAuth()
   const { t, language } = useLanguage()
@@ -101,6 +109,35 @@ export default function ProfilePage() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const avatarLetter = user?.username?.charAt(0).toUpperCase() ?? 'U'
+
+  // ─── Listen History ──────────────────────────────────────────────────────────
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
+  const [historyStats, setHistoryStats] = useState<HistoryStats | null>(null)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyTotalPages, setHistoryTotalPages] = useState(1)
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  const fetchHistory = useCallback(async (page = 1, append = false) => {
+    if (!token) return
+    setHistoryLoading(true)
+    try {
+      const res = await fetch(`${API}/api/auth/history?page=${page}&limit=20`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (data.success) {
+        setHistoryItems((prev: HistoryItem[]) => append ? [...prev, ...data.data.history] : data.data.history)
+        setHistoryStats(data.data.stats)
+        setHistoryTotalPages(data.data.pagination.totalPages)
+        setHistoryPage(page)
+      }
+    } catch { /* ignore */ } finally {
+      setHistoryLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => { fetchHistory(1) }, [fetchHistory])
+
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -372,6 +409,124 @@ export default function ProfilePage() {
           </button>
         </form>
       </div>
+
+      {/* Історія прослуховувань */}
+      <div className="bg-[#181818] rounded-xl p-6">
+        <h2 className="text-white font-bold text-base mb-5">{t('listenHistory')}</h2>
+
+        {historyStats && (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            {[
+              { label: t('historyTotalListens'), value: historyStats.totalListens },
+              { label: t('historyUniqueSongs'),  value: historyStats.uniqueSongs  },
+              { label: t('historyUniqueArtists'),value: historyStats.uniqueArtists },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-[#242424] rounded-xl p-4 text-center">
+                <p className="text-[#1db954] font-black text-2xl">{value}</p>
+                <p className="text-neutral-400 text-xs mt-1 leading-tight">{label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {historyStats && (historyStats.topSongs.length > 0 || historyStats.topArtists.length > 0) && (
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {historyStats.topSongs.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">{t('historyTopSongs')}</p>
+                <div className="flex flex-col gap-2">
+                  {historyStats.topSongs.map(({ song, count }: { song: HistorySong; count: number }, i: number) => (
+                    <div key={song._id} className="flex items-center gap-2">
+                      <span className="text-neutral-500 text-xs w-4 shrink-0">{i + 1}</span>
+                      <img
+                        src={song.image?.startsWith('http') ? song.image : `${API}/${song.image}`}
+                        alt={song.name}
+                        className="w-8 h-8 rounded object-cover shrink-0"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white text-xs font-semibold truncate">{song.name}</p>
+                        <p className="text-neutral-400 text-[11px] truncate">{song.artist}</p>
+                      </div>
+                      <span className="text-[#1db954] text-xs shrink-0">{count}×</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {historyStats.topArtists.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">{t('historyTopArtists')}</p>
+                <div className="flex flex-col gap-2">
+                  {historyStats.topArtists.map(({ name, count }: { name: string; count: number }, i: number) => (
+                    <div key={name} className="flex items-center gap-2">
+                      <span className="text-neutral-500 text-xs w-4 shrink-0">{i + 1}</span>
+                      <div className="w-8 h-8 rounded-full bg-[#1db954]/20 flex items-center justify-center shrink-0">
+                        <span className="text-[#1db954] text-xs font-bold">{name.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <p className="text-white text-xs font-semibold truncate flex-1 min-w-0">{name}</p>
+                      <span className="text-[#1db954] text-xs shrink-0">{count} {t('historyTimes')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {historyLoading && historyItems.length === 0 ? (
+          <div className="text-center py-8 text-neutral-500 text-sm">{t('historyLoading')}</div>
+        ) : historyItems.length === 0 ? (
+          <div className="text-center py-10">
+            <div className="text-4xl mb-3">🎵</div>
+            <p className="text-white font-semibold mb-1">{t('historyNoHistory')}</p>
+            <p className="text-neutral-400 text-sm">{t('historyNoHistoryHint')}</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1">
+              {historyItems.map((item: HistoryItem, idx: number) => (
+                <div key={idx} className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-[#242424] transition">
+                  <img
+                    src={item.song.image?.startsWith('http') ? item.song.image : `${API}/${item.song.image}`}
+                    alt={item.song.name}
+                    className="w-10 h-10 rounded object-cover shrink-0"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{item.song.name}</p>
+                    <p className="text-neutral-400 text-xs truncate">{item.song.artist}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-neutral-500 text-xs">
+                      {new Date(item.listenedAt).toLocaleDateString(
+                        language === 'en' ? 'en-GB' : language === 'ru' ? 'ru-RU' : 'uk-UA',
+                        { day: 'numeric', month: 'short' }
+                      )}
+                    </p>
+                    <p className="text-neutral-600 text-[11px]">
+                      {new Date(item.listenedAt).toLocaleTimeString(
+                        language === 'en' ? 'en-GB' : language === 'ru' ? 'ru-RU' : 'uk-UA',
+                        { hour: '2-digit', minute: '2-digit' }
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {historyPage < historyTotalPages && (
+              <button
+                onClick={() => fetchHistory(historyPage + 1, true)}
+                disabled={historyLoading}
+                className="mt-4 w-full py-2 rounded-full bg-[#242424] text-neutral-400 hover:text-white hover:bg-[#2a2a2a] text-sm font-medium transition disabled:opacity-50"
+              >
+                {historyLoading ? t('historyLoading') : t('historyLoadMore')}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
 
     </div>
   )

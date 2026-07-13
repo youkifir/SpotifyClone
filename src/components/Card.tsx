@@ -39,7 +39,7 @@ function Card({ to, image, name, desc, onClick, isActive, songId, fluid }: CardP
   return (
     <div
       onClick={handleClick}
-      className={`${fluid ? 'w-full min-w-0' : 'w-36 sm:w-45 shrink-0 snap-start'} bg-[#181818] hover:bg-[#282828] transition-colors rounded-lg p-3 sm:p-4 cursor-pointer group relative`}
+      className={`${fluid ? 'w-full min-w-0' : 'w-36 sm:w-45 shrink-0 snap-start'} bg-[#181818] rounded-lg p-3 sm:p-4 cursor-pointer group relative card-hover ripple-btn`}
     >
       <div className="relative overflow-hidden rounded-md">
         <img
