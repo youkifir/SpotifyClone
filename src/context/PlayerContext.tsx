@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { apiFetch, isOfflineError, ApiError } from '../utils/apiError'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 
 export interface Song {
   id: number | string
@@ -227,7 +228,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     loadAudio()
 
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackId])
 
   useEffect(() => {
@@ -254,7 +255,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
         fetch(`${API_BASE}/api/songs/${trackId}/play`, {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }).catch(() => {/* ignore errors */})
+        }).catch(() => {/* ignore errors */ })
       }
 
       setCurrentTime(toParts(currentT))
@@ -282,7 +283,7 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
       audio.removeEventListener('ended', handleEnded)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackId, loop, shuffle, songsData])
 
   const play = () => {
@@ -416,6 +417,18 @@ export const PlayerContextProvider = ({ children }: { children: ReactNode }) => 
     clearQueue,
     activeQueue: activeList,
   }
+
+  // Вызов хука горячих клавиш
+  useKeyboardShortcuts({
+    playStatus,
+    play,
+    pause,
+    audioRef,
+    seekTo,
+    volume,
+    changeVolume,
+    _hasTrack: track !== null,
+  })
 
   return (
     <PlayerContext.Provider value={value}>
