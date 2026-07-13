@@ -41,6 +41,7 @@ function PlaylistPage() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [wasDeleted, setWasDeleted] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   // завантаження плейлиста
   useEffect(() => {
@@ -150,7 +151,7 @@ function PlaylistPage() {
     addSongs(playerSongs)   // гарантуємо що треки є в songsData
     setQueue(playerSongs)
     return () => { clearQueue() }  // скидаємо чергу при виході зі сторінки
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlist?._id, visibleSongs])
 
   const handleRemoveSong = async (songId: string) => {
@@ -168,6 +169,21 @@ function PlaylistPage() {
       console.error('Помилка видалення треку:', error)
     } finally {
       setRemovingId(null)
+    }
+  }
+
+  const handleSharePlaylist = async () => {
+    if (!playlist) return
+
+    // Формируем ссылку на текущую страницу
+    const shareUrl = `${window.location.origin}/playlist/${playlist._id}`
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000) // Сбрасываем текст кнопки через 2 секунды
+    } catch (error) {
+      console.error('Не вдалося скопіювати посилання:', error)
     }
   }
 
@@ -206,7 +222,7 @@ function PlaylistPage() {
   return (
     <div className="pt-2 sm:pt-4">
       {/* шапка плейлиста */}
-      <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-gradient-to-b from-[#535353] to-[#121212]">
+      <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-linear-to-b from-[#535353] to-[#121212]">
         <button
           onClick={() => setIsEditOpen(true)}
           className="w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden group relative"
@@ -254,7 +270,19 @@ function PlaylistPage() {
         >
           Редагувати
         </button>
-        <div className="flex-1 min-w-[8px]" />
+
+        {/* Кнопка "Поділитися" */}
+        <button
+          onClick={handleSharePlaylist}
+          className={`text-sm font-semibold px-4 py-2 rounded-full border transition-colors ${copied
+              ? 'bg-green-600 border-green-600 text-white'
+              : 'bg-transparent border-zinc-600 text-white hover:border-white'
+            }`}
+        >
+          {copied ? '✓ Скопійовано!' : 'Поділитися'}
+        </button>
+
+        <div className="flex-1 min-w-2" />
 
         <input
           type="text"
