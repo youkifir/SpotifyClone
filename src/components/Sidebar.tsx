@@ -98,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     if (!token) { setFollowedArtists([]); return }
     setArtistsLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/artists/following`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch(`${API_BASE}/auth/following`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
         setFollowedArtists(Array.isArray(data) ? data : (data.data || []))
