@@ -321,6 +321,9 @@ export const translations = {
     fromColleagues: 'Від колег',
     deletePlaylistTitle: 'Видалити плейлист',
     deletePlaylistConfirm: 'Ви впевнені, що хочете видалити цей плейлист? Цю дію не можна скасувати.',
+    deletePlaylistAriaLabel: 'Видалити плейлист',
+    sidebarCollapse: 'Згорнути',
+    recommendedPlaylistLabel: 'Рекомендований плейліст',
   },
   ru: {
     home: 'Главная',
@@ -636,6 +639,9 @@ export const translations = {
     fromColleagues: 'От коллег',
     deletePlaylistTitle: 'Удалить плейлист',
     deletePlaylistConfirm: 'Вы уверены, что хотите удалить этот плейлист? Это действие нельзя отменить.',
+    deletePlaylistAriaLabel: 'Удалить плейлист',
+    sidebarCollapse: 'Свернуть',
+    recommendedPlaylistLabel: 'Рекомендованный плейлист',
   },
   en: {
     home: 'Home',
@@ -951,6 +957,9 @@ export const translations = {
     fromColleagues: 'From colleagues',
     deletePlaylistTitle: 'Delete playlist',
     deletePlaylistConfirm: 'Are you sure you want to delete this playlist? This action cannot be undone.',
+    deletePlaylistAriaLabel: 'Delete playlist',
+    sidebarCollapse: 'Collapse',
+    recommendedPlaylistLabel: 'Recommended playlist',
   },
 } as const
 

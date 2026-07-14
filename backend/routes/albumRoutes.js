@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getAlbums, getAlbumById, createAlbum, updateAlbum, deleteAlbum } = require('../controllers/albumController');
+const { getAlbums, getDailyAlbums, getAlbumById, createAlbum, updateAlbum, deleteAlbum } = require('../controllers/albumController');
 const { protect, isMusician, isAdmin } = require('../middleware/auth');
 
 router.get('/', getAlbums);
+router.get('/daily', getDailyAlbums); // ← нова підбірка альбомів, оновлюється раз на день
 router.get('/:id', getAlbumById);
 
 // Музикант може створювати альбоми і редагувати свої, адмін — будь-які

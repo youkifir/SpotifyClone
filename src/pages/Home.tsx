@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getRecentlyPlayed, type RecentlyPlayedItem } from '../hooks/useRecentlyPlayed'
 import { useAuth } from '../context/AuthContext'
 import Card from '../components/Card'
+import CollageCard from '../components/CollageCard'
 import { usePlayer } from '../context/usePlayer'
 import { useLanguage } from '../context/LanguageContext'
 import { useNavigate } from 'react-router-dom'
@@ -174,7 +175,6 @@ function Home() {
   const { track, playStatus, playWithId, songsData } = usePlayer()
   const { t } = useLanguage()
   const { user, token } = useAuth()
-  const navigate = useNavigate()
 
   // Исправлено: Добавлены недостающие стейты
   const [albumsData, setAlbumsData] = useState<any[]>([])
@@ -187,20 +187,23 @@ function Home() {
 
   const [shuffledSongs, setShuffledSongs] = useState<any[]>([])
   const [songsLoading, setSongsLoading] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [songsError, setSongsError] = useState<string | null>(null)
 
   const [recentItems, setRecentItems] = useState<RecentlyPlayedItem[]>([])
 
   // Исправлено: Вместо неопределенного apiFetch используем встроенный fetch
+  const [recPlaylists, setRecPlaylists] = useState<any[]>([])
+
   const fetchAlbums = useCallback(async () => {
     setAlbumsLoading(true)
     setAlbumsError(null)
     try {
-      const r = await fetch(`${API}/api/albums`)
-      if (!r.ok) throw new Error('Failed to load')
-      const res = await r.json()
-      const albums = Array.isArray(res) ? res : (res.data || [])
-      setAlbumsData(albums.map((a: any) => ({ ...a, id: a.id || a._id })))
+      const albumsRes = await fetch(`${API}/api/albums/daily`)
+      if (!albumsRes.ok) throw new Error('Failed to load')
+      const albumsJson = await albumsRes.json()
+      const albums: any[] = (albumsJson.data || albumsJson || []).map((a: any) => ({ ...a, id: String(a._id || a.id) }))
+      setAlbumsData(albums)
     } catch (err) {
       const isOffline = !navigator.onLine
       setAlbumsError(isOffline ? t('errorNetwork' as any) : t('errorLoadAlbums' as any))
@@ -208,6 +211,18 @@ function Home() {
       setAlbumsLoading(false)
     }
   }, [t])
+
+  const fetchRecommended = useCallback(async () => {
+    if (!token) return
+    try {
+      const r = await fetch(`${API}/api/playlists/recommended`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!r.ok) return
+      const res = await r.json()
+      setRecPlaylists(res.data || [])
+    } catch { /* тихо */ }
+  }, [token])
 
   const fetchArtists = useCallback(async () => {
     setArtistsLoading(true)
@@ -227,14 +242,36 @@ function Home() {
 
   useEffect(() => { fetchAlbums() }, [fetchAlbums])
   useEffect(() => { fetchArtists() }, [fetchArtists])
+  useEffect(() => { fetchRecommended() }, [fetchRecommended])
 
-  // Логика загрузки песен из контекста плеера
+  // Логика загрузки песен з фіксацією порядку в localStorage
   useEffect(() => {
     if (songsData && songsData.length > 0) {
       setSongsLoading(false)
-      setShuffledSongs(shuffle(songsData))
+      const CACHE_KEY = 'home_shuffled_songs'
+      try {
+        const cached = localStorage.getItem(CACHE_KEY)
+        if (cached) {
+          const cachedIds: string[] = JSON.parse(cached)
+          // Відновлюємо порядок з кешу
+          const songMap = new Map(songsData.map((s: any) => [String(s.id || s._id), s]))
+          const ordered = cachedIds
+            .map(id => songMap.get(id))
+            .filter(Boolean) as any[]
+          // Додаємо нові пісні яких ще не було в кеші
+          const cachedSet = new Set(cachedIds)
+          const newSongs = songsData.filter((s: any) => !cachedSet.has(String(s.id || s._id)))
+          setShuffledSongs([...ordered, ...shuffle(newSongs)])
+        } else {
+          const shuffled = shuffle(songsData)
+          const ids = shuffled.map((s: any) => String(s.id || s._id))
+          localStorage.setItem(CACHE_KEY, JSON.stringify(ids))
+          setShuffledSongs(shuffled)
+        }
+      } catch {
+        setShuffledSongs(shuffle(songsData))
+      }
     } else {
-      // Имитируем загрузку, пока songsData пустой
       setSongsLoading(true)
     }
   }, [songsData])
@@ -286,20 +323,36 @@ function Home() {
         </section>
       )}
 
-      {/* Раздел плейлистов/альбомов */}
+      {/* Playlists for you — рекомендовані плейлисти + альбоми */}
       <ScrollSection
         title={t('playlists' as any)}
-        isEmpty={albumsData.length === 0}
+        isEmpty={recPlaylists.length === 0 && albumsData.length === 0}
         emptyText={t('noAvailablePlaylists' as any)}
         isLoading={albumsLoading}
         error={albumsError}
         onRetry={fetchAlbums}
       >
+        {/* Спочатку рекомендовані плейлисти (з БД, справжні) */}
+        {recPlaylists.map((pl: any) => (
+          <CollageCard
+            key={pl._id}
+            to={`/playlist/${pl._id}`}
+            id={pl._id}
+            type="playlist"
+            songs={pl.songs || []}
+            fallbackImage={pl.image}
+            name={pl.name}
+            desc={pl.description || ''}
+          />
+        ))}
+        {/* Потім альбоми */}
         {albumsData.map((album) => (
-          <Card
+          <CollageCard
             key={album.id}
             to={`/album/${album.id}`}
-            image={getSafeImgSrc(album.image)}
+            id={album.id}
+            type="album"
+            fallbackImage={album.image}
             name={album.name}
             desc={album.desc}
           />

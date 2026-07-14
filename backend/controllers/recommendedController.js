@@ -23,7 +23,7 @@ async function askClaude(prompt) {
   return data.content?.map((b) => b.text || '').join('') || '';
 }
 
-// POST /api/ai-playlist — проксі для фронту (Claude API ключ на сервері)
+// POST /api/ai-playlist
 const proxyAIPlaylist = async (req, res, next) => {
   try {
     const { prompt } = req.body;
@@ -33,7 +33,6 @@ const proxyAIPlaylist = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// Перемішати масив (Fisher–Yates)
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -43,8 +42,6 @@ function shuffle(arr) {
   return a;
 }
 
-// Обрати до `count` треків із `pool`, уникаючи id з `usedIds`.
-// Бере топ-N за playCount (популярність), тасує їх, потім бере count — щоб плейлист не був завжди однаковим.
 function pickSongs(pool, count, usedIds) {
   const fresh = pool.filter(s => !usedIds.has(String(s._id)));
   const sortedByPopularity = fresh.slice().sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
@@ -55,8 +52,8 @@ function pickSongs(pool, count, usedIds) {
 }
 
 // GET /api/playlists/recommended
-// Формує 2-3 плейлисти БЕЗ звернення до зовнішніх AI-сервісів —
-// виключно на основі listenHistory / likedSongs юзера та каталогу треків у БД.
+// Генерує 2-3 плейлисти на основі listenHistory, зберігає їх у БД (або оновлює існуючі),
+// повертає як справжні плейлисти з _id — їх можна відкривати, слухати, зберігати.
 const getRecommendedPlaylists = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id)
@@ -66,7 +63,6 @@ const getRecommendedPlaylists = async (req, res, next) => {
 
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Останні 150 прослуховувань — свіжіші прослуховування важать трохи більше
     const history = (user.listenHistory || []).filter(h => h.song).slice(-150).reverse();
     const liked = (user.likedSongs || []).filter(Boolean);
 
@@ -74,105 +70,129 @@ const getRecommendedPlaylists = async (req, res, next) => {
       return res.json({ success: true, data: [] });
     }
 
-    // 1) Рахуємо "вагу" кожного жанру/артиста: недавні прослуховування + лайки (вагоміші)
+    // Рахуємо ваги жанрів та артистів
     const genreScore = {};
     const artistScore = {};
     const bump = (map, key, weight) => { if (key) map[key] = (map[key] || 0) + weight; };
 
     history.forEach(({ song }, idx) => {
-      // трохи більша вага для недавніших прослуховувань (history вже відсортований від найновіших)
       const weight = 1 + Math.max(0, (30 - idx) / 30);
       bump(genreScore, song.genre, weight);
       bump(artistScore, song.artist, weight);
     });
     liked.forEach(song => {
-      bump(genreScore, song.genre, 2); // лайк важить як 2 прослуховування
+      bump(genreScore, song.genre, 2);
       bump(artistScore, song.artist, 2);
     });
 
     const topGenres = Object.entries(genreScore).sort((a, b) => b[1] - a[1]).map(([g]) => g);
     const topArtists = Object.entries(artistScore).sort((a, b) => b[1] - a[1]).map(([a]) => a);
 
-    if (topGenres.length === 0 && topArtists.length === 0) {
-      return res.json({ success: true, data: [] });
-    }
+    // Знаходимо найбільш слуханий трек для кожного жанру/артиста (для заголовку)
+    const songCount = {};
+    const topSongByGenre = {};
+    const topSongByArtist = {};
+    history.forEach(({ song }) => {
+      const sid = String(song._id);
+      songCount[sid] = (songCount[sid] || 0) + 1;
+      if (song.genre && (!topSongByGenre[song.genre] || songCount[sid] > (songCount[String(topSongByGenre[song.genre]._id)] || 0)))
+        topSongByGenre[song.genre] = song;
+      if (song.artist && (!topSongByArtist[song.artist] || songCount[sid] > (songCount[String(topSongByArtist[song.artist]._id)] || 0)))
+        topSongByArtist[song.artist] = song;
+    });
 
-    // 2) Каталог треків для підбору
+    if (topGenres.length === 0 && topArtists.length === 0)
+      return res.json({ success: true, data: [] });
+
     const allSongs = await Song.find({}).select('_id name artist genre image playCount').limit(500).lean();
     if (allSongs.length === 0) return res.json({ success: true, data: [] });
 
-    // Треки, які юзер вже чув/лайкнув — щоб рекомендувати радше нове, ніж повтори
     const alreadyKnownIds = new Set([
       ...history.map(h => String(h.song._id)),
       ...liked.map(s => String(s._id)),
     ]);
+    const usedIds = new Set();
 
-    const usedIds = new Set(); // щоб один трек не потрапив у два плейлисти одночасно
-    const playlists = [];
+    // Визначаємо 2-3 плейлисти
+    const configs = [];
 
-    // Плейлист 1: найулюбленіший жанр
     const genre1 = topGenres[0];
     if (genre1) {
       const pool = allSongs.filter(s => s.genre === genre1);
       let songs = pickSongs(pool.filter(s => !alreadyKnownIds.has(String(s._id))), 10, usedIds);
-      if (songs.length < 6) {
-        // не вистачає нового — добираємо з уже відомих цього жанру
-        songs = songs.concat(pickSongs(pool, 10 - songs.length, usedIds));
-      }
-      if (songs.length >= 3) {
-        playlists.push({
-          name: `Улюблений жанр: ${genre1}`,
-          description: `Треки в жанрі ${genre1}, підібрані на основі твоєї історії прослуховувань`,
-          genre: genre1,
-          songs,
-          songIds: songs.map(s => String(s._id)),
-        });
-      }
+      if (songs.length < 6) songs = songs.concat(pickSongs(pool, 10 - songs.length, usedIds));
+      if (songs.length >= 3) configs.push({
+        slug: `rec_genre1_${req.user.id}`,
+        name: topSongByGenre[genre1] ? `Бо ти слухав "${topSongByGenre[genre1].name}"` : `Твій жанр: ${genre1}`,
+        description: topSongByGenre[genre1]?.artist ? `${topSongByGenre[genre1].artist} та схожі` : `Треки у жанрі ${genre1}`,
+        songIds: songs.map(s => s._id),
+        image: songs[0]?.image || '',
+      });
     }
 
-    // Плейлист 2: найулюбленіший артист (по всіх жанрах цього артиста)
     const artist1 = topArtists[0];
     if (artist1) {
       const pool = allSongs.filter(s => s.artist === artist1);
       let songs = pickSongs(pool.filter(s => !alreadyKnownIds.has(String(s._id))), 10, usedIds);
-      if (songs.length < 6) {
-        songs = songs.concat(pickSongs(pool, 10 - songs.length, usedIds));
-      }
-      if (songs.length >= 3) {
-        playlists.push({
-          name: `Більше від ${artist1}`,
-          description: `Треки виконавця ${artist1}, якого ти часто слухаєш`,
-          genre: '',
-          songs,
-          songIds: songs.map(s => String(s._id)),
-        });
-      }
+      if (songs.length < 6) songs = songs.concat(pickSongs(pool, 10 - songs.length, usedIds));
+      if (songs.length >= 3) configs.push({
+        slug: `rec_artist1_${req.user.id}`,
+        name: `Більше від: ${artist1}`,
+        description: topSongByArtist[artist1] ? `Бо ти слухав "${topSongByArtist[artist1].name}"` : `Виконавець, якого ти часто слухаєш`,
+        songIds: songs.map(s => s._id),
+        image: songs[0]?.image || '',
+      });
     }
 
-    // Плейлист 3: другий за популярністю жанр (якщо відрізняється від першого)
     const genre2 = topGenres.find(g => g !== genre1);
     if (genre2) {
       const pool = allSongs.filter(s => s.genre === genre2);
       let songs = pickSongs(pool.filter(s => !alreadyKnownIds.has(String(s._id))), 10, usedIds);
-      if (songs.length < 6) {
-        songs = songs.concat(pickSongs(pool, 10 - songs.length, usedIds));
-      }
-      if (songs.length >= 3) {
-        playlists.push({
-          name: `Відкрий для себе: ${genre2}`,
-          description: `Ще один жанр з твоєї історії прослуховувань — ${genre2}`,
-          genre: genre2,
-          songs,
-          songIds: songs.map(s => String(s._id)),
-        });
-      }
+      if (songs.length < 6) songs = songs.concat(pickSongs(pool, 10 - songs.length, usedIds));
+      if (songs.length >= 3) configs.push({
+        slug: `rec_genre2_${req.user.id}`,
+        name: topSongByGenre[genre2] ? `Бо ти слухав "${topSongByGenre[genre2].name}"` : `Відкрий: ${genre2}`,
+        description: topSongByGenre[genre2]?.artist ? `${topSongByGenre[genre2].artist} та схожі` : `Схожа музика у жанрі ${genre2}`,
+        songIds: songs.map(s => s._id),
+        image: songs[0]?.image || '',
+      });
     }
 
-    res.json({ success: true, data: playlists });
+    // Зберігаємо/оновлюємо кожен плейліст у БД за slug (у description зберігаємо slug для пошуку)
+    const savedPlaylists = [];
+    for (const cfg of configs) {
+      // Шукаємо існуючий рекомендований плейліст по slug (зберігаємо slug у description як маркер)
+      let pl = await Playlist.findOne({ owner: req.user.id, name: cfg.name });
+      if (pl) {
+        // Оновлюємо треки і обкладинку
+        pl.songs = cfg.songIds;
+        pl.image = cfg.image;
+        pl.description = cfg.description;
+        await pl.save();
+      } else {
+        pl = await Playlist.create({
+          name: cfg.name,
+          description: cfg.description,
+          image: cfg.image,
+          owner: req.user.id,
+          songs: cfg.songIds,
+          isPublic: false,
+          isRecommended: true,
+        });
+      }
+      savedPlaylists.push(pl);
+    }
+
+    // Повертаємо як populate'd плейлисти
+    const result = await Playlist.find({ _id: { $in: savedPlaylists.map(p => p._id) } })
+      .populate({ path: 'songs', select: '_id name artist image duration genre' })
+      .lean();
+
+    res.json({ success: true, data: result });
   } catch (err) { next(err); }
 };
 
-// POST /api/playlists/recommended/save
+// POST /api/playlists/recommended/save (залишаємо для сумісності)
 const saveRecommendedPlaylist = async (req, res, next) => {
   try {
     const { name, description, songIds } = req.body;

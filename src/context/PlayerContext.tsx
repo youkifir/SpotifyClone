@@ -18,6 +18,7 @@ export interface Song {
   duration: string
   lyrics?: string
   artist?: string
+  album?: string | null
 }
 
 interface TimeParts {

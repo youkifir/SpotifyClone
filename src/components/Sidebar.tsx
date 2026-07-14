@@ -17,6 +17,7 @@ export interface Playlist {
   name: string
   image: string
   isLikedSongs?: boolean
+  isRecommended?: boolean
   songs: any[]
   owner?: { _id?: string; username?: string; name?: string } | string
   createdAt?: string
@@ -194,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
   const sortedPlaylistsList = useMemo(() => {
     if (!playlists.length) return []
     const likedSongs = playlists.filter(p => p.isLikedSongs)
-    const restPlaylists = playlists.filter(p => !p.isLikedSongs)
+    const restPlaylists = playlists.filter(p => !p.isLikedSongs && !p.isRecommended)
     const sorted = [...restPlaylists].sort((a, b) => {
       switch (sortOrder) {
         case 'name': return a.name.localeCompare(b.name)
@@ -283,6 +284,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     let subtext = t('playlistLabel')
     if (playlist.isLikedSongs) {
       subtext = `${t('playlistLabel')} • ${songCount} ${songsWord}`
+    } else if (playlist.isRecommended) {
+      subtext = t('recommendedPlaylistLabel')
     } else {
       const creator = getOwnerName(playlist)
       if (creator) subtext = `${t('playlistLabel')} • ${creator}`
@@ -307,7 +310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
           <button
             onClick={(e) => handleDelete(e, playlist._id)}
             disabled={deletingId === playlist._id}
-            aria-label="Видалити плейлист"
+            aria-label={t('deletePlaylistAriaLabel')}
             className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-zinc-600
               hover:text-red-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-30"
           >
@@ -473,7 +476,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
               )}
               <button
                 onClick={onToggleCollapse}
-                title="Згорнути"
+                title={t('sidebarCollapse')}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors group/arr"
               >
                 <img

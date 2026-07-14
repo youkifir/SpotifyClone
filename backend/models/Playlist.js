@@ -8,7 +8,8 @@ const playlistSchema = new mongoose.Schema(
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     songs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Song' }],
     isPublic: { type: Boolean, default: false },
-    isLikedSongs: { type: Boolean, default: false }, // спеціальний системний плейлист
+    isLikedSongs: { type: Boolean, default: false },    // спеціальний системний плейлист
+    isRecommended: { type: Boolean, default: false },   // плейлист від AI-рекомендацій (не показувати у сайдбарі)
   },
   { timestamps: true }
 );
