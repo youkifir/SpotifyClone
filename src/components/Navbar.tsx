@@ -23,6 +23,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, side
   
   const [menuOpen, setMenuOpen] = useState(false)
   const [langMenuOpen, setLangMenuOpen] = useState(false)
+  const [premiumModalOpen, setPremiumModalOpen] = useState(false)
   
   const menuRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null) // Добавлено: Реф для панели уведомлений
@@ -62,6 +63,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, side
   const avatarLetter = user?.username ? user.username.charAt(0).toUpperCase() : 'U'
 
   return (
+    <>
     <div className='bg-[#121212] h-14 rounded-lg grid grid-cols-3 items-center px-2 sm:px-4 w-full select-none shrink-0 relative z-50'>
 
       {/* Левый блок */}
@@ -98,7 +100,10 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, side
 
       {/* Правый блок — профиль */}
       <div className='flex items-center justify-end gap-2 sm:gap-3'>
-        <button className='bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 hover:bg-neutral-200 transition hidden xl:block shadow-sm'>
+        <button
+          onClick={() => setPremiumModalOpen(true)}
+          className='bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 hover:bg-neutral-200 transition hidden xl:block shadow-sm'
+        >
           {t('watchPremium')}
         </button>
 
@@ -241,6 +246,51 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, side
         </div>
       </div>
     </div>
+
+    {/* Premium In Development Modal */}
+    {premiumModalOpen && (
+      <div
+        className='fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm'
+        onClick={() => setPremiumModalOpen(false)}
+      >
+        <div
+          className='bg-[#1a1a1a] border border-[#3e3e3e] rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 flex flex-col items-center gap-4 animate-fade-in'
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Spotify-green crown icon */}
+          <div className='w-16 h-16 rounded-full bg-[#1db954]/15 flex items-center justify-center mb-1'>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1db954" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 20h20M5 20V10l7-7 7 7v10"/>
+              <path d="M9 20v-6h6v6"/>
+            </svg>
+          </div>
+
+          {/* Badge */}
+          <span className='bg-[#1db954]/20 text-[#1db954] text-xs font-bold px-3 py-1 rounded-full tracking-wider uppercase'>
+            {t('watchPremium')}
+          </span>
+
+          {/* Title */}
+          <h2 className='text-white text-xl font-bold text-center leading-snug'>
+            {t('premiumInDevelopment')}
+          </h2>
+
+          {/* Description */}
+          <p className='text-neutral-400 text-sm text-center leading-relaxed'>
+            {t('premiumInDevelopmentDesc')}
+          </p>
+
+          {/* Close button */}
+          <button
+            onClick={() => setPremiumModalOpen(false)}
+            className='mt-2 bg-[#1db954] hover:bg-[#17a349] text-black font-bold text-sm px-8 py-2.5 rounded-full transition hover:scale-105 active:scale-95'
+          >
+            {t('premiumClose')}
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
