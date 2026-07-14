@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { useParams, Navigate } from 'react-router-dom'
+import { useParams, useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/usePlayer'
 import { assets } from '../assets/assets'
@@ -30,6 +30,7 @@ const resolveUrl = (path: string) => {
 
 function PlaylistPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { token, user } = useAuth()
   const { t } = useLanguage()
   const { track, playStatus, playWithId, play, pause, refreshSongs, setQueue, clearQueue, addSongs } = usePlayer()
@@ -176,7 +177,7 @@ function PlaylistPage() {
       if (isOfflineError(error)) {
         setOffline(true)
       } else {
-        setFetchError('Не вдалося завантажити плейлист')
+        setFetchError(t('errorLoadPlaylist' as any))
       }
     } finally {
       setLoading(false)
@@ -330,7 +331,7 @@ function PlaylistPage() {
   }
 
   if (wasDeleted) return <Navigate to="/" replace />
-  if (loading) return <LoadingScreen message="Завантаження плейлиста…" />
+  if (loading) return <LoadingScreen message={t('loadingPlaylist' as any)} />
   if (offline) return <ErrorScreen message={t('offlineError' as any)} onRetry={() => fetchPlaylist()} />
   if (fetchError) return <ErrorScreen message={fetchError} onRetry={() => fetchPlaylist()} />
   if (notFound || !playlist) return <Navigate to="/" replace />
@@ -374,7 +375,7 @@ function PlaylistPage() {
         >
           <img
             src={isPlaylistPlaying ? assets.pause_icon : assets.play_icon}
-            alt="Відтворити"
+            alt={t('playAria' as any)}
             className="w-5 h-5 sm:w-6 sm:h-6"
           />
         </button>
@@ -459,7 +460,7 @@ function PlaylistPage() {
               <span className="hidden sm:block">{t('playlistColArtist' as any)}</span>
               <span className="hidden md:block">{t('playlistColAlbum' as any)}</span>
               <span></span>
-              <img src={assets.clock_icon} alt="Тривалість" className="w-4 h-4 justify-self-end" />
+              <img src={assets.clock_icon} alt={t('durationAria' as any)} className="w-4 h-4 justify-self-end" />
             </div>
             <div className="mt-2">
               {visibleSongs.map((song, index) => {
@@ -502,7 +503,15 @@ function PlaylistPage() {
                         {song.name}
                       </span>
                     </div>
-                    <span className="hidden sm:block self-center text-sm truncate">{song.artist || '—'}</span>
+                    <span
+                      className="hidden sm:block self-center text-sm truncate hover:underline hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (song.artist) navigate(`/artist/${encodeURIComponent(song.artist)}`)
+                      }}
+                    >
+                      {song.artist || '—'}
+                    </span>
                     <span className="hidden md:block self-center text-sm truncate">
                       {(song.album && albumNames[song.album]) || '—'}
                     </span>
@@ -513,8 +522,8 @@ function PlaylistPage() {
                           handleRemoveSong(song._id)
                         }}
                         disabled={removingId === song._id}
-                        title="Прибрати з плейлиста"
-                        aria-label="Прибрати з плейлиста"
+                        title={t('removeFromPlaylist' as any)}
+                        aria-label={t('removeFromPlaylist' as any)}
                         className="w-6 h-6 self-center flex items-center justify-center rounded-full text-zinc-500 hover:text-red-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition disabled:opacity-50"
                       >
                         <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="2">

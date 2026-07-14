@@ -7,7 +7,6 @@ import type { Song } from '../context/PlayerContext'
 
 const API = 'http://localhost:5000'
 
-// Тип з бекенду (MongoDB)
 interface ApiSong {
   _id: string
   name: string
@@ -32,9 +31,10 @@ function apiSongToSong(s: ApiSong): Song {
 
 interface SearchBarProps {
   onClose?: () => void
+  isMobileMode?: boolean // Проп для переключения поведения на мобилках
 }
 
-export default function SearchBar({ onClose }: SearchBarProps) {
+export default function SearchBar({ onClose, isMobileMode = false }: SearchBarProps) {
   const navigate = useNavigate()
   const { playWithId, addSongs, track, playStatus } = usePlayer()
   const { isLiked, toggleLike } = useLike()
@@ -47,7 +47,6 @@ export default function SearchBar({ onClose }: SearchBarProps) {
       if (count >= 2 && count <= 4) return `${count} ${t('searchTracks2to4')}`
       return `${count} ${t('searchTracks5plus')}`
     }
-    // uk
     if (count === 1) return `${count} ${t('searchTrack')}`
     if (count >= 2 && count <= 4) return `${count} ${t('searchTracks2to4')}`
     return `${count} ${t('searchTracks5plus')}`
@@ -64,7 +63,17 @@ export default function SearchBar({ onClose }: SearchBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Пошук через бекенд — треки одразу мають реальні MongoDB _id
+  // Блокировка скролла body на мобилках при открытом поиске во весь экран
+  useEffect(() => {
+    if (isMobileMode) {
+      document.body.style.overflow = 'hidden'
+      inputRef.current?.focus() // Сразу даем фокус на мобильных
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isMobileMode])
+
   const search = useCallback(async (q: string) => {
     const trimmed = q.trim()
     if (!trimmed) {
@@ -81,14 +90,12 @@ export default function SearchBar({ onClose }: SearchBarProps) {
       if (!res.ok) throw new Error(`Статус ${res.status}`)
       const data = await res.json()
 
-      // Бекенд повертає { data: { songs: [...], topArtist: ... } }
       const raw: ApiSong[] = (data.data?.songs || data.data || [])
       const songs: Song[] = raw.slice(0, 8).map(apiSongToSong)
 
       setResults(songs)
       setIsOpen(true)
 
-      // Додаємо в глобальний контекст щоб плеєр міг їх відтворити
       if (songs.length > 0) addSongs(songs)
     } catch (e) {
       setError(t('searchError'))
@@ -96,7 +103,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
     } finally {
       setLoading(false)
     }
-  }, [addSongs])
+  }, [addSongs, t])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -104,20 +111,22 @@ export default function SearchBar({ onClose }: SearchBarProps) {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, search])
 
-  // Закриваємо дропдаун при кліку поза компонентом
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      // Игнорируем закрытие по клику вне области, если мы в полноэкранном мобильном режиме
+      if (isMobileMode) return;
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [isMobileMode])
 
   const handlePlay = (song: Song) => {
     playWithId(song.id)
     setIsOpen(false)
+    if (onClose) onClose()
   }
 
   const handleClear = () => {
@@ -127,7 +136,6 @@ export default function SearchBar({ onClose }: SearchBarProps) {
     inputRef.current?.focus()
   }
 
-  // Navigate to full search results page
   const goToSearchPage = () => {
     const trimmed = query.trim()
     if (trimmed) {
@@ -155,15 +163,14 @@ export default function SearchBar({ onClose }: SearchBarProps) {
   }
 
   return (
-    <div ref={containerRef} className="relative flex-1 min-w-0">
-      {/* Поле вводу */}
-      <div className={`flex items-center gap-2 bg-[#1f1f1f] h-11 rounded-full px-4 border transition ${
-        isOpen ? 'border-white' : 'border-transparent hover:border-[#3e3e3e]'
-      } hover:bg-[#2a2a2a]`}>
-        {/* Іконка пошуку / спіннер — кліком переходимо до повної сторінки */}
+    <div ref={containerRef} className={`relative flex-1 min-w-0 ${isMobileMode ? 'h-full flex flex-col' : ''}`}>
+      {/* Поле ввода */}
+      <div className={`flex items-center gap-2 bg-[#1f1f1f] h-11 rounded-full px-4 border transition shrink-0 ${isOpen && !isMobileMode ? 'border-white' : 'border-transparent'
+        } hover:bg-[#2a2a2a] focus-within:border-white`}>
+
         <button
           onClick={goToSearchPage}
-          className="shrink-0 w-5 h-5 flex items-center justify-center"
+          className="shrink-0 w-6 h-6 flex items-center justify-center text-[#b3b3b3] hover:text-white"
           aria-label={t('searchGoToResults')}
           tabIndex={-1}
         >
@@ -173,7 +180,7 @@ export default function SearchBar({ onClose }: SearchBarProps) {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
             </svg>
           ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -188,14 +195,13 @@ export default function SearchBar({ onClose }: SearchBarProps) {
           onFocus={() => results.length > 0 && setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={t('searchPlaceholder')}
-          className="flex-1 bg-transparent text-sm text-white placeholder-[#b3b3b3] outline-none min-w-0"
+          className="flex-1 bg-transparent text-sm text-white placeholder-[#b3b3b3] outline-none min-w-0 h-full"
         />
 
-        {/* Кнопка очистити */}
         {query && (
           <button
             onClick={handleClear}
-            className="shrink-0 text-[#b3b3b3] hover:text-white transition"
+            className="shrink-0 w-8 h-8 flex items-center justify-center text-[#b3b3b3] hover:text-white transition rounded-full hover:bg-white/5 active:scale-95"
             aria-label={t('searchClear')}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -206,18 +212,21 @@ export default function SearchBar({ onClose }: SearchBarProps) {
         )}
       </div>
 
-      {/* Дропдаун з результатами */}
+      {/* Выпадающий список */}
       {isOpen && (
-        <div className="absolute top-[calc(100%+8px)] left-0 right-0 z-50 bg-[#282828] rounded-xl shadow-2xl border border-[#3e3e3e] overflow-hidden">
+        <div className={`bg-[#282828] border border-[#3e3e3e] shadow-2xl overflow-hidden flex flex-col ${isMobileMode
+            ? 'flex-1 mt-4 rounded-2xl min-h-0'
+            : 'absolute top-[calc(100%+8px)] left-0 right-0 z-50 rounded-xl'
+          }`}>
 
           {error ? (
-            <div className="px-4 py-3 text-sm text-red-400">{error}</div>
+            <div className="px-4 py-4 text-sm text-red-400">{error}</div>
           ) : results.length === 0 && !loading ? (
-            <div className="px-4 py-3 text-sm text-neutral-400">{t('searchNotFound')}</div>
+            <div className="px-4 py-4 text-sm text-neutral-400">{t('searchNotFound')}</div>
           ) : (
             <>
               {/* Заголовок */}
-              <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+              <div className="px-4 pt-3 pb-1 flex items-center justify-between shrink-0">
                 <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
                   {t('searchResults')}
                 </span>
@@ -226,8 +235,9 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                 </span>
               </div>
 
-              {/* Список треків */}
-              <ul>
+              {/* Список треков с тач-зонами для мобилок */}
+              <ul className={`divide-y divide-[#333333]/30 ${isMobileMode ? 'flex-1 overflow-y-auto' : 'max-h-[380px] overflow-y-auto'
+                }`}>
                 {results.map((song) => {
                   const isActive = track.id === song.id
                   const isPlaying = isActive && playStatus
@@ -238,41 +248,39 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                     <li
                       key={song.id}
                       onClick={() => handlePlay(song)}
-                      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer group transition-colors ${
-                        isActive ? 'bg-[#1db954]/10' : 'hover:bg-[#333333]'
-                      }`}
+                      className={`flex items-center gap-3 px-3 py-3 sm:py-2.5 cursor-pointer group transition-colors ${isActive ? 'bg-[#1db954]/10' : 'hover:bg-[#333333] active:bg-[#3e3e3e]'
+                        }`}
                     >
-                      {/* Обкладинка + play overlay */}
-                      <div className="relative shrink-0 w-10 h-10">
+                      {/* Обложка */}
+                      <div className="relative shrink-0 w-11 h-11 sm:w-10 sm:h-10">
                         <img
                           src={song.image}
                           alt={song.name}
-                          className="w-10 h-10 rounded object-cover"
+                          className="w-full h-full rounded object-cover"
                           onError={(e) => {
-                            ;(e.target as HTMLImageElement).src =
+                            ; (e.target as HTMLImageElement).src =
                               'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="%23333"/></svg>'
                           }}
                         />
-                        <div className={`absolute inset-0 rounded flex items-center justify-center bg-black/50 transition-opacity ${
-                          isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                        }`}>
+                        <div className={`absolute inset-0 rounded flex items-center justify-center bg-black/50 transition-opacity ${isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}>
                           {isPlaying ? (
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-                              <rect x="3" y="4" width="4" height="16" rx="1"/>
-                              <rect x="10" y="4" width="4" height="16" rx="1"/>
-                              <rect x="17" y="4" width="4" height="16" rx="1"/>
+                              <rect x="3" y="4" width="4" height="16" rx="1" />
+                              <rect x="10" y="4" width="4" height="16" rx="1" />
+                              <rect x="17" y="4" width="4" height="16" rx="1" />
                             </svg>
                           ) : (
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
-                              <polygon points="5,3 19,12 5,21"/>
+                              <polygon points="5,3 19,12 5,21" />
                             </svg>
                           )}
                         </div>
                       </div>
 
-                      {/* Назва + виконавець */}
+                      {/* Текст */}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${isActive ? 'text-[#1db954]' : 'text-white'}`}>
+                        <p className={`text-sm font-semibold sm:font-medium truncate ${isActive ? 'text-[#1db954]' : 'text-white'}`}>
                           {song.name}
                         </p>
                         <p className="text-xs text-neutral-400 truncate">
@@ -283,26 +291,25 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                         </p>
                       </div>
 
-                      {/* Тривалість */}
+                      {/* Длительность */}
                       <span className="text-xs text-neutral-500 shrink-0 tabular-nums">
                         {song.duration}
                       </span>
 
-                      {/* Кнопка лайку */}
+                      {/* Кнопка лайка (увеличен размер тач-области) */}
                       <button
                         onClick={(e) => handleLike(e, String(song.id))}
-                        className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-all ${
-                          liked
+                        className={`shrink-0 w-9 h-9 sm:w-7 sm:h-7 flex items-center justify-center rounded-full transition-all ${liked
                             ? 'opacity-100'
-                            : 'opacity-0 group-hover:opacity-60 hover:opacity-100!'
-                        } ${isAnimating ? 'scale-125' : 'hover:scale-110'}`}
+                            : 'opacity-60 sm:opacity-0 sm:group-hover:opacity-60 hover:opacity-100!'
+                          } ${isAnimating ? 'scale-125' : 'hover:scale-110 active:scale-90'}`}
                         aria-label={liked ? t('removeFromFavorites') : t('addToFavorites')}
                       >
                         <svg
-                          width="15" height="15" viewBox="0 0 24 24"
+                          width="16" height="16" viewBox="0 0 24 24"
                           fill={liked ? '#1db954' : 'none'}
                           stroke={liked ? '#1db954' : '#b3b3b3'}
-                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                          strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
                           className="transition-all duration-200"
                         >
                           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -313,15 +320,15 @@ export default function SearchBar({ onClose }: SearchBarProps) {
                 })}
               </ul>
 
-              {/* Посилання на повну сторінку пошуку */}
+              {/* Ссылка на полную страницу результатов */}
               <div
                 onClick={goToSearchPage}
-                className="px-4 py-2.5 border-t border-[#3e3e3e] flex items-center justify-between cursor-pointer hover:bg-[#333] transition-colors group"
+                className="px-4 py-3 sm:py-2.5 border-t border-[#3e3e3e] flex items-center justify-between cursor-pointer hover:bg-[#333] active:bg-[#3e3e3e] transition-colors group shrink-0"
               >
-                <p className="text-xs text-neutral-400 group-hover:text-white transition-colors">
+                <p className="text-xs text-neutral-400 group-hover:text-white transition-colors truncate pr-2">
                   {t('searchShowAll').replace('{query}', query.trim())}
                 </p>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </div>

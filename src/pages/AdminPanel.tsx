@@ -105,7 +105,7 @@ function ConfirmModal({
 }) {
   const { t } = useLanguage()
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="bg-[#282828] rounded-xl p-6 w-full max-w-sm shadow-2xl">
         <p className="text-white font-semibold text-base mb-6">{title}</p>
         <div className="flex gap-3 justify-end">
@@ -899,12 +899,12 @@ export default function AdminPanel() {
   return (
     <div className="pt-2 sm:pt-4 flex flex-col gap-6 min-h-full">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">{t('adminPanelTitle' as any)}</p>
           <h1 className="text-2xl sm:text-3xl font-black text-white">{t('adminContentManagement' as any)}</h1>
         </div>
-        <div className="flex items-center gap-2 bg-[#1db954]/10 border border-[#1db954]/30 rounded-full px-3 py-1.5">
+        <div className="flex items-center gap-2 bg-[#1db954]/10 border border-[#1db954]/30 rounded-full px-3 py-1.5 self-start sm:self-auto shrink-0">
           <span className="w-2 h-2 rounded-full bg-[#1db954] animate-pulse shrink-0" />
           <span className="text-[#1db954] text-xs font-semibold">{user.username}</span>
         </div>
@@ -927,13 +927,13 @@ export default function AdminPanel() {
       </div>
 
       {/* ── Tabs & Actions ── */}
-      <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-        <div className="flex bg-[#181818] rounded-full p-1 gap-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
+        <div className="flex bg-[#181818] rounded-full p-1 gap-1 overflow-x-auto no-scrollbar max-w-full">
           {['albums', 'songs', 'users', 'musicians'].map((tabKey) => (
             <button
               key={tabKey}
               onClick={() => setTab(tabKey as Tab)}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap ${
                 tab === tabKey ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
@@ -948,7 +948,7 @@ export default function AdminPanel() {
         {tab === 'albums' && (
           <button
             onClick={() => setAlbumModal({ mode: 'create' })}
-            className="px-4 py-2 bg-[#1db954] hover:bg-[#1ed760] text-black font-bold text-xs rounded-full transition flex items-center gap-1.5"
+            className="px-4 py-2 bg-[#1db954] hover:bg-[#1ed760] text-black font-bold text-xs rounded-full transition flex items-center justify-center gap-1.5 w-full sm:w-auto"
           >
             {t('adminAddAlbum' as any)}
           </button>
@@ -956,7 +956,7 @@ export default function AdminPanel() {
         {tab === 'songs' && (
           <button
             onClick={() => setSongModal({ mode: 'create' })}
-            className="px-4 py-2 bg-[#1db954] hover:bg-[#1ed760] text-black font-bold text-xs rounded-full transition flex items-center gap-1.5"
+            className="px-4 py-2 bg-[#1db954] hover:bg-[#1ed760] text-black font-bold text-xs rounded-full transition flex items-center justify-center gap-1.5 w-full sm:w-auto"
           >
             {t('adminAddSong' as any)}
           </button>

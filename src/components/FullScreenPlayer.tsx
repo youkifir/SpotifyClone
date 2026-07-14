@@ -3,6 +3,7 @@ import { assets } from '../assets/assets'
 import { usePlayer } from '../context/usePlayer'
 import { useLyrics } from '../hooks/useLyrics'
 import { useActiveLyricIndex } from '../hooks/useActiveLyricIndex'
+import { useLanguage } from '../context/LanguageContext'
 
 const formatTime = ({ minute, second }: { minute: number; second: number }) =>
   `${minute}:${second.toString().padStart(2, '0')}`
@@ -32,6 +33,8 @@ export const FullScreenPlayer: React.FC = () => {
     volume,
     changeVolume,
   } = usePlayer()
+
+  const { t } = useLanguage()
 
   const seekBgRef = useRef<HTMLDivElement>(null)
   const mobileSeekBgRef = useRef<HTMLDivElement>(null)
@@ -253,10 +256,10 @@ export const FullScreenPlayer: React.FC = () => {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2">
           <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
         </svg>
-        <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Текст пісні</h2>
-        {lrcLoading && <span className="ml-2 text-xs text-neutral-500 animate-pulse">Завантаження...</span>}
-        {hasLrc && !isItunes && <span className="ml-2 text-xs text-[#1db954] font-semibold">● синхронізовано</span>}
-        {isItunes && <span className="ml-2 text-xs text-neutral-500">прев'ю · синхронізація недоступна</span>}
+        <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">{t('playerLyricsTitle' as any)}</h2>
+        {lrcLoading && <span className="ml-2 text-xs text-neutral-500 animate-pulse">{t('loading' as any)}</span>}
+        {hasLrc && !isItunes && <span className="ml-2 text-xs text-[#1db954] font-semibold">{t('playerSynced' as any)}</span>}
+        {isItunes && <span className="ml-2 text-xs text-neutral-500">{t('playerPreviewNoSync' as any)}</span>}
       </div>
 
       <div
@@ -337,7 +340,7 @@ export const FullScreenPlayer: React.FC = () => {
         {!lrcLoading && !hasLrc && (staticStatus === 'not_found' || staticStatus === 'error') && (
           <div className="flex flex-col items-center md:items-start gap-3 mt-4">
             <p className="text-xl sm:text-2xl font-black text-neutral-300 text-center md:text-left">
-              Текст пісні для цього треку відсутній.
+              {t('playerNoLyrics' as any)}
             </p>
           </div>
         )}
@@ -355,7 +358,7 @@ export const FullScreenPlayer: React.FC = () => {
           onClick={() => setIsFullScreen(false)}
           className="text-neutral-400 hover:text-white hover:scale-105 transition flex items-center gap-2 font-medium text-sm"
         >
-          ✕ <span className="hidden sm:inline">Згорнути</span>
+          ✕ <span className="hidden sm:inline">{t('playerCollapse' as any)}</span>
         </button>
 
         <div className="flex md:hidden bg-neutral-900 rounded-full p-1 border border-neutral-800">
@@ -363,17 +366,17 @@ export const FullScreenPlayer: React.FC = () => {
             onClick={() => setMobileTab('player')}
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${mobileTab === 'player' ? 'bg-white text-black' : 'text-neutral-400'}`}
           >
-            Трек
+            {t('playerTrackTab' as any)}
           </button>
           <button
             onClick={() => setMobileTab('lyrics')}
             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${mobileTab === 'lyrics' ? 'bg-white text-black' : 'text-neutral-400'}`}
           >
-            Текст
+            {t('playerLyricsTab' as any)}
           </button>
         </div>
 
-        <p className="hidden md:block text-xs uppercase tracking-widest text-neutral-400 font-bold">Зараз грає</p>
+        <p className="hidden md:block text-xs uppercase tracking-widest text-neutral-400 font-bold">{t('nowPlaying' as any)}</p>
         <div className="w-16 hidden md:block"></div>
       </div>
 
@@ -404,9 +407,9 @@ export const FullScreenPlayer: React.FC = () => {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b3b3b3" strokeWidth="2">
               <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
             </svg>
-            <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Текст пісні</h2>
-            {lrcLoading && <span className="ml-2 text-xs text-neutral-500 animate-pulse">Завантаження...</span>}
-            {hasLrc && <span className="ml-2 text-xs text-[#1db954] font-semibold">● синхронізовано</span>}
+            <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">{t('playerLyricsTitle' as any)}</h2>
+            {lrcLoading && <span className="ml-2 text-xs text-neutral-500 animate-pulse">{t('loading' as any)}</span>}
+            {hasLrc && <span className="ml-2 text-xs text-[#1db954] font-semibold">{t('playerSynced' as any)}</span>}
           </div>
 
           <div
@@ -483,7 +486,7 @@ export const FullScreenPlayer: React.FC = () => {
 
             {!lrcLoading && !hasLrc && (staticStatus === 'not_found' || staticStatus === 'error') && (
               <p className="text-lg font-bold text-neutral-400 mt-2">
-                Текст пісні для цього треку відсутній.
+                {t('playerNoLyrics' as any)}
               </p>
             )}
           </div>

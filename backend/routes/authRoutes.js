@@ -3,13 +3,15 @@ const router = express.Router();
 const {
   register, login, getMe, updateProfile, updateAvatar,
   getLikedSongs, toggleLike,
-  getUsers, deleteUser,
+  getUsers, deleteUser, googleLogin, facebookLogin
 } = require('../controllers/authController');
 const { protect, isAdmin } = require('../middleware/auth');
 const User = require('../models/User');
 
 router.post('/register', register);
 router.post('/login', login);
+router.post('/google', googleLogin);
+router.post('/facebook', facebookLogin);
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.put('/avatar', protect, updateAvatar);
@@ -53,9 +55,9 @@ router.delete('/users/:id', protect, isAdmin, deleteUser);
 // GET /api/auth/history — історія прослуховування
 router.get('/history', protect, async (req, res, next) => {
   try {
-    const page  = Math.max(1, parseInt(req.query.page)  || 1)
+    const page = Math.max(1, parseInt(req.query.page) || 1)
     const limit = Math.min(50, parseInt(req.query.limit) || 20)
-    const skip  = (page - 1) * limit
+    const skip = (page - 1) * limit
 
     const user = await User.findById(req.user.id)
       .select('listenHistory')
@@ -70,12 +72,12 @@ router.get('/history', protect, async (req, res, next) => {
     const page_data = history.slice(skip, skip + limit)
 
     // Статистика
-    const allSongs  = history.map(h => h.song)
+    const allSongs = history.map(h => h.song)
     const songCount = {}
     const artistCount = {}
     allSongs.forEach(s => {
       if (!s) return
-      songCount[s._id]   = (songCount[s._id]   || 0) + 1
+      songCount[s._id] = (songCount[s._id] || 0) + 1
       artistCount[s.artist] = (artistCount[s.artist] || 0) + 1
     })
     const topSongs = Object.entries(songCount)
@@ -92,7 +94,7 @@ router.get('/history', protect, async (req, res, next) => {
         totalPages: Math.ceil(total / limit),
         currentPage: page,
         totalListens: total,
-        uniqueSongs:   new Set(allSongs.map(s => s?._id)).size,
+        uniqueSongs: new Set(allSongs.map(s => s?._id)).size,
         uniqueArtists: new Set(allSongs.map(s => s?.artist)).size,
         topSongs,
         topArtists,

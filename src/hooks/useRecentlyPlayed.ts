@@ -33,6 +33,16 @@ export function addRecentlyPlayed(userId: string | undefined, item: RecentlyPlay
   }
 }
 
+// Удалить конкретный элемент (вызывать при удалении плейлиста/альбома)
+export function removeRecentlyPlayedItem(userId: string | undefined, id: string): void {
+  try {
+    const updated = getRecentlyPlayed(userId).filter((i) => i.id !== id)
+    localStorage.setItem(getKey(userId), JSON.stringify(updated))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function clearRecentlyPlayed(userId?: string): void {
   localStorage.removeItem(getKey(userId))
 }

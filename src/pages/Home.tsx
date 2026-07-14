@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { getRecentlyPlayed, type RecentlyPlayedItem } from '../hooks/useRecentlyPlayed'
+import { getRecentlyPlayed, removeRecentlyPlayedItem, type RecentlyPlayedItem } from '../hooks/useRecentlyPlayed'
 import { useAuth } from '../context/AuthContext'
 import Card from '../components/Card'
 import CollageCard from '../components/CollageCard'
@@ -23,7 +23,7 @@ function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
+      ;[a[i], a[j]] = [a[j], a[i]]
   }
   return a
 }
@@ -39,14 +39,14 @@ interface ScrollSectionProps {
   onRetry?: () => void
 }
 
-function ScrollSection({ 
-  title, 
-  children, 
-  isEmpty, 
-  emptyText, 
-  isLoading, 
-  error, 
-  onRetry 
+function ScrollSection({
+  title,
+  children,
+  isEmpty,
+  emptyText,
+  isLoading,
+  error,
+  onRetry
 }: ScrollSectionProps) {
   const { t } = useLanguage()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -88,7 +88,7 @@ function ScrollSection({
               ${canLeft ? 'bg-[#3e3e3e] hover:bg-[#4e4e4e] hover:scale-105 text-white cursor-pointer shadow-md' : 'bg-[#1a1a1a] text-neutral-700 cursor-default opacity-50'}`}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"/>
+              <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
           <button
@@ -98,7 +98,7 @@ function ScrollSection({
               ${canRight ? 'bg-[#3e3e3e] hover:bg-[#4e4e4e] hover:scale-105 text-white cursor-pointer shadow-md' : 'bg-[#1a1a1a] text-neutral-700 cursor-default opacity-50'}`}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
+              <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
         </div>
@@ -159,7 +159,7 @@ function ArtistCard({ artist }: { artist: Artist }) {
         <div className="absolute inset-0 rounded-full bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="w-10 h-10 rounded-full bg-[#1db954] shadow-lg flex items-center justify-center translate-y-1 group-hover:translate-y-0 transition-transform duration-200">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="black">
-              <polygon points="5,3 19,12 5,21"/>
+              <polygon points="5,3 19,12 5,21" />
             </svg>
           </div>
         </div>
@@ -276,11 +276,56 @@ function Home() {
     }
   }, [songsData])
 
-  // Обновляем список недавно прослушанных
+  // Обновляем список недавно прослушанных + чистим удалённые плейлисты/альбомы
   useEffect(() => {
-    const items = getRecentlyPlayed(user?.id).slice(0, 8)
-    setRecentItems(items)
-  }, [user?.id])
+    let cancelled = false
+
+    async function loadAndValidate() {
+      const items = getRecentlyPlayed(user?.id)
+      if (items.length === 0) {
+        if (!cancelled) setRecentItems([])
+        return
+      }
+
+      const checks = await Promise.all(
+        items.map(async (item) => {
+          // Liked Songs и артисты не удаляются как отдельные сущности — считаем валидными
+          if (item.isLikedSongs || item.type === 'artist') {
+            return { item, valid: true }
+          }
+          try {
+            const endpoint = item.type === 'playlist' ? 'playlists' : 'albums'
+            const res = await fetch(`${API}/api/${endpoint}/${item.id}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            })
+            // 404 / 410 — плейлист удалён
+            if (res.status === 404 || res.status === 410) {
+              return { item, valid: false }
+            }
+            return { item, valid: true }
+          } catch {
+            // сетевая ошибка / офлайн — не удаляем, чтобы не потерять валидные записи
+            return { item, valid: true }
+          }
+        })
+      )
+
+      if (cancelled) return
+
+      const valid = checks.filter((c) => c.valid).map((c) => c.item)
+      const removedIds = checks.filter((c) => !c.valid).map((c) => c.item.id)
+
+      // persist: убираем протухшие записи из localStorage
+      removedIds.forEach((id) => removeRecentlyPlayedItem(user?.id, id))
+
+      setRecentItems(valid.slice(0, 8))
+    }
+
+    loadAndValidate()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, token])
 
   return (
     <div className="pt-2 sm:pt-4 flex flex-col gap-6 sm:gap-8">
@@ -310,7 +355,7 @@ function Home() {
                 ) : (
                   <div className="w-16 h-16 shrink-0 bg-[#282828] flex items-center justify-center">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="#b3b3b3">
-                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                     </svg>
                   </div>
                 )}
@@ -381,9 +426,9 @@ function Home() {
       </ScrollSection>
 
       {/* Раздел исполнителей */}
-      <ScrollSection 
-        title={t('popularArtists' as any)} 
-        isEmpty={artists.length === 0} 
+      <ScrollSection
+        title={t('popularArtists' as any)}
+        isEmpty={artists.length === 0}
         emptyText={t('noArtists' as any)}
         isLoading={artistsLoading}
         error={artistsError}
