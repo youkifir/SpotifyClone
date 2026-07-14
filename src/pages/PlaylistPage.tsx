@@ -154,7 +154,7 @@ function PlaylistPage() {
           name: loadedPlaylist.name,
           desc: loadedPlaylist.isLikedSongs
             ? ''
-            : `${t('playlistLabel2')} • ${loadedPlaylist.songs?.length ?? 0} ${loadedPlaylist.songs?.length === 1 ? 'трек' : 'треків'}`,
+            : `${t('playlistLabel2')} • ${loadedPlaylist.songs?.length ?? 0} ${loadedPlaylist.songs?.length === 1 ? t('playlistTrackCount1' as any) : t('playlistTracksCount' as any)}`,
           image: loadedPlaylist.image ? resolveUrl(loadedPlaylist.image) : '',
           isLikedSongs: !!loadedPlaylist.isLikedSongs,
         })
@@ -319,7 +319,7 @@ function PlaylistPage() {
 
   if (wasDeleted) return <Navigate to="/" replace />
   if (loading) return <LoadingScreen message="Завантаження плейлиста…" />
-  if (offline) return <ErrorScreen message="Немає з'єднання з сервером" onRetry={() => fetchPlaylist()} />
+  if (offline) return <ErrorScreen message={t('offlineError' as any)} onRetry={() => fetchPlaylist()} />
   if (fetchError) return <ErrorScreen message={fetchError} onRetry={() => fetchPlaylist()} />
   if (notFound || !playlist) return <Navigate to="/" replace />
 
@@ -333,7 +333,7 @@ function PlaylistPage() {
         <button
           onClick={() => !previewData && setIsEditOpen(true)}
           className={`w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden relative ${previewData ? 'cursor-default' : 'group'}`}
-          title={previewData ? '' : 'Редагувати плейлист'}
+          title={previewData ? '' : t('playlistEditTitle' as any)}
         >
           <img
             src={playlist.image ? resolveUrl(playlist.image) : assets.stack_icon}
@@ -342,14 +342,14 @@ function PlaylistPage() {
           />
           {!previewData && (
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-semibold">
-              Редагувати
+              {t('playlistEditHover' as any)}
             </div>
           )}
         </button>
         <div className="text-center sm:text-left min-w-0">
-          <p className="text-xs font-semibold uppercase text-neutral-200">Плейлист</p>
+          <p className="text-xs font-semibold uppercase text-neutral-200">{t('playlistLabel2')}</p>
           <h1 className="text-3xl sm:text-4xl md:text-6xl font-black text-white my-2 truncate">{playlist.name}</h1>
-          <p className="text-neutral-300 text-sm">{playlist.songs.length} треків</p>
+          <p className="text-neutral-300 text-sm">{playlist.songs.length} {playlist.songs.length === 1 ? t('playlistTrackCount1' as any) : t('playlistTracksCount' as any)}</p>
         </div>
       </div>
 
@@ -370,14 +370,14 @@ function PlaylistPage() {
           onClick={() => setIsAddOpen(true)}
           className={`bg-transparent border border-zinc-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:border-white transition-colors ${previewData ? 'hidden' : ''}`}
         >
-          + Додати треки
+          + {t('playlistAddTracksBtn' as any)}
         </button>
 
         <button
           onClick={() => setIsEditOpen(true)}
           className={`text-zinc-400 hover:text-white text-sm font-semibold transition-colors ${previewData ? 'hidden' : ''}`}
         >
-          Редагувати
+          {t('playlistEditBtn' as any)}
         </button>
 
         <button
@@ -387,7 +387,7 @@ function PlaylistPage() {
               : 'bg-transparent border-zinc-600 text-white hover:border-white'
             }`}
         >
-          {copied ? '✓ Скопійовано!' : 'Поділитися'}
+          {copied ? t('playlistCopied' as any) : t('playlistShareBtn' as any)}
         </button>
 
         <div className="flex-1 min-w-2" />
@@ -396,7 +396,7 @@ function PlaylistPage() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Пошук у плейлисті"
+          placeholder={t('playlistSearchPlaceholder' as any)}
           className="bg-[#242424] border border-zinc-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 transition-colors w-full sm:w-56"
         />
 
@@ -406,15 +406,15 @@ function PlaylistPage() {
             onChange={(e) => setSortKey(e.target.value as SortKey)}
             className="bg-[#242424] border border-zinc-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 transition-colors"
           >
-            <option value="dateAdded">Дата додавання</option>
-            <option value="name">Назва</option>
-            <option value="artist">Виконавець</option>
-            <option value="album">Альбом</option>
-            <option value="duration">Тривалість</option>
+            <option value="dateAdded">{t('playlistSortDateAdded' as any)}</option>
+            <option value="name">{t('playlistSortName' as any)}</option>
+            <option value="artist">{t('playlistSortArtist' as any)}</option>
+            <option value="album">{t('playlistSortAlbum' as any)}</option>
+            <option value="duration">{t('playlistSortDuration' as any)}</option>
           </select>
           <button
             onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-            title={sortDir === 'asc' ? 'За зростанням' : 'За спаданням'}
+            title={sortDir === 'asc' ? t('playlistSortAsc' as any) : t('playlistSortDesc' as any)}
             className="w-9 h-9 shrink-0 flex items-center justify-center rounded-md bg-[#242424] border border-zinc-700 text-white hover:border-zinc-500 transition-colors"
           >
             {sortDir === 'asc' ? '↑' : '↓'}
@@ -426,23 +426,23 @@ function PlaylistPage() {
       <div className="px-1 sm:px-2">
         {playlist.songs.length === 0 ? (
           <div className="text-center py-12 text-zinc-400">
-            <p className="mb-4">У цьому плейлисті поки немає треків</p>
+            <p className="mb-4">{t('playlistEmptyText' as any)}</p>
             <button
               onClick={() => setIsAddOpen(true)}
               className="bg-white text-black text-sm font-bold px-5 py-2 rounded-full hover:scale-105 transition"
             >
-              Додати треки
+              {t('playlistAddTracksBtn' as any)}
             </button>
           </div>
         ) : visibleSongs.length === 0 ? (
-          <p className="text-zinc-400 text-sm px-4 py-8 text-center">Нічого не знайдено за запитом «{search}»</p>
+          <p className="text-zinc-400 text-sm px-4 py-8 text-center">{t('playlistSearchEmpty' as any)} «{search}»</p>
         ) : (
           <>
             <div className="grid grid-cols-[16px_4fr_2fr_2fr_auto_minmax(56px,1fr)] gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-neutral-400 text-sm border-b border-[#2a2a2a]">
               <span>#</span>
-              <span>Назва</span>
-              <span className="hidden sm:block">Виконавець</span>
-              <span className="hidden md:block">Альбом</span>
+              <span>{t('playlistColName' as any)}</span>
+              <span className="hidden sm:block">{t('playlistColArtist' as any)}</span>
+              <span className="hidden md:block">{t('playlistColAlbum' as any)}</span>
               <span></span>
               <img src={assets.clock_icon} alt="Тривалість" className="w-4 h-4 justify-self-end" />
             </div>
