@@ -22,9 +22,9 @@ export interface Playlist {
   createdAt?: string
 }
 
-interface FollowedArtist { 
-  name: string 
-  photo: string | null 
+interface FollowedArtist {
+  name: string
+  photo: string | null
 }
 
 interface SidebarProps {
@@ -33,8 +33,6 @@ interface SidebarProps {
   collapsed?: boolean
   onToggleCollapse?: () => void
 }
-
-// ── Допоміжні функції (Винесено вгору, щоб уникнути TDZ та зайвих перевизначень) ──
 
 const getOwnerName = (playlist: Playlist): string => {
   if (!playlist.owner) return ''
@@ -57,39 +55,58 @@ const resolveArtistImage = (photo: string | null) => {
 
 type SortOrder = 'recent' | 'name' | 'artist' | 'created'
 
+// Tooltip для collapsed режиму
+const CollapsedTooltip: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="relative group/tip flex justify-center">
+    {children}
+    <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 z-[999]
+      bg-[#282828] text-white text-xs font-semibold px-2.5 py-1.5 rounded-md shadow-xl
+      whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150
+      border border-white/10">
+      {label}
+      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#282828]" />
+    </div>
+  </div>
+)
+
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
   const { token } = useAuth()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   const [tab, setTab] = useState<'playlists' | 'artists'>('playlists')
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent')
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const sortMenuRef = useRef<HTMLDivElement>(null)
 
-  // ── Playlists ──────────────────────────────────────────────
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [sharedPlaylists, setSharedPlaylists] = useState<Playlist[]>([])
   const [loading, setLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // ── Artists ────────────────────────────────────────────────
   const [followedArtists, setFollowedArtists] = useState<FollowedArtist[]>([])
   const [artistsLoading, setArtistsLoading] = useState(false)
 
-  // Завантаження плейлистів
-  const fetchPlaylists = useCallback(async (silent = false) => {
-    if (!token) {
-      setPlaylists([])
-      return
+  const getSongsTranslation = useCallback((count: number): string => {
+    const mod10 = count % 10
+    const mod100 = count % 100
+    if (language === 'uk' || language === 'ru') {
+      if (mod100 >= 11 && mod100 <= 19) return t('songsPlural5plus')
+      if (mod10 === 1) return t('songsPlural1')
+      if (mod10 >= 2 && mod10 <= 4) return t('songsPlural2to4')
+      return t('songsPlural5plus')
     }
+    return count === 1 ? t('songsPlural1') : t('songsPlural2to4')
+  }, [language, t])
+
+  const fetchPlaylists = useCallback(async (silent = false) => {
+    if (!token) { setPlaylists([]); return }
     if (!silent) setLoading(true)
     try {
       const res = await fetch(`${API_BASE}/playlists/my`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
         const list: Playlist[] = Array.isArray(data) ? data : (data.data || [])
-        // Liked Songs завжди вверху за замовчуванням
         list.sort((a, b) => (b.isLikedSongs ? 1 : 0) - (a.isLikedSongs ? 1 : 0))
         setPlaylists(list)
       }
@@ -100,63 +117,49 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     }
   }, [token])
 
-  // Завантаження спільних плейлистів
   const fetchSharedPlaylists = useCallback(async () => {
-    if (!token) { 
-      setSharedPlaylists([])
-      return 
-    }
+    if (!token) { setSharedPlaylists([]); return }
     try {
       const res = await fetch(`${API_BASE}/playlists/shared`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
         setSharedPlaylists(Array.isArray(data) ? data : (data.data || []))
       }
-    } catch (e) { 
-      console.error('Sidebar: помилка завантаження спільних плейлистів', e) 
+    } catch (e) {
+      console.error('Sidebar: помилка завантаження спільних плейлистів', e)
     }
   }, [token])
 
-  // Завантаження підписок на виконавців
   const fetchFollowedArtists = useCallback(async () => {
-    if (!token) { 
-      setFollowedArtists([])
-      return 
-    }
+    if (!token) { setFollowedArtists([]); return }
     setArtistsLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/auth/artists/following`, { 
-        headers: { Authorization: `Bearer ${token}` } 
-      })
+      const res = await fetch(`${API_BASE}/auth/artists/following`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
         setFollowedArtists(Array.isArray(data) ? data : (data.data || []))
+      } else {
+        setFollowedArtists([])
       }
     } catch (e) {
       console.error('Sidebar: помилка завантаження підписок', e)
+      setFollowedArtists([])
     } finally {
       setArtistsLoading(false)
     }
   }, [token])
 
-  // Первинний запит даних при зміні токена або авторизації
-  useEffect(() => { 
+  useEffect(() => {
     fetchPlaylists()
     fetchSharedPlaylists()
     fetchFollowedArtists()
   }, [fetchPlaylists, fetchSharedPlaylists, fetchFollowedArtists])
 
-  // Слухачі глобальних подій (лайки, додавання треків, підписки)
   useEffect(() => {
     const unsubLike = onLikeChanged(() => fetchPlaylists(true))
     const unsubAdd = onPlaylistSongAdded(() => fetchPlaylists(true))
-    
-    // Автоматично оновлюємо підписки, коли користувач натискає "Follow / Unfollow" на сторінці артиста
-    const handleFollowChange = () => {
-      fetchFollowedArtists()
-    }
+    const handleFollowChange = () => fetchFollowedArtists()
     window.addEventListener('follow-changed', handleFollowChange)
-
     return () => {
       unsubLike()
       unsubAdd()
@@ -164,7 +167,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     }
   }, [fetchPlaylists, fetchFollowedArtists])
 
-  // Закриття меню сортування при кліку поза областю
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
@@ -175,33 +177,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Сортування плейлистів
   const sortedPlaylistsList = useMemo(() => {
     if (!playlists.length) return []
-
     const likedSongs = playlists.filter(p => p.isLikedSongs)
     const restPlaylists = playlists.filter(p => !p.isLikedSongs)
-
     const sorted = [...restPlaylists].sort((a, b) => {
       switch (sortOrder) {
-        case 'name':
-          return a.name.localeCompare(b.name)
-        case 'artist': {
-          const ownerA = getOwnerName(a)
-          const ownerB = getOwnerName(b)
-          return ownerA.localeCompare(ownerB)
-        }
+        case 'name': return a.name.localeCompare(b.name)
+        case 'artist': return getOwnerName(a).localeCompare(getOwnerName(b))
         case 'created': {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-          return dateB - dateA
+          const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return dB - dA
         }
-        case 'recent':
-        default:
-          return b._id.localeCompare(a._id)
+        default: return b._id.localeCompare(a._id)
       }
     })
-
     return [...likedSongs, ...sorted]
   }, [playlists, sortOrder])
 
@@ -229,46 +220,73 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     setDeletingId(playlistId)
     try {
       const response = await fetch(`${API_BASE}/playlists/${playlistId}`, {
-        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
       })
       if (response.ok) setPlaylists((prev) => prev.filter((p) => p._id !== playlistId))
-    } catch (error) { 
-      console.error('Помилка видалення плейлиста:', error) 
-    } finally { 
-      setDeletingId(null) 
+    } catch (error) {
+      console.error('Помилка видалення плейлиста:', error)
+    } finally {
+      setDeletingId(null)
     }
   }
 
-  const PlaylistItem = ({ playlist, isShared = false }: { playlist: Playlist; isShared?: boolean }) => {
+  // ─── Thumbnail плейлиста ───────────────────────────────────────────────────
+  const PlaylistThumb = ({ playlist, size = 'md' }: { playlist: Playlist; size?: 'sm' | 'md' }) => {
     const img = resolveImage(playlist)
+    const cls = size === 'sm' ? 'w-9 h-9' : 'w-11 h-11'
+
+    if (playlist.isLikedSongs) {
+      return (
+        <div
+          className={`${cls} rounded-md shrink-0 flex items-center justify-center shadow-md`}
+          style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          </svg>
+        </div>
+      )
+    }
+    if (img && img !== assets.stack_icon) {
+      return <img className={`${cls} rounded-md object-cover shrink-0 shadow-md`} src={img} alt={playlist.name} />
+    }
+    return (
+      <div className={`${cls} rounded-md shrink-0 bg-[#2a2a2a] flex items-center justify-center shadow-md`}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#a3a3a3">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+        </svg>
+      </div>
+    )
+  }
+
+  // ─── Елемент плейлиста (розгорнутий) ──────────────────────────────────────
+  const PlaylistItem = ({ playlist, isShared = false }: { playlist: Playlist; isShared?: boolean }) => {
+    const songCount = playlist.songs?.length ?? 0
+    const songsWord = getSongsTranslation(songCount)
+    const displayName = playlist.isLikedSongs ? t('likedSongsTitle') : playlist.name
+
+    let subtext = t('playlistLabel')
+    if (playlist.isLikedSongs) {
+      subtext = `${t('playlistLabel')} • ${songCount} ${songsWord}`
+    } else {
+      const creator = getOwnerName(playlist)
+      if (creator) subtext = `${t('playlistLabel')} • ${creator}`
+    }
+
     return (
       <Link
-        key={playlist._id}
         to={`/playlist/${playlist._id}`}
         onClick={onClose}
-        className="flex items-center gap-3 p-2 rounded-md hover:bg-[#1a1a1a] transition-colors group cursor-pointer"
+        className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer"
       >
-        {playlist.isLikedSongs ? (
-          <div className="w-12 h-12 rounded shrink-0 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #4b2f8a 0%, #1d89e4 100%)' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-          </div>
-        ) : img ? (
-          <img className="w-12 h-12 rounded object-cover shrink-0" src={img} alt={playlist.name} />
-        ) : (
-          <div className="w-12 h-12 rounded shrink-0 bg-[#282828] flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="#b3b3b3">
-              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-            </svg>
-          </div>
-        )}
+        <PlaylistThumb playlist={playlist} />
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors">{playlist.name}</p>
-          <p className="text-xs text-neutral-400 truncate">
-            {isShared && getOwnerName(playlist) ? `${getOwnerName(playlist)} • ` : ''}
-            Плейлист • {playlist.songs?.length ?? 0} {playlist.songs?.length === 1 ? 'пісня' : 'пісень'}
+          <p className="font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors leading-tight">
+            {displayName}
+          </p>
+          <p className="text-xs text-neutral-500 truncate mt-0.5 leading-tight">
+            {subtext}
           </p>
         </div>
         {!isShared && !playlist.isLikedSongs && (
@@ -276,9 +294,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
             onClick={(e) => handleDelete(e, playlist._id)}
             disabled={deletingId === playlist._id}
             aria-label="Видалити плейлист"
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-zinc-500 hover:text-red-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition disabled:opacity-50"
+            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-zinc-600
+              hover:text-red-400 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-30"
           >
-            <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 24 24" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="2">
               <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
@@ -287,6 +306,149 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     )
   }
 
+  // ─── Collapsed: елемент плейлиста (іконка + tooltip) ──────────────────────
+  const CollapsedPlaylistItem = ({ playlist }: { playlist: Playlist }) => {
+    const displayName = playlist.isLikedSongs ? t('likedSongsTitle') : playlist.name
+    return (
+      <CollapsedTooltip label={displayName}>
+        <Link
+          to={`/playlist/${playlist._id}`}
+          onClick={onClose}
+          className="flex items-center justify-center w-11 h-11 rounded-md hover:scale-105 transition-transform"
+        >
+          <PlaylistThumb playlist={playlist} size="md" />
+        </Link>
+      </CollapsedTooltip>
+    )
+  }
+
+  // ─── Collapsed: елемент виконавця ─────────────────────────────────────────
+  const CollapsedArtistItem = ({ name, photo }: { name: string; photo: string | null }) => {
+    const artistImg = resolveArtistImage(photo)
+    return (
+      <CollapsedTooltip label={name}>
+        <Link
+          to={`/artist/${encodeURIComponent(name)}`}
+          onClick={onClose}
+          className="flex items-center justify-center hover:scale-105 transition-transform"
+        >
+          {artistImg
+            ? <img src={artistImg} alt={name} className="w-11 h-11 rounded-full object-cover shadow-md ring-2 ring-transparent hover:ring-[#1db954] transition-all" />
+            : <div className="w-11 h-11 rounded-full bg-[#2a2a2a] flex items-center justify-center text-lg shadow-md">🎤</div>
+          }
+        </Link>
+      </CollapsedTooltip>
+    )
+  }
+
+  // ─── Collapsed sidebar ─────────────────────────────────────────────────────
+  if (collapsed) {
+    return (
+      <>
+        <div
+          style={{ width: '72px' }}
+          className="fixed lg:static top-0 left-0 h-full flex flex-col text-white shrink-0 z-50 lg:z-auto"
+        >
+          <div className="bg-[#121212] h-full lg:rounded-lg flex flex-col items-center py-3 gap-1 overflow-hidden">
+
+            {/* Заголовок: іконка бібліотеки + кнопка розгорнути */}
+            <div className="flex flex-col items-center gap-2 pb-2 border-b border-white/5 w-full px-2">
+              <CollapsedTooltip label={t('yourLibrary')}>
+                <button
+                  onClick={onToggleCollapse}
+                  className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors group/lib"
+                >
+                  <img
+                    src={assets.stack_icon}
+                    alt="Library"
+                    className="w-5 h-5 opacity-70 group-hover/lib:opacity-100 transition-opacity"
+                  />
+                </button>
+              </CollapsedTooltip>
+
+              <CollapsedTooltip label={t('createPlaylist')}>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors group/plus"
+                >
+                  <img
+                    src={assets.plus_icon}
+                    alt="Plus"
+                    className="w-5 h-5 opacity-70 group-hover/plus:opacity-100 transition-opacity"
+                  />
+                </button>
+              </CollapsedTooltip>
+            </div>
+
+            {/* Список плейлистів / виконавців */}
+            <div className="flex flex-col items-center gap-1.5 overflow-y-auto custom-scrollbar flex-1 w-full px-2 pt-1">
+              {!token ? null : tab === 'playlists' ? (
+                loading ? (
+                  <>
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="w-11 h-11 rounded-md bg-[#2a2a2a] animate-pulse shrink-0" />
+                    ))}
+                  </>
+                ) : (
+                  sortedPlaylistsList.map((playlist) => (
+                    <CollapsedPlaylistItem key={playlist._id} playlist={playlist} />
+                  ))
+                )
+              ) : (
+                artistsLoading ? (
+                  <>
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="w-11 h-11 rounded-full bg-[#2a2a2a] animate-pulse shrink-0" />
+                    ))}
+                  </>
+                ) : (
+                  followedArtists.map(({ name, photo }) => (
+                    <CollapsedArtistItem key={name} name={name} photo={photo} />
+                  ))
+                )
+              )}
+            </div>
+
+            {/* Кнопка tab toggle внизу */}
+            <div className="flex flex-col items-center gap-1 pt-2 border-t border-white/5 w-full px-2">
+              <CollapsedTooltip label={tab === 'playlists' ? t('sidebarTabArtists') : t('sidebarTabPlaylists')}>
+                <button
+                  onClick={() => setTab(tab === 'playlists' ? 'artists' : 'playlists')}
+                  className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors group/tab"
+                >
+                  {tab === 'playlists' ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                      className="text-neutral-400 group-hover/tab:text-white transition-colors">
+                      <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                      className="text-neutral-400 group-hover/tab:text-white transition-colors">
+                      <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </CollapsedTooltip>
+            </div>
+          </div>
+        </div>
+
+        <CreatePlaylistModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreated={handlePlaylistCreated} />
+        <ConfirmDialog
+          isOpen={!!confirmDeleteId}
+          title={t('deletePlaylistTitle')}
+          message={t('deletePlaylistConfirm')}
+          confirmText={t('deleteBtn')}
+          danger
+          loading={!!deletingId}
+          onConfirm={confirmDeletePlaylist}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      </>
+    )
+  }
+
+  // ─── Expanded sidebar ──────────────────────────────────────────────────────
   return (
     <>
       <div
@@ -295,109 +457,110 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
       />
 
       <div
-        style={{ width: collapsed ? '72px' : undefined }}
-        className={`fixed lg:static top-0 left-0 h-full flex flex-col text-white shrink-0 z-50 lg:z-auto transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} lg:w-[25%] w-[78%] max-w-70`}
+        className={`fixed lg:static top-0 left-0 h-full w-[78%] lg:w-full flex flex-col text-white shrink-0 z-50 lg:z-auto
+          transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         <div className="bg-[#121212] h-full lg:rounded-lg p-2 flex flex-col gap-2 overflow-hidden">
 
-          {/* ── Заголовок ── */}
-          <div className="p-4 flex items-center justify-between min-w-0">
-            <div
-              style={{ opacity: collapsed ? 0 : 1, width: collapsed ? 0 : undefined, overflow: 'hidden', pointerEvents: collapsed ? 'none' : undefined, transition: 'opacity 0.3s, width 0.3s', whiteSpace: 'nowrap' }}
-              className="flex items-center gap-3"
-            >
-              <img className="w-8 shrink-0" src={assets.stack_icon} alt="Library" />
-              <p className="font-semibold">{t('yourLibrary')}</p>
+          {/* Header */}
+          <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <img className="w-5 h-5 opacity-80" src={assets.stack_icon} alt="Library" />
+              <span className="font-bold text-sm text-white tracking-wide">{t('yourLibrary')}</span>
             </div>
-            <div style={{ margin: collapsed ? '0 auto' : undefined }} className="flex items-center gap-4 px-1 shrink-0">
-              <img
-                onClick={onToggleCollapse}
-                style={{ transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}
-                className="w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110"
-                src={assets.arrow_icon} alt="Arrow"
-                title={collapsed ? 'Розгорнути' : 'Згорнути'}
-              />
+            <div className="flex items-center gap-1">
               {tab === 'playlists' && (
-                <img
+                <button
                   onClick={() => setIsModalOpen(true)}
-                  className="w-5 cursor-pointer opacity-70 hover:opacity-100 hover:scale-110 transition"
-                  src={assets.plus_icon} alt="Створити плейлист" title="Створити плейлист"
-                />
+                  title={t('createPlaylist')}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors group/plus"
+                >
+                  <img src={assets.plus_icon} alt="Plus" className="w-4 h-4 opacity-60 group-hover/plus:opacity-100 transition-opacity" />
+                </button>
               )}
-              <button onClick={onClose} aria-label="Закрити бібліотеку"
-                className="lg:hidden w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-white hover:scale-110 transition text-lg leading-none">
+              <button
+                onClick={onToggleCollapse}
+                title="Згорнути"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors group/arr"
+              >
+                <img
+                  src={assets.arrow_icon}
+                  alt="Collapse"
+                  className="w-4 h-4 opacity-60 group-hover/arr:opacity-100 transition-opacity"
+                />
+              </button>
+              <button
+                onClick={onClose}
+                className="lg:hidden w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition text-base"
+              >
                 ✕
               </button>
             </div>
           </div>
 
-          {/* ── Вкладки Плейлисти / Виконавці ── */}
-          {!collapsed && (
-            <div className="flex gap-2 px-2">
-              <button
-                onClick={() => setTab('playlists')}
-                className={`text-sm font-semibold px-3 py-1 rounded-full transition ${tab === 'playlists' ? 'bg-white text-black' : 'bg-[#242424] text-neutral-300 hover:bg-[#2a2a2a]'}`}
-              >
-                {t('sidebarTabPlaylists')}
-              </button>
-              <button
-                onClick={() => setTab('artists')}
-                className={`text-sm font-semibold px-3 py-1 rounded-full transition ${tab === 'artists' ? 'bg-white text-black' : 'bg-[#242424] text-neutral-300 hover:bg-[#2a2a2a]'}`}
-              >
-                {t('sidebarTabArtists')}
-              </button>
-            </div>
-          )}
+          {/* Tab switcher */}
+          <div className="flex gap-1.5 px-2">
+            <button
+              onClick={() => setTab('playlists')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${tab === 'playlists'
+                  ? 'bg-white text-black shadow'
+                  : 'bg-[#242424] text-neutral-400 hover:text-white hover:bg-[#2a2a2a]'
+                }`}
+            >
+              {t('sidebarTabPlaylists')}
+            </button>
+            <button
+              onClick={() => setTab('artists')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${tab === 'artists'
+                  ? 'bg-white text-black shadow'
+                  : 'bg-[#242424] text-neutral-400 hover:text-white hover:bg-[#2a2a2a]'
+                }`}
+            >
+              {t('sidebarTabArtists')}
+            </button>
+          </div>
 
-          {/* ── Сортування (тільки для плейлистів) ── */}
-          {!collapsed && tab === 'playlists' && token && playlists.length > 0 && (
+          {/* Sort row */}
+          {tab === 'playlists' && token && playlists.length > 0 && (
             <div className="px-2" ref={sortMenuRef}>
               <div className="relative">
                 <button
                   onClick={() => setSortMenuOpen(o => !o)}
-                  className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white transition px-2 py-1 rounded hover:bg-[#1a1a1a] group"
-                  title="Сортування"
+                  className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white transition px-2 py-1 rounded-md hover:bg-white/5"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                    <path d="M3 6h18M7 12h10M11 18h2"/>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 6h18M7 12h10M11 18h2" />
                   </svg>
                   <span className="font-semibold truncate max-w-[120px]">
                     {sortOrder === 'recent' ? t('sortRecent')
                       : sortOrder === 'name' ? t('sortByName')
-                      : sortOrder === 'artist' ? t('sortByArtist')
-                      : t('sortByCreated')}
+                        : sortOrder === 'artist' ? t('sortByArtist')
+                          : t('sortByCreated')}
                   </span>
-                  <svg
-                    width="10" height="10" viewBox="0 0 24 24" fill="currentColor"
-                    className={`shrink-0 transition-transform ${sortMenuOpen ? 'rotate-180' : ''}`}
-                  >
-                    <path d="M7 10l5 5 5-5z"/>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"
+                    className={`shrink-0 transition-transform duration-200 ${sortMenuOpen ? 'rotate-180' : ''}`}>
+                    <path d="M7 10l5 5 5-5z" />
                   </svg>
                 </button>
 
-                {/* Dropdown */}
                 {sortMenuOpen && (
-                  <div className="absolute top-full left-0 mt-1 bg-[#282828] rounded-md shadow-2xl z-50 overflow-hidden min-w-[180px] border border-white/5">
-                    {(
-                      [
-                        { key: 'recent', label: t('sortRecent') },
-                        { key: 'name',   label: t('sortByName') },
-                        { key: 'artist', label: t('sortByArtist') },
-                        { key: 'created',label: t('sortByCreated') },
-                      ] as { key: SortOrder; label: string }[]
-                    ).map(({ key, label }) => (
+                  <div className="absolute top-full left-0 mt-1 bg-[#282828] rounded-lg shadow-2xl z-50 overflow-hidden min-w-[180px] border border-white/5">
+                    {([
+                      { key: 'recent', label: t('sortRecent') },
+                      { key: 'name', label: t('sortByName') },
+                      { key: 'artist', label: t('sortByArtist') },
+                      { key: 'created', label: t('sortByCreated') },
+                    ] as { key: SortOrder; label: string }[]).map(({ key, label }) => (
                       <button
                         key={key}
                         onClick={() => { setSortOrder(key); setSortMenuOpen(false) }}
-                        className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition-colors
-                          ${sortOrder === key
-                            ? 'text-[#1db954] font-semibold hover:bg-white/5'
-                            : 'text-neutral-200 hover:bg-white/5'}`}
+                        className={`w-full text-left px-4 py-2.5 text-xs flex items-center justify-between gap-3 transition-colors
+                          ${sortOrder === key ? 'text-[#1db954] font-semibold' : 'text-neutral-300'} hover:bg-white/5`}
                       >
                         {label}
                         {sortOrder === key && (
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                           </svg>
                         )}
                       </button>
@@ -408,60 +571,64 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
             </div>
           )}
 
-          {/* ── Вміст ── */}
-          <div style={{ display: collapsed ? 'none' : undefined }} className="flex flex-col gap-3 px-2 overflow-y-auto custom-scrollbar flex-1">
+          {/* Content */}
+          <div className="flex flex-col gap-0.5 px-1 overflow-y-auto custom-scrollbar flex-1 pb-2">
             {!token ? (
-              <p className="text-sm text-zinc-400 p-4">{t('loginToSeePlaylists')}</p>
+              <p className="text-sm text-zinc-500 px-4 py-6 text-center">{t('loginToSeePlaylists')}</p>
             ) : tab === 'playlists' ? (
-              // ── Плейлисти ──
               loading ? (
-                <p className="text-sm text-zinc-400 p-4">{t('loading')}</p>
+                <p className="text-sm text-zinc-500 px-4 py-4">{t('loading')}</p>
               ) : playlists.length === 0 ? (
-                <div className="p-4 bg-[#242424] hover:bg-[#2a2a2a] transition-colors rounded-lg flex flex-col items-start gap-1">
-                  <h1 className="font-bold text-base text-white">{t('createFirstPlaylist')}</h1>
-                  <p className="text-sm text-white font-light opacity-90">{t('itsEasy')}</p>
-                  <button onClick={() => setIsModalOpen(true)}
-                    className="bg-white text-black text-sm font-bold px-4 py-1.5 rounded-full mt-4 hover:scale-105 hover:bg-neutral-200 transition">
+                <div className="mx-2 mt-2 p-4 bg-[#1a1a1a] rounded-xl flex flex-col items-start gap-1">
+                  <h1 className="font-bold text-sm text-white">{t('createFirstPlaylist')}</h1>
+                  <p className="text-xs text-neutral-400 font-light">{t('itsEasy')}</p>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-white text-black text-xs font-bold px-4 py-1.5 rounded-full mt-3 hover:scale-105 hover:bg-neutral-200 transition"
+                  >
                     {t('createPlaylist')}
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-col gap-1">
-                    {sortedPlaylistsList.map((playlist) => <PlaylistItem key={playlist._id} playlist={playlist} />)}
+                  <div className="flex flex-col gap-0.5">
+                    {sortedPlaylistsList.map((playlist) => (
+                      <PlaylistItem key={playlist._id} playlist={playlist} />
+                    ))}
                   </div>
                   {sharedPlaylists.length > 0 && (
-                    <div className="flex flex-col gap-1 mt-2">
-                      <div className="mt-3 mb-1 px-2">
-                        <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wider">Від колег</p>
-                      </div>
-                      {sharedPlaylists.map((playlist) => <PlaylistItem key={playlist._id} playlist={playlist} isShared={true} />)}
+                    <div className="flex flex-col gap-0.5 mt-3">
+                      <p className="text-[10px] text-neutral-600 font-bold uppercase tracking-widest px-2 mb-1">
+                        {t('fromColleagues')}
+                      </p>
+                      {sharedPlaylists.map((playlist) => (
+                        <PlaylistItem key={playlist._id} playlist={playlist} isShared />
+                      ))}
                     </div>
                   )}
                 </>
               )
             ) : (
-              // ── Виконавці ──
               artistsLoading ? (
-                <div className="flex flex-col gap-2 pt-2">
+                <div className="flex flex-col gap-1.5 pt-2 px-1">
                   {[...Array(4)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
-                      <div className="w-12 h-12 rounded-full bg-[#2a2a2a] shrink-0" />
+                    <div key={i} className="flex items-center gap-3 px-2 py-1.5 animate-pulse">
+                      <div className="w-10 h-10 rounded-full bg-[#2a2a2a] shrink-0" />
                       <div className="flex flex-col gap-1.5 flex-1">
                         <div className="h-3 w-24 rounded bg-[#2a2a2a]" />
-                        <div className="h-2.5 w-16 rounded bg-[#242424]" />
+                        <div className="h-2.5 w-16 rounded bg-[#222]" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : followedArtists.length === 0 ? (
-                <div className="p-4 text-center mt-4">
-                  <div className="text-4xl mb-3">🎤</div>
+                <div className="px-4 py-8 text-center">
+                  <div className="text-3xl mb-2">🎤</div>
                   <p className="text-white font-semibold text-sm mb-1">{t('sidebarNoFollowing')}</p>
-                  <p className="text-neutral-400 text-xs">{t('sidebarNoFollowingHint')}</p>
+                  <p className="text-neutral-500 text-xs">{t('sidebarNoFollowingHint')}</p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-1 pt-1">
+                <div className="flex flex-col gap-0.5 pt-1">
                   {followedArtists.map(({ name, photo }) => {
                     const artistImg = resolveArtistImage(photo)
                     return (
@@ -469,19 +636,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
                         key={name}
                         to={`/artist/${encodeURIComponent(name)}`}
                         onClick={onClose}
-                        className="flex items-center gap-3 p-2 rounded-md hover:bg-[#1a1a1a] transition-colors group cursor-pointer"
+                        className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer"
                       >
-                        {artistImg ? (
-                          <img src={artistImg} alt={name} className="w-12 h-12 rounded-full object-cover shrink-0" />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-[#282828] shrink-0 flex items-center justify-center text-xl">🎤</div>
-                        )}
+                        {artistImg
+                          ? <img src={artistImg} alt={name} className="w-10 h-10 rounded-full object-cover shrink-0 shadow" />
+                          : <div className="w-10 h-10 rounded-full bg-[#282828] shrink-0 flex items-center justify-center text-lg">🎤</div>
+                        }
                         <div className="min-w-0">
-                          <p className="font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors">{name}</p>
-                          <p className="text-xs text-neutral-400">{t('artistLabel2')}</p>
+                          <p className="font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors leading-tight">{name}</p>
+                          <p className="text-xs text-neutral-500 mt-0.5 leading-tight">{t('artistLabel2')}</p>
                         </div>
                       </Link>
-                    );
+                    )
                   })}
                 </div>
               )
@@ -490,17 +656,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
         </div>
       </div>
 
-      <CreatePlaylistModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onCreated={handlePlaylistCreated}
-      />
-
+      <CreatePlaylistModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreated={handlePlaylistCreated} />
       <ConfirmDialog
         isOpen={!!confirmDeleteId}
-        title="Видалити плейлист"
-        message="Ви впевнені, що хочете видалити цей плейлист? Цю дію не можна скасувати."
-        confirmText="Видалити"
+        title={t('deletePlaylistTitle')}
+        message={t('deletePlaylistConfirm')}
+        confirmText={t('deleteBtn')}
         danger
         loading={!!deletingId}
         onConfirm={confirmDeletePlaylist}

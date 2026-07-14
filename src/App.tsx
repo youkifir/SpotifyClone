@@ -11,7 +11,7 @@ import ArtistPage from './pages/ArtistPage'
 import MusicianPage from './pages/MusicianPage'
 import SearchPage from './pages/SearchPage'
 import { PlayerContextProvider } from './context/PlayerContext'
-import { NotificationProvider } from './context/NotificationContext' // ← Додано імпорт провайдера
+import { NotificationProvider } from './context/NotificationContext'
 import { useAuth } from './context/AuthContext'
 import { Sidebar } from './components/Sidebar'
 import PlaylistPage from './pages/PlaylistPage'
@@ -19,6 +19,7 @@ import { FullScreenPlayer } from './components/FullScreenPlayer'
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const { token, loading } = useAuth()
 
   if (loading) {
@@ -44,20 +45,41 @@ function App() {
     )
   }
 
-  // ── Основний рендер додатку ──
   return (
     <PlayerContextProvider>
-      <NotificationProvider> {/* ← Огортаємо сповіщеннями тут, щоб Navbar мав до них доступ */}
+      <NotificationProvider>
         <div className="h-screen w-screen bg-black flex flex-col p-2 gap-2 overflow-hidden select-none">
           {/* Верхній Navbar */}
           <Navbar onToggleSidebar={() => setIsSidebarOpen((open) => !open)} />
 
           {/* Головна контентна зона */}
-          <div className="flex flex-1 min-h-0 gap-2 relative overflow-hidden">
-            {/* Бокова панель (Sidebar) */}
-            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+          <div className="flex flex-1 min-h-0 gap-2 relative overflow-hidden w-full">
+            
+            {/* Бокова панель (Sidebar) — фіксована ширина з приховуванням контенту, що вилазить */}
+            <div 
+              style={{ width: isSidebarCollapsed ? '72px' : undefined }}
+              className={`h-full transition-all duration-300 ease-in-out shrink-0 hidden lg:block overflow-hidden rounded-lg
+                ${!isSidebarCollapsed ? 'w-[25%] max-w-[360px] min-w-[220px]' : ''}`}
+            >
+              <Sidebar 
+                isOpen={isSidebarOpen} 
+                onClose={() => setIsSidebarOpen(false)} 
+                collapsed={isSidebarCollapsed}
+                onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+              />
+            </div>
 
-            {/* Сторінки додатку */}
+            {/* Мобільна версія сайдбара */}
+            <div className="lg:hidden">
+              <Sidebar 
+                isOpen={isSidebarOpen} 
+                onClose={() => setIsSidebarOpen(false)} 
+                collapsed={false}
+                onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+              />
+            </div>
+
+            {/* Сторінки додатку — заповнюють увесь простір поруч із сайдбаром */}
             <div className="flex-1 min-w-0 bg-[#121212] rounded-lg text-white p-3 sm:p-5 overflow-y-auto custom-scrollbar">
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -73,7 +95,7 @@ function App() {
             </div>
           </div>
 
-          {/* Нижній адаптивний плеєр */}
+          {/* Нижній плеєр */}
           <Player />
         </div>
 
