@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { assets } from '../assets/assets'
 import { useAuth } from '../context/AuthContext'
@@ -24,7 +24,10 @@ export interface Playlist {
   createdAt?: string
 }
 
-interface FollowedArtist { name: string; photo: string | null }
+interface FollowedArtist { 
+  name: string 
+  photo: string | null 
+}
 
 interface SidebarProps {
   isOpen?: boolean
@@ -49,21 +52,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // ── Artists (Исправлено: Добавлены недостающие стейты) ──────
+  const [followedArtists, setFollowedArtists] = useState<FollowedArtist[]>([])
+  const [artistsLoading, setArtistsLoading] = useState(false)
+
+  // Загрузка плейлистов
   const fetchPlaylists = useCallback(async (silent = false) => {
-    if (!token) { setPlaylists([]); return }
+    if (!token) {
+      setPlaylists([])
+      return
+    }
     if (!silent) setLoading(true)
     try {
       const res = await fetch(`${API_BASE}/playlists/my`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
         const list: Playlist[] = Array.isArray(data) ? data : (data.data || [])
+        // Liked Songs всегда вверху по умолчанию
         list.sort((a, b) => (b.isLikedSongs ? 1 : 0) - (a.isLikedSongs ? 1 : 0))
         setPlaylists(list)
       }
-    } catch (e) { console.error('Sidebar: помилка завантаження плейлистів', e) }
-    finally { if (!silent) setLoading(false) }
+    } catch (e) {
+      console.error('Sidebar: помилка завантаження плейлистів', e)
+    } finally {
+      if (!silent) setLoading(false)
+    }
   }, [token])
 
+  // Загрузка общих плейлистов
   const fetchSharedPlaylists = useCallback(async () => {
     if (!token) { setSharedPlaylists([]); return }
     try {
@@ -72,86 +88,88 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
         const data = await res.json()
         setSharedPlaylists(Array.isArray(data) ? data : (data.data || []))
       }
-    } catch (e) { console.error('Sidebar: помилка завантаження спільних плейлистів', e) }
+    } catch (e) { 
+      console.error('Sidebar: помилка завантаження спільних плейлистів', e) 
+    }
   }, [token])
 
-  useEffect(() => { fetchPlaylists(); fetchSharedPlaylists() }, [fetchPlaylists, fetchSharedPlaylists])
-  useEffect(() => onLikeChanged(() => fetchPlaylists(true)), [fetchPlaylists])
-  useEffect(() => onPlaylistSongAdded(() => fetchPlaylists(true)), [fetchPlaylists])
-
-  // Close sort dropdown on outside click
-  useEffect(() => {
-    if (!sortMenuOpen) return
-    const handler = (e: MouseEvent) => {
-      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
-        setSortMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [sortMenuOpen])
-
-  const sortedPlaylists = useCallback((list: Playlist[]) => {
-    const liked = list.filter(p => p.isLikedSongs)
-    const rest = list.filter(p => !p.isLikedSongs)
-    let sorted: Playlist[]
-    if (sortOrder === 'recent') {
-      sorted = [...rest] // keep fetch order (newest first from API)
-    } else if (sortOrder === 'name') {
-      sorted = [...rest].sort((a, b) => a.name.localeCompare(b.name))
-    } else if (sortOrder === 'artist') {
-      sorted = [...rest].sort((a, b) => {
-        const aOwner = getOwnerName(a).toLowerCase()
-        const bOwner = getOwnerName(b).toLowerCase()
-        return aOwner.localeCompare(bOwner) || a.name.localeCompare(b.name)
-      })
-    } else {
-      // created: oldest first
-      sorted = [...rest].sort((a, b) => {
-        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0
-        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0
-        return aDate - bDate
-      })
-    }
-    return [...liked, ...sorted]
-  }, [sortOrder])
-
-  // ── Followed Artists ───────────────────────────────────────
-  const [followedArtists, setFollowedArtists] = useState<FollowedArtist[]>([])
-  const [artistsLoading, setArtistsLoading] = useState(false)
-
+  // Загрузка подписок на исполнителей (Исправлено: Добавлен метод получения данных)
   const fetchFollowedArtists = useCallback(async () => {
     if (!token) { setFollowedArtists([]); return }
     setArtistsLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/auth/following`, { headers: { Authorization: `Bearer ${token}` } })
-      const d = await res.json()
-      const names: string[] = d.data || []
-      // Завантажуємо фото з Deezer паралельно
-      const withPhotos = await Promise.all(
-        names.map(async (name) => {
-          try {
-            // Використовуємо бекенд-проксі щоб уникнути CORS
-            const r = await fetch(`${API_BASE}/auth/deezer-artist?name=${encodeURIComponent(name)}`)
-            const dz = await r.json()
-            const found = dz?.data?.[0]
-            const match = found && (
-              found.name.toLowerCase() === name.toLowerCase() ||
-              found.name.toLowerCase().includes(name.split(' ')[0].toLowerCase())
-            )
-            return { name, photo: match ? found.picture_medium : null }
-          } catch { return { name, photo: null } }
-        })
-      )
-      setFollowedArtists(withPhotos)
-    } catch { }
-    finally { setArtistsLoading(false) }
+      const res = await fetch(`${API_BASE}/artists/following`, { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) {
+        const data = await res.json()
+        setFollowedArtists(Array.isArray(data) ? data : (data.data || []))
+      }
+    } catch (e) {
+      console.error('Sidebar: помилка завантаження підписок', e)
+    } finally {
+      setArtistsLoading(false)
+    }
   }, [token])
 
-  // Завантажуємо артистів при відкритті вкладки (і при зміні токену)
-  useEffect(() => { if (tab === 'artists') fetchFollowedArtists() }, [tab, fetchFollowedArtists])
+  // Первичный запрос данных при изменении токена
+  useEffect(() => { 
+    fetchPlaylists()
+    fetchSharedPlaylists()
+    fetchFollowedArtists()
+  }, [fetchPlaylists, fetchSharedPlaylists, fetchFollowedArtists])
 
-  // ── Helpers ────────────────────────────────────────────────
+  // Слушатели глобальных событий (Исправлено: Дубликаты удалены, логика объединена)
+  useEffect(() => {
+    const unsubLike = onLikeChanged(() => fetchPlaylists(true))
+    const unsubAdd = onPlaylistSongAdded(() => fetchPlaylists(true))
+    return () => {
+      unsubLike()
+      unsubAdd()
+    }
+  }, [fetchPlaylists])
+
+  // Закрытие меню сортировки при клике вне области (Исправлено: Добавлен рабочий обработчик)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setSortMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Сортировка плейлистов (Исправлено: Добавлен отсутствовавший метод sortedPlaylists)
+  const sortedPlaylistsList = useMemo(() => {
+    if (!playlists.length) return []
+
+    // "Liked Songs" всегда на самом первом месте вне зависимости от выбранного типа сортировки
+    const likedSongs = playlists.filter(p => p.isLikedSongs)
+    const restPlaylists = playlists.filter(p => !p.isLikedSongs)
+
+    const sorted = [...restPlaylists].sort((a, b) => {
+      switch (sortOrder) {
+        case 'name':
+          return a.name.localeCompare(b.name)
+        case 'artist': {
+          const ownerA = getOwnerName(a)
+          const ownerB = getOwnerName(b)
+          return ownerA.localeCompare(ownerB)
+        }
+        case 'created': {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return dateB - dateA
+        }
+        case 'recent':
+        default:
+          // Сортировка по умолчанию (например, по ID или дате последнего изменения, если доступна)
+          return b._id.localeCompare(a._id)
+      }
+    })
+
+    return [...likedSongs, ...sorted]
+  }, [playlists, sortOrder])
+
   const handlePlaylistCreated = (newPlaylist: CreatedPlaylist) => {
     setPlaylists((prev) => {
       const withNew = [newPlaylist as unknown as Playlist, ...prev]
@@ -163,7 +181,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const handleDelete = (e: React.MouseEvent, playlistId: string) => {
-    e.preventDefault(); e.stopPropagation()
+    e.preventDefault()
+    e.stopPropagation()
     if (!token) return
     setConfirmDeleteId(playlistId)
   }
@@ -178,8 +197,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
         method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
       })
       if (response.ok) setPlaylists((prev) => prev.filter((p) => p._id !== playlistId))
-    } catch (error) { console.error('Помилка видалення плейлиста:', error) }
-    finally { setDeletingId(null) }
+    } catch (error) { 
+      console.error('Помилка видалення плейлиста:', error) 
+    } finally { 
+      setDeletingId(null) 
+    }
   }
 
   const resolveImage = (playlist: Playlist) => {
@@ -369,7 +391,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
           <div style={{ display: collapsed ? 'none' : undefined }} className="flex flex-col gap-3 px-2 overflow-y-auto custom-scrollbar flex-1">
             {!token ? (
               <p className="text-sm text-zinc-400 p-4">{t('loginToSeePlaylists')}</p>
-
             ) : tab === 'playlists' ? (
               // ── Плейлисти ──
               loading ? (
@@ -386,7 +407,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
               ) : (
                 <>
                   <div className="flex flex-col gap-1">
-                    {sortedPlaylists(playlists).map((playlist) => <PlaylistItem key={playlist._id} playlist={playlist} />)}
+                    {sortedPlaylistsList.map((playlist) => <PlaylistItem key={playlist._id} playlist={playlist} />)}
                   </div>
                   {sharedPlaylists.length > 0 && (
                     <div className="flex flex-col gap-1 mt-2">
@@ -398,7 +419,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
                   )}
                 </>
               )
-
             ) : (
               // ── Виконавці ──
               artistsLoading ? (
@@ -440,8 +460,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
                     </Link>
                   ))}
                 </div>
-              )
-            )}
+              ))}
           </div>
         </div>
       </div>

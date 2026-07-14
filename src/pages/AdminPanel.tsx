@@ -113,13 +113,13 @@ function ConfirmModal({
             onClick={onCancel}
             className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition"
           >
-            {t('adminCancelBtn')}
+            {t('adminCancelBtn' as any)}
           </button>
           <button
             onClick={onConfirm}
             className="px-4 py-2 rounded-full text-sm font-bold bg-red-500 hover:bg-red-400 text-white transition"
           >
-            {t('adminDeleteBtn')}
+            {t('adminDeleteBtn' as any)}
           </button>
         </div>
       </div>
@@ -174,7 +174,7 @@ function AlbumModal({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка збереження альбому')
-      onSaved(mode === 'create' ? t('adminAlbumCreated') : t('adminAlbumUpdated'))
+      onSaved(mode === 'create' ? t('adminAlbumCreated' as any) : t('adminAlbumUpdated' as any))
       onClose()
     } catch (err: any) {
       setError(err.message)
@@ -188,7 +188,7 @@ function AlbumModal({
       <div className="bg-[#282828] rounded-xl p-6 w-full max-w-md shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-white font-bold text-lg">
-            {mode === 'create' ? t('adminAddAlbum').replace('+ ', '') : `${t('adminEditBtn')} ${t('adminTabAlbums').toLowerCase()}`}
+            {mode === 'create' ? t('adminAddAlbum' as any).replace('+ ', '') : `${t('adminEditBtn' as any)} ${t('adminTabAlbums' as any).toLowerCase()}`}
           </h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-white text-xl leading-none transition">✕</button>
         </div>
@@ -200,17 +200,17 @@ function AlbumModal({
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label={t('adminAlbumNameLabel')} required>
+          <Field label={t('adminAlbumNameLabel' as any)} required>
             <input
               required
               value={form.name}
               onChange={set('name')}
-              placeholder={t('adminAlbumNamePlaceholder')}
+              placeholder={t('adminAlbumNamePlaceholder' as any)}
               className="admin-input"
             />
           </Field>
 
-          <Field label={t('coverLabel')}>
+          <Field label={t('coverLabel' as any)}>
             <div className="flex flex-col gap-2">
               <input
                 type="file"
@@ -229,17 +229,17 @@ function AlbumModal({
             </div>
           </Field>
 
-          <Field label={t('adminAlbumDescLabel')}>
+          <Field label={t('adminAlbumDescLabel' as any)}>
             <textarea
               value={form.desc}
               onChange={set('desc')}
-              placeholder={t('adminAlbumDescPlaceholder')}
+              placeholder={t('adminAlbumDescPlaceholder' as any)}
               rows={2}
               className="admin-input resize-none"
             />
           </Field>
           
-          <Field label={t('adminAlbumColorLabel')}>
+          <Field label={t('adminAlbumColorLabel' as any)}>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -262,14 +262,14 @@ function AlbumModal({
               onClick={onClose}
               className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition"
             >
-              {t('adminCancelBtn')}
+              {t('adminCancelBtn' as any)}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-50"
             >
-              {loading ? t('adminSavingDots') : t('adminSaveBtn')}
+              {loading ? t('adminSavingDots' as any) : t('adminSaveBtn' as any)}
             </button>
           </div>
         </form>
@@ -318,7 +318,7 @@ function SongModal({
       <div className="bg-[#282828] rounded-xl shadow-2xl my-auto w-full max-w-lg">
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <h3 className="text-white font-bold text-lg">
-            {mode === 'create' ? t('adminAddSong').replace('+ ', '') : `${t('adminEditBtn')} ${t('adminTabSongs').toLowerCase()}`}
+            {mode === 'create' ? t('adminAddSong' as any).replace('+ ', '') : `${t('adminEditBtn' as any)} ${t('adminTabSongs' as any).toLowerCase()}`}
           </h3>
           <button onClick={onClose} className="text-neutral-400 hover:text-white text-xl leading-none transition">✕</button>
         </div>
@@ -404,7 +404,6 @@ function LocalSongForm({
   const [error, setError] = useState('')
   const { t } = useLanguage()
 
-
   const set =
     (k: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -435,15 +434,15 @@ function LocalSongForm({
       let fileUrl = form.file
 
       if (imageFile) {
-        setUploadProgress(t('adminUploadingCover'))
+        setUploadProgress(t('adminUploadingCover' as any))
         imageUrl = await uploadFile(imageFile, token)
       }
       if (audioFile) {
-        setUploadProgress(t('adminUploadingAudio'))
+        setUploadProgress(t('adminUploadingAudio' as any))
         fileUrl = await uploadFile(audioFile, token)
       }
 
-      setUploadProgress(t('adminSavingDots'))
+      setUploadProgress(t('adminSavingDots' as any))
       const body = { ...form, image: imageUrl, file: fileUrl, album: form.album || null, source: 'local' }
       const url = mode === 'create' ? `${API}/api/songs` : `${API}/api/songs/${initial!._id}`
       const res = await fetch(url, {
@@ -453,7 +452,7 @@ function LocalSongForm({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка збереження треку')
-      onSaved(mode === 'create' ? t('adminSongAdded') : t('adminSongUpdated'))
+      onSaved(mode === 'create' ? t('adminSongAdded' as any) : t('adminSongUpdated' as any))
       onClose()
     } catch (err: any) {
       setError(err.message)
@@ -473,15 +472,15 @@ function LocalSongForm({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-4">
-          <Field label={t('adminSongNameLabel')} required>
-            <input required value={form.name} onChange={set('name')} placeholder={t('adminSongNamePlaceholder')} className="admin-input" />
+          <Field label={t('adminSongNameLabel' as any)} required>
+            <input required value={form.name} onChange={set('name')} placeholder={t('adminSongNamePlaceholder' as any)} className="admin-input" />
           </Field>
-          <Field label={t('adminColArtist')}>
-            <input value={form.artist} onChange={set('artist')} placeholder={t('adminSongArtistPlaceholder')} className="admin-input" />
+          <Field label={t('adminColArtist' as any)}>
+            <input value={form.artist} onChange={set('artist')} placeholder={t('adminSongArtistPlaceholder' as any)} className="admin-input" />
           </Field>
         </div>
 
-        <Field label={t('coverLabel')}>
+        <Field label={t('coverLabel' as any)}>
           <div className="flex flex-col gap-2">
             <input
               type="file"
@@ -492,14 +491,14 @@ function LocalSongForm({
             <input
               value={form.image}
               onChange={set('image')}
-              placeholder={t('adminCoverUrlPlaceholder')}
+              placeholder={t('adminCoverUrlPlaceholder' as any)}
               className="admin-input"
               disabled={!!imageFile}
             />
           </div>
         </Field>
 
-        <Field label={t('audioLabel')} required>
+        <Field label={t('audioLabel' as any)} required>
           <div className="flex flex-col gap-2">
             <input
               type="file"
@@ -510,7 +509,7 @@ function LocalSongForm({
             <input
               value={form.file}
               onChange={set('file')}
-placeholder={t('chooseAudio')}
+              placeholder={t('chooseAudio' as any)}
               className="admin-input"
               disabled={!!audioFile}
             />
@@ -518,25 +517,25 @@ placeholder={t('chooseAudio')}
         </Field>
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label={t('genreLabel')}>
-            <input value={form.genre} onChange={set('genre')} placeholder={t('adminSongGenrePlaceholder')} className="admin-input" />
+          <Field label={t('genreLabel' as any)}>
+            <input value={form.genre} onChange={set('genre')} placeholder={t('adminSongGenrePlaceholder' as any)} className="admin-input" />
           </Field>
-          <Field label={t('durationLabel')}>
-            <input value={form.duration} onChange={set('duration')} placeholder={t('adminSongDurationPlaceholder')} className="admin-input" />
+          <Field label={t('durationLabel' as any)}>
+            <input value={form.duration} onChange={set('duration')} placeholder={t('adminSongDurationPlaceholder' as any)} className="admin-input" />
           </Field>
         </div>
 
-        <Field label={t('albumLabel')}>
+        <Field label={t('albumLabel' as any)}>
           <select value={form.album} onChange={set('album')} className="admin-input">
-            <option value="">{t('noAlbum')}</option>
+            <option value="">{t('noAlbum' as any)}</option>
             {albums.map((a) => (
               <option key={a._id} value={a._id}>{a.name}</option>
             ))}
           </select>
         </Field>
 
-        <Field label={t('descLabel')}>
-          <textarea value={form.desc} onChange={set('desc')} placeholder={t('adminSongDescPlaceholder')} rows={2} className="admin-input resize-none" />
+        <Field label={t('descLabel' as any)}>
+          <textarea value={form.desc} onChange={set('desc')} placeholder={t('adminSongDescPlaceholder' as any)} rows={2} className="admin-input resize-none" />
         </Field>
 
         <div className="flex gap-3 justify-end mt-2 items-center">
@@ -548,14 +547,14 @@ placeholder={t('chooseAudio')}
             onClick={onClose}
             className="px-4 py-2 rounded-full text-sm font-bold text-neutral-300 hover:text-white border border-neutral-600 hover:border-neutral-400 transition"
           >
-            {t('adminCancelBtn')}
+            {t('adminCancelBtn' as any)}
           </button>
           <button
             type="submit"
             disabled={loading || (!form.file && !audioFile)}
             className="px-5 py-2 rounded-full text-sm font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-50"
           >
-            {loading ? t('adminSavingDots') : t('adminSaveBtn')}
+            {loading ? t('adminSavingDots' as any) : t('adminSaveBtn' as any)}
           </button>
         </div>
       </form>
@@ -601,7 +600,7 @@ function ItunesSongSearch({
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка пошуку')
       setResults(data.data)
-      if (data.data.length === 0) setSearchError(t('searchNotFound'))
+      if (data.data.length === 0) setSearchError(t('searchNotFound' as any))
     } catch (err: any) {
       setSearchError(err.message)
     } finally {
@@ -638,7 +637,7 @@ function ItunesSongSearch({
         prev.map(t => t.externalId === selected.externalId ? { ...t, alreadyAdded: true } : t)
       )
       setSelected(null)
-      onSaved(t('adminSongAdded'))
+      onSaved(t('adminSongAdded' as any))
     } catch (err: any) {
       setSaveError(err.message)
     } finally {
@@ -654,7 +653,7 @@ function ItunesSongSearch({
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder={t('adminItunesSearchPlaceholder')}
+          placeholder={t('adminItunesSearchPlaceholder' as any)}
           className="admin-input flex-1"
           autoFocus
         />
@@ -663,7 +662,7 @@ function ItunesSongSearch({
           disabled={searching || !query.trim()}
           className="px-4 py-2 rounded-full text-sm font-bold bg-purple-500 hover:bg-purple-400 text-white transition disabled:opacity-40"
         >
-          {searching ? '...' : t('itunesSearch')}
+          {searching ? '...' : t('itunesSearch' as any)}
         </button>
       </form>
 
@@ -693,7 +692,7 @@ function ItunesSongSearch({
                   <p className="text-white text-sm font-medium truncate">{track.name}</p>
                   <p className="text-neutral-400 text-xs truncate">{track.artist} · {track.duration}</p>
                 </div>
-                {added && <span className="text-xs text-neutral-500">{t('alreadyAdded')}</span>}
+                {added && <span className="text-xs text-neutral-500">{t('alreadyAdded' as any)}</span>}
                 {!added && isSelected && <span className="text-xs text-purple-300">✓</span>}
               </button>
             )
@@ -703,9 +702,9 @@ function ItunesSongSearch({
 
       {selected && (
         <div className="border border-purple-500/30 bg-purple-500/5 rounded-xl p-4 flex flex-col gap-3">
-          <Field label={t('adminSongBindAlbum')}>
+          <Field label={t('adminSongBindAlbum' as any)}>
             <select value={albumId} onChange={e => setAlbumId(e.target.value)} className="admin-input">
-              <option value="">{t('noAlbum')}</option>
+              <option value="">{t('noAlbum' as any)}</option>
               {albums.map(a => (
                 <option key={a._id} value={a._id}>{a.name}</option>
               ))}
@@ -719,14 +718,14 @@ function ItunesSongSearch({
               onClick={() => setSelected(null)}
               className="px-4 py-1.5 rounded-full text-xs font-bold text-neutral-300 hover:text-white border border-neutral-600"
             >
-              {t('adminCancelBtn')}
+              {t('adminCancelBtn' as any)}
             </button>
             <button
               onClick={handleImport}
               disabled={saving}
               className="px-4 py-1.5 rounded-full text-xs font-bold bg-purple-500 text-white hover:bg-purple-400"
             >
-              {saving ? t('adminSavingDots') : t('addBtn')}
+              {saving ? t('adminSavingDots' as any) : t('addBtn' as any)}
             </button>
           </div>
         </div>
@@ -802,7 +801,7 @@ export default function AdminPanel() {
       const data = await res.json()
       setUsers(data.data ?? [])
     } catch {
-      showToast(t('adminLoadUsersFail'), false)
+      showToast(t('adminLoadUsersFail' as any), false)
     } finally {
       setUsersLoading(false)
     }
@@ -818,7 +817,7 @@ export default function AdminPanel() {
       const data = await res.json()
       setMusicianRequests(data.data ?? [])
     } catch {
-      showToast(t('adminLoadRequestsFail'), false)
+      showToast(t('adminLoadRequestsFail' as any), false)
     } finally {
       setRequestsLoading(false)
     }
@@ -835,7 +834,7 @@ export default function AdminPanel() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Помилка')
-      showToast(action === 'approve' ? t('adminMusicianApproved') : t('adminRequestRejected'))
+      showToast(action === 'approve' ? t('adminMusicianApproved' as any) : t('adminRequestRejected' as any))
       fetchMusicianRequests()
     } catch (err: any) {
       showToast(err.message, false)
@@ -863,7 +862,7 @@ export default function AdminPanel() {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) throw new Error('Помилка сервера при видаленні')
-      showToast(type === 'album' ? t('adminAlbumDeleted') : t('adminSongDeleted'))
+      showToast(type === 'album' ? t('adminAlbumDeleted' as any) : t('adminSongDeleted' as any))
       if (type === 'album') {
         fetchAlbums()
       } else {
@@ -888,7 +887,7 @@ export default function AdminPanel() {
         const data = await res.json()
         throw new Error(data.message || 'Помилка')
       }
-      showToast(t('adminUserDeleted'))
+      showToast(t('adminUserDeleted' as any))
       fetchUsers()
     } catch (err: any) {
       showToast(err.message, false)
@@ -902,8 +901,8 @@ export default function AdminPanel() {
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">{t('adminPanelTitle')}</p>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">{t('adminContentManagement')}</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#1db954] mb-1">{t('adminPanelTitle' as any)}</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white">{t('adminContentManagement' as any)}</h1>
         </div>
         <div className="flex items-center gap-2 bg-[#1db954]/10 border border-[#1db954]/30 rounded-full px-3 py-1.5">
           <span className="w-2 h-2 rounded-full bg-[#1db954] animate-pulse shrink-0" />
@@ -914,11 +913,11 @@ export default function AdminPanel() {
       {/* ── Stats Strip ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
         {[
-          { label: t('adminUsersCount'), value: users.length, color: 'text-white' },
-          { label: t('adminAlbumsCount'), value: albums.length, color: 'text-white' },
-          { label: t('adminSongsCount'), value: songs.length, color: 'text-white' },
-          { label: t('adminGenresCount'), value: [...new Set(songs.map((s) => s.genre).filter(Boolean))].length, color: 'text-white' },
-          { label: t('adminItunesCount'), value: songs.filter((s) => s.source === 'itunes').length, color: 'text-purple-400' },
+          { label: t('adminUsersCount' as any), value: users.length, color: 'text-white' },
+          { label: t('adminAlbumsCount' as any), value: albums.length, color: 'text-white' },
+          { label: t('adminSongsCount' as any), value: songs.length, color: 'text-white' },
+          { label: t('adminGenresCount' as any), value: [...new Set(songs.map((s) => s.genre).filter(Boolean))].length, color: 'text-white' },
+          { label: t('adminItunesCount' as any), value: songs.filter((s) => s.source === 'itunes').length, color: 'text-purple-400' },
         ].map((stat) => (
           <div key={stat.label} className="bg-[#181818] rounded-xl p-4">
             <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
@@ -930,240 +929,288 @@ export default function AdminPanel() {
       {/* ── Tabs & Actions ── */}
       <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
         <div className="flex bg-[#181818] rounded-full p-1 gap-1">
-          {(['albums', 'songs', 'users', 'musicians'] as Tab[]).map((tabKey) => (
+          {['albums', 'songs', 'users', 'musicians'].map((tabKey) => (
             <button
               key={tabKey}
-              onClick={() => setTab(tabKey)}
-              className={`px-5 py-2 rounded-full text-sm font-bold transition ${
+              onClick={() => setTab(tabKey as Tab)}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
                 tab === tabKey ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
               }`}
             >
-              {tabKey === 'albums' ? t('adminTabAlbums') : tabKey === 'songs' ? t('adminTabSongs') : tabKey === 'users' ? t('adminTabUsers') : (
-                <span className="flex items-center gap-1.5">
-                  {t('adminTabRequests')}
-                  {musicianRequests.length > 0 && (
-                    <span className="bg-[#1db954] text-black text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                      {musicianRequests.length}
-                    </span>
-                  )}
-                </span>
-              )}
+              {tabKey === 'albums' && t('adminTabAlbums' as any)}
+              {tabKey === 'songs' && t('adminTabSongs' as any)}
+              {tabKey === 'users' && t('adminTabUsers' as any)}
+              {tabKey === 'musicians' && t('adminTabRequests' as any)}
             </button>
           ))}
         </div>
 
-        {tab !== 'users' && tab !== 'musicians' && (
+        {tab === 'albums' && (
           <button
-            onClick={() => tab === 'albums' ? setAlbumModal({ mode: 'create' }) : setSongModal({ mode: 'create' })}
-            className="bg-[#1db954] hover:bg-[#1ed760] text-black px-5 py-2 rounded-full text-sm font-bold transition"
+            onClick={() => setAlbumModal({ mode: 'create' })}
+            className="px-4 py-2 bg-[#1db954] hover:bg-[#1ed760] text-black font-bold text-xs rounded-full transition flex items-center gap-1.5"
           >
-            {tab === 'albums' ? t('adminAddAlbum') : t('adminAddSong')}
+            {t('adminAddAlbum' as any)}
+          </button>
+        )}
+        {tab === 'songs' && (
+          <button
+            onClick={() => setSongModal({ mode: 'create' })}
+            className="px-4 py-2 bg-[#1db954] hover:bg-[#1ed760] text-black font-bold text-xs rounded-full transition flex items-center gap-1.5"
+          >
+            {t('adminAddSong' as any)}
           </button>
         )}
       </div>
 
-      {/* ── Dynamic Tabs Content ── */}
-      <div className="flex-1">
-        {loadingData || (tab === 'users' && usersLoading) ? (
-          <div className="flex items-center justify-center py-20 text-neutral-400 text-sm animate-pulse">
-            {t('adminLoadingData')}
-          </div>
-        ) : (
-          <div>
-            {/* 1. ALBUMS TAB */}
-            {tab === 'albums' && (
-              albums.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm">{t('adminNoAlbums')}</div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {albums.map((album) => (
-                    <div key={album._id} className="bg-[#181818] hover:bg-[#282828] p-4 rounded-xl transition group relative">
-                      <img src={imgSrc(album.image)} alt={album.name} className="w-full aspect-square object-cover rounded-md mb-3 shadow-lg" />
-                      <h3 className="text-white font-bold text-sm truncate">{album.name}</h3>
-                      <p className="text-neutral-400 text-xs truncate mt-1">{album.desc || t('adminNoDesc')}</p>
-                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                        <button onClick={() => setAlbumModal({ mode: 'edit', item: album })} className="bg-black/80 p-2 rounded-full text-white text-xs">✏️</button>
-                        <button onClick={() => setDeleteTarget({ type: 'album', id: album._id, name: album.name })} className="bg-red-600/90 p-2 rounded-full text-white text-xs">🗑️</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-
-            {/* 2. SONGS TAB */}
-            {tab === 'songs' && (
-              songs.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm">{t('adminNoSongs')}</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-neutral-400 text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b border-neutral-800 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                        <th className="py-3 px-4">{t('adminColName')}</th>
-                        <th className="py-3 px-4">{t('adminColArtist')}</th>
-                        <th className="py-3 px-4">{t('adminColGenre')}</th>
-                        <th className="py-3 px-4">{t('adminColAlbum')}</th>
-                        <th className="py-3 px-4">{t('adminColSource')}</th>
-                        <th className="py-3 px-4 text-right">{t('adminColActions')}</th>
+      {/* ── Content ── */}
+      {loadingData ? (
+        <div className="flex items-center justify-center py-20 text-[#1db954] animate-pulse font-semibold">
+          {t('loading' as any)}...
+        </div>
+      ) : (
+        <>
+          {tab === 'albums' && (
+            <div className="bg-[#121212] rounded-xl overflow-hidden border border-neutral-800">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse min-w-[500px]">
+                  <thead>
+                    <tr className="border-b border-neutral-850 text-neutral-400 text-xs uppercase font-bold bg-[#181818]">
+                      <th className="px-5 py-3.5">{t('coverLabel' as any)}</th>
+                      <th className="px-5 py-3.5">{t('adminColName' as any)}</th>
+                      <th className="px-5 py-3.5">{t('adminColDesc' as any)}</th>
+                      <th className="px-5 py-3.5 text-right">{t('actionsLabel' as any)}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-900">
+                    {albums.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-5 py-8 text-center text-neutral-500 font-medium bg-[#121212]">
+                          {t('searchNotFound' as any)}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {songs.map((song) => (
-                        <tr key={song._id} className="border-b border-neutral-900 hover:bg-[#1a1a1a] transition group">
-                          <td className="py-3 px-4 flex items-center gap-3">
-                            <img src={imgSrc(song.image)} alt={song.name} className="w-10 h-10 object-cover rounded shadow" />
-                            <div>
-                              <p className="text-white font-medium truncate max-w-45">{song.name}</p>
-                              <p className="text-xs text-neutral-500 mt-0.5">{song.duration}</p>
+                    ) : (
+                      albums.map((album) => (
+                        <tr key={album._id} className="hover:bg-neutral-900/50 transition">
+                          <td className="px-5 py-3 shrink-0">
+                            <img src={imgSrc(album.image)} alt={album.name} className="w-10 h-10 rounded object-cover shadow-md" />
+                          </td>
+                          <td className="px-5 py-3 font-semibold text-white max-w-[200px] truncate">{album.name}</td>
+                          <td className="px-5 py-3 text-neutral-400 max-w-[300px] truncate font-medium">{album.desc || '—'}</td>
+                          <td className="px-5 py-3 text-right">
+                            <div className="flex justify-end gap-2.5">
+                              <button
+                                onClick={() => setAlbumModal({ mode: 'edit', item: album })}
+                                className="text-xs font-bold text-[#1db954] hover:underline"
+                              >
+                                {t('adminEditBtn' as any)}
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget({ type: 'album', id: album._id, name: album.name })}
+                                className="text-xs font-bold text-red-500 hover:underline"
+                              >
+                                {t('adminDeleteBtn' as any)}
+                              </button>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-white font-medium">{song.artist || '—'}</td>
-                          <td className="py-3 px-4">
-                            <span className="bg-neutral-800 text-neutral-300 text-xs font-medium px-2 py-0.5 rounded-full">{song.genre || '—'}</span>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {tab === 'songs' && (
+            <div className="bg-[#121212] rounded-xl overflow-hidden border border-neutral-800">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-neutral-850 text-neutral-400 text-xs uppercase font-bold bg-[#181818]">
+                      <th className="px-5 py-3.5">{t('coverLabel' as any)}</th>
+                      <th className="px-5 py-3.5">{t('adminColName' as any)}</th>
+                      <th className="px-5 py-3.5">{t('adminColArtist' as any)}</th>
+                      <th className="px-5 py-3.5">{t('genreLabel' as any)}</th>
+                      <th className="px-5 py-3.5">{t('durationLabel' as any)}</th>
+                      <th className="px-5 py-3.5 text-right">{t('actionsLabel' as any)}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-900">
+                    {songs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-5 py-8 text-center text-neutral-500 font-medium bg-[#121212]">
+                          {t('searchNotFound' as any)}
+                        </td>
+                      </tr>
+                    ) : (
+                      songs.map((song) => (
+                        <tr key={song._id} className="hover:bg-neutral-900/50 transition">
+                          <td className="px-5 py-3 shrink-0">
+                            <img src={imgSrc(song.image)} alt={song.name} className="w-10 h-10 rounded object-cover shadow-md" />
                           </td>
-                          <td className="py-3 px-4 text-neutral-300">
-                            {albums.find(a => a._id === song.album)?.name || '—'}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${song.source === 'itunes' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' : 'bg-green-600/20 text-green-400 border border-green-500/30'}`}>
-                              {song.source}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-                            <button onClick={() => setSongModal({ mode: 'edit', item: song })} className="text-neutral-400 hover:text-white mr-3 font-semibold text-xs">{t('adminEditBtn')}</button>
-                            <button onClick={() => setDeleteTarget({ type: 'song', id: song._id, name: song.name })} className="text-red-500 hover:text-red-400 font-semibold text-xs">{t('adminDeleteBtn')}</button>
+                          <td className="px-5 py-3 font-semibold text-white max-w-[200px] truncate">{song.name}</td>
+                          <td className="px-5 py-3 text-neutral-400 truncate max-w-[150px] font-medium">{song.artist}</td>
+                          <td className="px-5 py-3 text-neutral-400 font-medium truncate max-w-[100px]">{song.genre || '—'}</td>
+                          <td className="px-5 py-3 text-neutral-400 font-mono text-xs">{song.duration}</td>
+                          <td className="px-5 py-3 text-right">
+                            <div className="flex justify-end gap-2.5">
+                              <button
+                                onClick={() => setSongModal({ mode: 'edit', item: song })}
+                                className="text-xs font-bold text-[#1db954] hover:underline"
+                              >
+                                {t('adminEditBtn' as any)}
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget({ type: 'song', id: song._id, name: song.name })}
+                                className="text-xs font-bold text-red-500 hover:underline"
+                              >
+                                {t('adminDeleteBtn' as any)}
+                              </button>
+                            </div>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            )}
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-            {/* 3. USERS TAB */}
-            {tab === 'users' && (
-              users.length === 0 ? (
-                <div className="flex flex-col items-center justify-center bg-[#121212] rounded-xl p-12 text-center border border-neutral-800/40">
-                  <div className="w-12 h-12 rounded-full border border-neutral-800 flex items-center justify-center text-neutral-500 text-xl mb-4">ⓘ</div>
-                  <p className="text-white font-bold text-base">{t('adminNoUsers')}</p>
-                  <p className="text-neutral-500 text-xs mt-1">{t('adminNoUsersHint')}</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-neutral-400 text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b border-neutral-800 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                        <th className="py-3 px-4">{t('adminColUser')}</th>
-                        <th className="py-3 px-4">{t('adminColEmail')}</th>
-                        <th className="py-3 px-4">{t('adminColRole')}</th>
-                        <th className="py-3 px-4 text-right">{t('adminColActions')}</th>
+          {tab === 'users' && (
+            <div className="bg-[#121212] rounded-xl overflow-hidden border border-neutral-800">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse min-w-[500px]">
+                  <thead>
+                    <tr className="border-b border-neutral-850 text-neutral-400 text-xs uppercase font-bold bg-[#181818]">
+                      <th className="px-5 py-3.5">{t('adminColUsername' as any)}</th>
+                      <th className="px-5 py-3.5">{t('adminColEmail' as any)}</th>
+                      <th className="px-5 py-3.5">{t('adminColRole' as any)}</th>
+                      <th className="px-5 py-3.5 text-right">{t('actionsLabel' as any)}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-900">
+                    {usersLoading ? (
+                      <tr>
+                        <td colSpan={4} className="px-5 py-8 text-center text-[#1db954] font-semibold bg-[#121212]">
+                          {t('loading' as any)}...
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((u) => (
-                        <tr key={u.id} className="border-b border-neutral-900 hover:bg-[#1a1a1a] transition group">
-                          <td className="py-3 px-4 text-white font-medium">{u.username}</td>
-                          <td className="py-3 px-4">{u.email}</td>
-                          <td className="py-3 px-4">
-                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                              u.role === 'admin' ? 'bg-[#1db954]/20 text-[#1db954]' :
-                              u.role === 'musician' ? 'bg-purple-500/20 text-purple-400' :
-                              'bg-neutral-800 text-neutral-400'
-                            }`}>
-                              {u.role === 'musician' ? '🎵 musician' : u.role}
+                    ) : users.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-5 py-8 text-center text-neutral-500 font-medium bg-[#121212]">
+                          {t('searchNotFound' as any)}
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((u) => (
+                        <tr key={u.id} className="hover:bg-neutral-900/50 transition">
+                          <td className="px-5 py-3 font-semibold text-white">{u.username}</td>
+                          <td className="px-5 py-3 text-neutral-400 font-medium">{u.email}</td>
+                          <td className="px-5 py-3">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider
+                                ${u.role === 'admin' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : ''}
+                                ${u.role === 'musician' ? 'bg-[#1db954]/10 text-[#1db954] border border-[#1db954]/20' : ''}
+                                ${u.role === 'user' ? 'bg-neutral-800 text-neutral-400' : ''}
+                              `}
+                            >
+                              {u.role}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right whitespace-nowrap opacity-0 group-hover:opacity-100 transition">
-                            {u.id !== user.id ? (
-                              <button onClick={() => setUserDeleteTarget({ id: u.id, name: u.username })} className="text-red-500 hover:text-red-400 font-semibold text-xs">{t('adminDeleteBtn')}</button>
-                            ) : (
-                              <span className="text-xs text-neutral-600 italic">{t('adminThisIsYou')}</span>
+                          <td className="px-5 py-3 text-right">
+                            {u.id !== user.id && (
+                              <button
+                                onClick={() => setUserDeleteTarget({ id: u.id, name: u.username })}
+                                className="text-xs font-bold text-red-500 hover:underline"
+                              >
+                                {t('adminDeleteBtn' as any)}
+                              </button>
                             )}
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            )}
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-            {/* 4. MUSICIAN REQUESTS TAB */}
-            {tab === 'musicians' && (
-              requestsLoading ? (
-                <div className="py-16 text-center text-neutral-500 text-sm animate-pulse">{t('adminLoadingRequests')}</div>
-              ) : musicianRequests.length === 0 ? (
-                <div className="flex flex-col items-center justify-center bg-[#121212] rounded-xl p-12 text-center border border-neutral-800/40">
-                  <div className="w-14 h-14 rounded-full bg-[#181818] flex items-center justify-center text-2xl mb-4">🎵</div>
-                  <p className="text-white font-bold text-base">{t('adminNoRequests')}</p>
-                  <p className="text-neutral-500 text-xs mt-1">{t('adminNoRequestsHint')}</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {musicianRequests.map((req) => (
-                    <div key={req._id} className="flex items-center gap-4 bg-[#181818] rounded-2xl p-4 border border-neutral-800/60">
-                      {/* Avatar */}
-                      <div className="w-11 h-11 rounded-full bg-[#282828] flex items-center justify-center font-bold text-white text-sm shrink-0 uppercase">
-                        {req.username.charAt(0)}
-                      </div>
+          {tab === 'musicians' && (
+            <div className="bg-[#121212] rounded-xl overflow-hidden border border-neutral-800">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-neutral-850 text-neutral-400 text-xs uppercase font-bold bg-[#181818]">
+                      <th className="px-5 py-3.5">{t('adminColUsername' as any)}</th>
+                      <th className="px-5 py-3.5">{t('adminColEmail' as any)}</th>
+                      <th className="px-5 py-3.5">{t('adminColMessage' as any)}</th>
+                      <th className="px-5 py-3.5 text-right">{t('actionsLabel' as any)}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-900">
+                    {requestsLoading ? (
+                      <tr>
+                        <td colSpan={4} className="px-5 py-8 text-center text-[#1db954] font-semibold bg-[#121212]">
+                          {t('loading' as any)}...
+                        </td>
+                      </tr>
+                    ) : musicianRequests.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-5 py-8 text-center text-neutral-500 font-medium bg-[#121212]">
+                          {t('searchNotFound' as any)}
+                        </td>
+                      </tr>
+                    ) : (
+                      musicianRequests.map((req) => (
+                        <tr key={req._id} className="hover:bg-neutral-900/50 transition">
+                          <td className="px-5 py-3 font-semibold text-white">{req.username}</td>
+                          <td className="px-5 py-3 text-neutral-400 font-medium">{req.email}</td>
+                          <td className="px-5 py-3 text-neutral-400 max-w-[250px] truncate font-medium">
+                            {req.musicianRequest?.message || '—'}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <div className="flex justify-end gap-3">
+                              <button
+                                disabled={!!processingId}
+                                onClick={() => handleMusicianRequest(req._id, 'approve')}
+                                className="text-xs font-bold text-[#1db954] hover:underline disabled:opacity-50"
+                              >
+                                {processingId === req._id ? '...' : t('adminApproveBtn' as any)}
+                              </button>
+                              <button
+                                disabled={!!processingId}
+                                onClick={() => handleMusicianRequest(req._id, 'reject')}
+                                className="text-xs font-bold text-red-500 hover:underline disabled:opacity-50"
+                              >
+                                {processingId === req._id ? '...' : t('adminRejectBtn' as any)}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-semibold text-sm truncate">{req.username}</p>
-                        <p className="text-neutral-500 text-xs truncate">{req.email}</p>
-                        {req.musicianRequest.requestedAt && (
-                          <p className="text-neutral-600 text-[10px] mt-0.5">
-                            {t('adminSubmittedAt')} {new Date(req.musicianRequest.requestedAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Status badge */}
-                      <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 shrink-0">
-                        ⏳ pending
-                      </span>
-
-                      {/* Action buttons */}
-                      <div className="flex gap-2 shrink-0">
-                        <button
-                          onClick={() => handleMusicianRequest(req._id, 'reject')}
-                          disabled={processingId === req._id}
-                          className="px-3 py-1.5 rounded-full text-xs font-bold text-neutral-300 border border-neutral-700 hover:border-red-500/50 hover:text-red-400 transition disabled:opacity-40"
-                        >
-                          {t('adminRejectBtn')}
-                        </button>
-                        <button
-                          onClick={() => handleMusicianRequest(req._id, 'approve')}
-                          disabled={processingId === req._id}
-                          className="px-3 py-1.5 rounded-full text-xs font-bold bg-[#1db954] hover:bg-[#1ed760] text-black transition disabled:opacity-40 flex items-center gap-1.5"
-                        >
-                          {processingId === req._id ? (
-                            <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12"/>
-                            </svg>
-                          ) : null}
-                          {t('adminApproveBtn')}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Modals Layer ── */}
+      {/* ── Modals & Toast ── */}
       {albumModal && (
         <AlbumModal
           mode={albumModal.mode}
           initial={albumModal.item}
           token={token}
           onClose={() => setAlbumModal(null)}
-          onSaved={(msg) => { showToast(msg); fetchAlbums(); }}
+          onSaved={(msg) => {
+            showToast(msg)
+            fetchAlbums()
+          }}
         />
       )}
 
@@ -1174,13 +1221,17 @@ export default function AdminPanel() {
           token={token}
           albums={albums}
           onClose={() => setSongModal(null)}
-          onSaved={(msg) => { showToast(msg); fetchSongs(); refreshSongs(); }}
+          onSaved={(msg) => {
+            showToast(msg)
+            fetchSongs()
+            refreshSongs()
+          }}
         />
       )}
 
       {deleteTarget && (
         <ConfirmModal
-          title={`${deleteTarget.type === 'album' ? t('adminConfirmDeleteAlbum') : t('adminConfirmDeleteSong')} "${deleteTarget.name}"?`}
+          title={`${t('adminConfirmDelete' as any)} "${deleteTarget.name}"?`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />
@@ -1188,7 +1239,7 @@ export default function AdminPanel() {
 
       {userDeleteTarget && (
         <ConfirmModal
-          title={`${t('adminConfirmDeleteUser')} "${userDeleteTarget.name}"?`}
+          title={`${t('adminConfirmDelete' as any)} "${userDeleteTarget.name}"?`}
           onConfirm={handleDeleteUser}
           onCancel={() => setUserDeleteTarget(null)}
         />

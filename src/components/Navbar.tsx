@@ -5,30 +5,47 @@ import { useLanguage } from '../context/LanguageContext'
 import { LANGUAGES } from '../i18n/translations'
 import { useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar'
+import { useNotifications } from '../context/NotificationContext.tsx'
+import NotificationPanel from './NotificationPanel'
 
 interface NavbarProps {
   onToggleSidebar?: () => void
+  onToggleCollapse?: () => void     // Исправлено: Добавлено в интерфейс
+  sidebarCollapsed?: boolean        // Исправлено: Добавлено в интерфейс
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
+const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onToggleCollapse, sidebarCollapsed }) => {
+  const [notifOpen, setNotifOpen] = useState(false)
+  const { unreadCount } = useNotifications()  
   const { user, logout } = useAuth()
   const { t, language, setLanguage } = useLanguage()
   const navigate = useNavigate()
+  
   const [menuOpen, setMenuOpen] = useState(false)
   const [langMenuOpen, setLangMenuOpen] = useState(false)
+  
   const menuRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null) // Добавлено: Реф для панели уведомлений
 
-  // Закриваємо меню при кліку поза ним
+  // Закрываем все меню при клике вне их области
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-        setLangMenuOpen(false)
+      const target = e.target as Node;
+
+      // Клики вне меню профиля
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setMenuOpen(false);
+        setLangMenuOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+      // Клики вне колокольчика и панели уведомлений
+      if (notifRef.current && !notifRef.current.contains(target)) {
+        setNotifOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     logout()
@@ -41,13 +58,13 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     navigate('/admin')
   }
 
-  // Перша літера імені для аватара
-  const avatarLetter = user?.username?.charAt(0).toUpperCase() ?? 'U'
+  // Безопасное получение первой буквы имени
+  const avatarLetter = user?.username ? user.username.charAt(0).toUpperCase() : 'U'
 
   return (
-    <div className='bg-[#121212] h-14 rounded-lg grid grid-cols-3 items-center px-2 sm:px-4 w-full select-none shrink-0'>
+    <div className='bg-[#121212] h-14 rounded-lg grid grid-cols-3 items-center px-2 sm:px-4 w-full select-none shrink-0 relative z-50'>
 
-      {/* Лівий блок */}
+      {/* Левый блок */}
       <div className='flex items-center gap-2 justify-start min-w-0'>
         <button
           onClick={onToggleSidebar}
@@ -68,7 +85,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
         />
       </div>
 
-      {/* Центральний блок — пошук */}
+      {/* Центральный блок — поиск */}
       <div className='flex items-center justify-center gap-2 w-full max-w-125 justify-self-center min-w-0'>
         <div
           onClick={() => navigate('/')}
@@ -79,17 +96,29 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
         <SearchBar />
       </div>
 
-      {/* Правий блок — профіль */}
+      {/* Правый блок — профиль */}
       <div className='flex items-center justify-end gap-2 sm:gap-3'>
         <button className='bg-white text-black text-xs font-bold px-3 py-1.5 rounded-full hover:scale-105 hover:bg-neutral-200 transition hidden xl:block shadow-sm'>
           {t('watchPremium')}
         </button>
 
         {/* Дзвіночок */}
-        <div className='bg-[#1f1f1f] p-2.5 rounded-full hover:bg-[#2a2a2a] hover:scale-105 cursor-pointer transition flex items-center justify-center w-9 h-9 text-[#b3b3b3] hover:text-white'>
-          <svg role="img" height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 1.5a3 3 0 0 0-3 3v2.37l-1.283 1.283A1 1 0 0 0 3 8.862V10.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8.862a1 1 0 0 0-.717-.71l-1.283-1.282V4.5a3 3 0 0 0-3-3zM6.5 13a1.5 1.5 0 0 0 3 0h-3z" />
-          </svg>
+        <div className='relative' ref={notifRef}>
+          <button
+            onClick={() => setNotifOpen(o => !o)}
+            aria-label="Сповіщення"
+            className='relative bg-[#1f1f1f] p-2.5 rounded-full hover:bg-[#2a2a2a] hover:scale-105 cursor-pointer transition flex items-center justify-center w-9 h-9 text-[#b3b3b3] hover:text-white'
+          >
+            <svg role="img" height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1.5a3 3 0 0 0-3 3v2.37l-1.283 1.283A1 1 0 0 0 3 8.862V10.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8.862a1 1 0 0 0-.717-.71l-1.283-1.282V4.5a3 3 0 0 0-3-3zM6.5 13a1.5 1.5 0 0 0 3 0h-3z" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className='absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#1db954] text-black text-[9px] font-bold flex items-center justify-center leading-none'>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
         </div>
 
         {/* Аватар з дропдауном */}
@@ -112,8 +141,8 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
               {/* Інфо про юзера */}
               <div className='px-4 py-3 border-b border-[#3e3e3e]'>
-                <p className='text-white font-semibold text-sm truncate'>{user?.username}</p>
-                <p className='text-neutral-400 text-xs truncate'>{user?.email}</p>
+                <p className='text-white font-semibold text-sm truncate'>{user?.username || 'Guest'}</p>
+                <p className='text-neutral-400 text-xs truncate'>{user?.email || ''}</p>
               </div>
 
               {/* Адмін панель — тільки для адміна */}

@@ -46,18 +46,21 @@ router.get('/top-artists', async (req, res, next) => {
       artists.map(async (artist) => {
         try {
           const r = await fetch(
-            `https://api.deezer.com/search/artist?q=${encodeURIComponent(artist.name)}&limit=1`,
+            `https://api.deezer.com/search/artist?q=${encodeURIComponent(artist.name)}&limit=5`,
             { headers: { 'User-Agent': 'SpotifyClone/1.0' }, signal: AbortSignal.timeout(3000) }
           );
           if (r.ok) {
             const d = await r.json();
-            const found = d?.data?.[0];
+            const results = d?.data || [];
+            const artistNameLower = artist.name.toLowerCase().trim();
+
+            // Тільки точний збіг імені — ніяких partialMatch щоб не плутати виконавців
+            const found = results.find((a) =>
+              a.name.toLowerCase().trim() === artistNameLower
+            );
+
             if (found?.picture_xl) {
-              const nameMatch = found.name.toLowerCase() === artist.name.toLowerCase();
-              const partialMatch = found.name.toLowerCase().includes(artist.name.split(' ')[0].toLowerCase());
-              if (nameMatch || partialMatch) {
-                return { ...artist, image: found.picture_xl };
-              }
+              return { ...artist, image: found.picture_xl };
             }
           }
         } catch { /* fallback */ }
