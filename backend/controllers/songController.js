@@ -2,7 +2,6 @@ const Song = require('../models/Song');
 const { searchItunes } = require('../utils/itunes');
 const { fetchLyrics } = require('../utils/lyrics');
 
-// GET /api/songs (filters supported: /api/songs?album=<albumId>&genre=Pop)
 const getSongs = async (req, res, next) => {
   try {
     const filter = {};
@@ -21,7 +20,6 @@ const getSongs = async (req, res, next) => {
   }
 };
 
-// GET /api/songs/genres — returns all unique genres currently stored in the database
 const getGenres = async (req, res, next) => {
   try {
     const genres = await Song.distinct('genre');
@@ -36,7 +34,6 @@ const getGenres = async (req, res, next) => {
   }
 };
 
-// GET /api/songs/:id
 const getSongById = async (req, res, next) => {
   try {
     const song = await Song.findById(req.params.id);
@@ -59,9 +56,6 @@ const getSongById = async (req, res, next) => {
   }
 };
 
-// GET /api/songs/search?q=...
-// Hybrid search: first searches MongoDB; if there are too few results,
-// fetches additional results from the iTunes Search API and caches them.
 const searchSongs = async (req, res, next) => {
   try {
     const q = (req.query.q || '').trim();
@@ -83,7 +77,6 @@ const searchSongs = async (req, res, next) => {
 
     let combined = [...localResults];
 
-    // If there are fewer than five local results, fetch more from iTunes.
     if (localResults.length < 5) {
       let externalResults = [];
 
@@ -120,7 +113,6 @@ const searchSongs = async (req, res, next) => {
       new Map(combined.map((song) => [String(song._id), song])).values()
     );
 
-    // Detect the top artist when the search query matches an artist name.
     const qLower = q.toLowerCase();
     const artistCounts = {};
 
@@ -162,7 +154,6 @@ const searchSongs = async (req, res, next) => {
   }
 };
 
-// POST /api/songs
 const createSong = async (req, res, next) => {
   try {
     const song = await Song.create({
@@ -170,11 +161,9 @@ const createSong = async (req, res, next) => {
       uploadedBy: req.user?.id || null,
     });
 
-    // Розсилаємо сповіщення всім підписникам цього музиканта
     if (req.user?.id) {
       try {
         const uploader = await User.findById(req.user.id).select('username').lean();
-        // Знаходимо всіх, хто підписаний на цього музиканта
         const subscribers = await User.find({ following: req.user.id }).select('_id').lean();
         if (subscribers.length > 0) {
           const notifications = subscribers.map(sub => ({
@@ -188,7 +177,6 @@ const createSong = async (req, res, next) => {
           await Notification.insertMany(notifications);
         }
       } catch (notifErr) {
-        // Не ламаємо основний флоу через помилку сповіщень
         console.error('Notification dispatch error:', notifErr.message);
       }
     }
@@ -203,7 +191,6 @@ const createSong = async (req, res, next) => {
   }
 };
 
-// PUT /api/songs/:id
 const updateSong = async (req, res, next) => {
   try {
     const song = await Song.findByIdAndUpdate(req.params.id, req.body, {
@@ -229,7 +216,6 @@ const updateSong = async (req, res, next) => {
   }
 };
 
-// DELETE /api/songs/:id
 const deleteSong = async (req, res, next) => {
   try {
     const song = await Song.findByIdAndDelete(req.params.id);
@@ -252,9 +238,6 @@ const deleteSong = async (req, res, next) => {
   }
 };
 
-// GET /api/songs/:id/lyrics
-// First checks the cached lyrics in the song document.
-// If they are missing, fetches them from lyrics.ovh and stores the result.
 const getSongLyrics = async (req, res, next) => {
   try {
     const song = await Song.findById(req.params.id);
@@ -316,9 +299,6 @@ const getSongLyrics = async (req, res, next) => {
   }
 };
 
-// GET /api/songs/itunes-preview?q=...
-// Admin-only: searches iTunes and returns results WITHOUT saving to the database.
-// Used in the admin panel so the admin can pick which tracks to import.
 const searchItunesPreview = async (req, res, next) => {
   try {
     const q = (req.query.q || '').trim();
@@ -333,7 +313,6 @@ const searchItunesPreview = async (req, res, next) => {
 
     const tracks = await searchItunes(q, 20);
 
-    // Mark which tracks are already in the DB so the UI can show "Already added"
     const externalIds = tracks.map((t) => t.externalId);
     const existing = await Song.find({ externalId: { $in: externalIds } }).select('externalId');
     const existingSet = new Set(existing.map((s) => s.externalId));
@@ -353,9 +332,6 @@ const searchItunesPreview = async (req, res, next) => {
   }
 };
 
-// GET /api/songs/artist/:name
-// Returns all songs by a given artist: first checks the local DB,
-// then fetches from iTunes API and saves new tracks to the DB.
 const getArtistSongs = async (req, res, next) => {
   try {
     const artistName = decodeURIComponent(req.params.name || '').trim();
@@ -364,18 +340,15 @@ const getArtistSongs = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Artist name is required' });
     }
 
-    // 1. Local songs
     const localSongs = await Song.find({
       artist: { $regex: `^${artistName}$`, $options: 'i' },
     }).sort({ createdAt: 1 });
 
     let combined = [...localSongs];
 
-    // 2. Fetch from iTunes and save new tracks
     try {
       const itunesTracks = await searchItunes(artistName, 25);
 
-      // Keep only tracks whose artist matches exactly (iTunes may return similar artists)
       const filtered = itunesTracks.filter(
         (t) => t.artist && t.artist.toLowerCase() === artistName.toLowerCase()
       );
@@ -394,7 +367,6 @@ const getArtistSongs = async (req, res, next) => {
           try {
             await Song.insertMany(newTracks, { ordered: false });
           } catch (insertErr) {
-            // ordered:false means partial inserts succeed; ignore duplicate key errors
             if (insertErr.code !== 11000 && !(insertErr.writeErrors?.every?.((e) => e.code === 11000))) {
               console.error('insertMany error:', insertErr.message);
             }
@@ -411,12 +383,10 @@ const getArtistSongs = async (req, res, next) => {
       console.error('⚠️ iTunes API unavailable:', itunesErr.message);
     }
 
-    // Deduplicate by _id
     const unique = Array.from(
       new Map(combined.map((s) => [String(s._id), s])).values()
     );
 
-    // Artist image: спочатку пробуємо реальне фото з Deezer, fallback — обкладинка треку
     let artistImage = unique[0]?.image || '';
     try {
       const deezerRes = await fetch(
@@ -427,26 +397,23 @@ const getArtistSongs = async (req, res, next) => {
         const deezerData = await deezerRes.json();
         const results = deezerData?.data || [];
         const artistNameLower = artistName.toLowerCase().trim();
-
-        // Тільки точний збіг — без partialMatch щоб не плутати виконавців
         const deezerArtist = results.find((a) =>
           a.name.toLowerCase().trim() === artistNameLower
         );
-
         if (deezerArtist?.picture_xl) {
-          artistImage = deezerArtist.picture_xl; // 1000x1000 реальне фото
+          artistImage = deezerArtist.picture_xl;
         }
       }
     } catch (deezerErr) {
       console.warn('Deezer artist photo unavailable:', deezerErr.message);
     }
 
+    // ✅ musicianId прибрано
     res.json({
       success: true,
       data: {
         artist: artistName,
         image: artistImage,
-        musicianId,
         songs: unique,
       },
     });
@@ -455,8 +422,6 @@ const getArtistSongs = async (req, res, next) => {
   }
 };
 
-// GET /api/songs/my — повертає треки поточного музиканта (за uploadedBy)
-// Адмін бачить всі треки
 const getMySongs = async (req, res, next) => {
   try {
     const filter = req.user?.role === 'admin'

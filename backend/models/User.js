@@ -40,11 +40,18 @@ const userSchema = new mongoose.Schema(
       message: { type: String, default: '' },
       requestedAt: { type: Date },
     },
-    // Музиканти (ID користувачів з роллю musician), на яких підписаний юзер
+    // Старе поле — залишаємо для сумісності
     following: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
+      },
+    ],
+    // Нове поле — підписки на артистів по імені (працює з iTunes та local)
+    followingArtists: [
+      {
+        type: String,
+        trim: true,
       },
     ],
     // Історія прослуховування
@@ -60,6 +67,14 @@ const userSchema = new mongoose.Schema(
         },
       },
     ],
+    googleId: {
+      type: String,
+      default: null,
+    },
+    facebookId: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

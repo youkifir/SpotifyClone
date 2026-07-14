@@ -74,19 +74,18 @@ router.get('/history', protect, async (req, res, next) => {
       .lean();
 
     const history = (user?.listenHistory || [])
-      .filter(h => h.song) // пропускаємо видалені треки
-      .reverse();          // новіші першими
+      .filter(h => h.song)
+      .reverse();
 
     const total = history.length;
     const page_data = history.slice(skip, skip + limit);
 
-    // Статистика
     const allSongs  = history.map(h => h.song);
     const songCount = {};
     const artistCount = {};
     allSongs.forEach(s => {
       if (!s) return;
-      songCount[s._id]   = (songCount[s._id]   || 0) + 1;
+      songCount[s._id]      = (songCount[s._id]      || 0) + 1;
       artistCount[s.artist] = (artistCount[s.artist] || 0) + 1;
     });
 
@@ -130,103 +129,82 @@ router.get('/deezer-artist', async (req, res) => {
   }
 });
 
-// GET /api/auth/artists/following — отримуємо підписки юзера (використовує референси з бази та Deezer як фолбек)
+// GET /api/auth/artists/following — список артистів на яких підписаний юзер
+// Повертає масив { name, photo } — підтримує як рядки так і старі ObjectId записи
 router.get('/artists/following', protect, async (req, res, next) => {
   try {
     const userId = req.user.id || req.user._id;
-    
-    // Завантажуємо юзера разом із заповненими даними підписок (username та avatar)
-    const user = await User.findById(userId)
-      .select('following')
-      .populate({ path: 'following', select: 'username avatar', model: 'User' })
-      .lean();
-    
-    const followedUsers = user?.following || [];
-    
-    // Форматуємо підписки під очікування фронтенду `{ name, photo }`
-    const enrichedArtists = await Promise.all(
-      followedUsers.map(async (artist) => {
-        // Якщо у нашого локального музиканта вже є аватарка в базі, використовуємо її
-        if (artist.avatar) {
-          return {
-            name: artist.username,
-            photo: artist.avatar
-          };
-        }
+    const user = await User.findById(userId).select('followingArtists').lean();
 
-        // Якщо аватарки немає, робимо "м'який" запит до Deezer, щоб знайти гарне фото
+    const artistNames = user?.followingArtists || [];
+
+    // Підтягуємо фото з Deezer для кожного артиста
+    const enriched = await Promise.all(
+      artistNames.map(async (artistName) => {
         try {
-          const deezerRes = await fetch(
-            `https://api.deezer.com/search/artist?q=${encodeURIComponent(artist.username)}&limit=1`,
+          const r = await fetch(
+            `https://api.deezer.com/search/artist?q=${encodeURIComponent(artistName)}&limit=1`,
             { headers: { 'User-Agent': 'SpotifyClone/1.0' } }
           );
-          if (deezerRes.ok) {
-            const result = await deezerRes.json();
-            const artistData = result.data?.[0];
-            return {
-              name: artist.username,
-              photo: artistData?.picture_medium || null
-            };
+          if (r.ok) {
+            const d = await r.json();
+            const found = d.data?.[0];
+            if (found?.name?.toLowerCase() === artistName.toLowerCase()) {
+              return { name: artistName, photo: found.picture_medium || null };
+            }
           }
-        } catch (e) {
-          console.error(`Не вдалося завантажити фото з Deezer для ${artist.username}:`, e);
-        }
-        
-        return { name: artist.username, photo: null };
+        } catch { /* fallback */ }
+        return { name: artistName, photo: null };
       })
     );
 
-    res.json({ success: true, data: enrichedArtists });
-  } catch (err) { 
-    next(err); 
+    res.json({ success: true, data: enriched });
+  } catch (err) {
+    next(err);
   }
 });
 
 // POST /api/auth/follow/:artistName — підписатись / відписатись (toggle)
+// Зберігає ім'я артиста рядком — працює для будь-якого виконавця (iTunes, local, etc.)
 router.post('/follow/:artistName', protect, async (req, res, next) => {
   try {
     const artistName = decodeURIComponent(req.params.artistName).trim();
-    const userId = req.user.id || req.user._id;
-    
-    // 1. Знаходимо музиканта за його username в нашій базі даних
-    const artist = await User.findOne({ username: artistName, role: 'musician' });
-    if (!artist) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Musician not found in database. You can only follow registered musicians.' 
-      });
+    if (!artistName) {
+      return res.status(400).json({ success: false, message: 'Artist name is required' });
     }
 
-    // 2. Отримуємо профіль поточного користувача
-    const user = await User.findById(userId).select('following');
+    const userId = req.user.id || req.user._id;
+    const user = await User.findById(userId).select('followingArtists');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found', errors: [] });
     }
 
-    const artistId = artist._id;
-    const idx = user.following.indexOf(artistId);
-    let following = false;
+    // Ініціалізуємо масив якщо його ще немає
+    if (!Array.isArray(user.followingArtists)) {
+      user.followingArtists = [];
+    }
 
-    // 3. Додаємо/видаляємо ID музиканта з масиву підписок
+    const idx = user.followingArtists.findIndex(
+      (n) => n.toLowerCase() === artistName.toLowerCase()
+    );
+
+    let following = false;
     if (idx === -1) {
-      user.following.push(artistId);
+      user.followingArtists.push(artistName);
       following = true;
     } else {
-      user.following.splice(idx, 1);
+      user.followingArtists.splice(idx, 1);
       following = false;
     }
-    
+
     await user.save();
 
-    res.json({ 
-      success: true, 
-      data: { 
-        following, 
-        followingIds: user.following 
-      } 
+    res.json({
+      success: true,
+      data: { following, followingArtists: user.followingArtists },
     });
-  } catch (err) { 
-    next(err); 
+  } catch (err) {
+    next(err);
   }
 });
 
