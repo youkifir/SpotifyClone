@@ -17,8 +17,10 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
-      select: false,
+      required: function () {
+        // Пароль обязателен только если нет googleId (или другого провайдера)
+        return !this.googleId;
+      }
     },
     role: {
       type: String,
