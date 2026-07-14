@@ -54,7 +54,18 @@ function PlaylistPage() {
   const [copied, setCopied] = useState(false)
 
   // Исправлено: Заглушка для previewData (если данные передаются, например, из роутера, можно брать их оттуда)
-  const previewData: any = null 
+  const previewData: any = null
+
+  // Редагувати плейліст (перейменування, обкладинка, приватність, додавання/видалення треків,
+  // зміна порядку, видалення плейліста) може тільки власник плейліста або адмін.
+  const canEdit = !!user && !!playlist && (
+    user.role === 'admin' ||
+    String(
+      typeof playlist.owner === 'string'
+        ? playlist.owner
+        : (playlist.owner as any)?._id ?? playlist.owner
+    ) === String(user.id)
+  )
 
   // ── Drag & Drop ────────────────────────────────────────────
   const [draggedId, setDraggedId] = useState<string | null>(null)
@@ -62,6 +73,7 @@ function PlaylistPage() {
   const dragSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleDragStart = (e: React.DragEvent, songId: string) => {
+    if (!canEdit) { e.preventDefault(); return }
     setDraggedId(songId)
     e.dataTransfer.effectAllowed = 'move'
   }
@@ -74,7 +86,7 @@ function PlaylistPage() {
 
   const handleDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault()
-    if (!draggedId || draggedId === targetId || !playlist) return
+    if (!canEdit || !draggedId || draggedId === targetId || !playlist) return
 
     const songs = [...playlist.songs]
     const fromIdx = songs.findIndex(s => s._id === draggedId)
@@ -261,7 +273,7 @@ function PlaylistPage() {
   }, [playlist?._id, visibleSongs])
 
   const handleRemoveSong = async (songId: string) => {
-    if (!token || !id) return
+    if (!token || !id || !canEdit) return
     setRemovingId(songId)
     try {
       const response = await fetch(`${API_BASE}/playlists/${id}/songs/${songId}`, {
@@ -331,16 +343,17 @@ function PlaylistPage() {
       {/* Шапка плейлиста */}
       <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6 p-4 sm:p-6 rounded-lg bg-gradient-to-b from-[#535353] to-[#121212]">
         <button
-          onClick={() => !previewData && setIsEditOpen(true)}
-          className={`w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden relative ${previewData ? 'cursor-default' : 'group'}`}
-          title={previewData ? '' : t('playlistEditTitle' as any)}
+          onClick={() => !previewData && canEdit && setIsEditOpen(true)}
+          disabled={!canEdit}
+          className={`w-36 h-36 sm:w-48 sm:h-48 shrink-0 rounded shadow-2xl overflow-hidden relative ${previewData || !canEdit ? 'cursor-default' : 'group'}`}
+          title={previewData || !canEdit ? '' : t('playlistEditTitle' as any)}
         >
           <img
             src={playlist.image ? resolveUrl(playlist.image) : assets.stack_icon}
             alt={playlist.name}
             className="w-full h-full object-cover"
           />
-          {!previewData && (
+          {!previewData && canEdit && (
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-semibold">
               {t('playlistEditHover' as any)}
             </div>
@@ -368,14 +381,14 @@ function PlaylistPage() {
 
         <button
           onClick={() => setIsAddOpen(true)}
-          className={`bg-transparent border border-zinc-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:border-white transition-colors ${previewData ? 'hidden' : ''}`}
+          className={`bg-transparent border border-zinc-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:border-white transition-colors ${previewData || !canEdit ? 'hidden' : ''}`}
         >
           + {t('playlistAddTracksBtn' as any)}
         </button>
 
         <button
           onClick={() => setIsEditOpen(true)}
-          className={`text-zinc-400 hover:text-white text-sm font-semibold transition-colors ${previewData ? 'hidden' : ''}`}
+          className={`text-zinc-400 hover:text-white text-sm font-semibold transition-colors ${previewData || !canEdit ? 'hidden' : ''}`}
         >
           {t('playlistEditBtn' as any)}
         </button>
@@ -427,12 +440,14 @@ function PlaylistPage() {
         {playlist.songs.length === 0 ? (
           <div className="text-center py-12 text-zinc-400">
             <p className="mb-4">{t('playlistEmptyText' as any)}</p>
-            <button
-              onClick={() => setIsAddOpen(true)}
-              className="bg-white text-black text-sm font-bold px-5 py-2 rounded-full hover:scale-105 transition"
-            >
-              {t('playlistAddTracksBtn' as any)}
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => setIsAddOpen(true)}
+                className="bg-white text-black text-sm font-bold px-5 py-2 rounded-full hover:scale-105 transition"
+              >
+                {t('playlistAddTracksBtn' as any)}
+              </button>
+            )}
           </div>
         ) : visibleSongs.length === 0 ? (
           <p className="text-zinc-400 text-sm px-4 py-8 text-center">{t('playlistSearchEmpty' as any)} «{search}»</p>
@@ -455,7 +470,7 @@ function PlaylistPage() {
                 return (
                   <div
                     key={song._id}
-                    draggable={!search}
+                    draggable={!search && canEdit}
                     onDragStart={e => handleDragStart(e, song._id)}
                     onDragOver={e => handleDragOver(e, song._id)}
                     onDrop={e => handleDrop(e, song._id)}
@@ -491,7 +506,7 @@ function PlaylistPage() {
                     <span className="hidden md:block self-center text-sm truncate">
                       {(song.album && albumNames[song.album]) || '—'}
                     </span>
-                    {!previewData && (
+                    {!previewData && canEdit && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()

@@ -50,14 +50,19 @@ const getMyPlaylists = async (req, res, next) => {
 // GET /api/playlists/:id — один плейлист (только владелец или админ, либо isPublic: true)
 const getPlaylistById = async (req, res, next) => {
   try {
-    const playlist = await Playlist.findById(req.params.id).populate('songs');
+    const playlist = await Playlist.findById(req.params.id)
+      .populate('songs')
+      .populate('owner', '_id username name');
 
     if (!playlist) {
       return res.status(404).json({ success: false, message: 'Playlist not found' });
     }
 
-    // Проверка прав: доступ разрешен владельцу ИЛИ если плейлист публичный
-    if (playlist.owner.toString() !== req.user.id && !playlist.isPublic) {
+    const isOwner = playlist.owner._id.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    // Доступ дозволено: власнику, адміну, або якщо плейліст публічний
+    if (!isOwner && !isAdmin && !playlist.isPublic) {
       return res.status(403).json({ success: false, message: 'Access denied to this private playlist' });
     }
 
@@ -164,6 +169,27 @@ const removeSongFromPlaylist = async (req, res, next) => {
   }
 };
 
+// PUT /api/playlists/:id/reorder — сохраняет новый порядок треков (только владелец или админ)
+const reorderPlaylist = async (req, res, next) => {
+  try {
+    const playlist = await findOwnedPlaylist(req, res);
+    if (!playlist) return;
+
+    const { songIds } = req.body;
+    if (!Array.isArray(songIds)) {
+      return res.status(400).json({ success: false, message: 'songIds required', errors: [] });
+    }
+
+    const songMap = new Map(playlist.songs.map((s) => [String(s), s]));
+    playlist.songs = songIds.map((id) => songMap.get(id)).filter(Boolean);
+    await playlist.save();
+
+    res.json({ success: true, message: 'Request completed successfully', data: playlist });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getMyPlaylists,
   getSharedPlaylists,
@@ -173,4 +199,5 @@ module.exports = {
   deletePlaylist,
   addSongToPlaylist,
   removeSongFromPlaylist,
+  reorderPlaylist,
 };
