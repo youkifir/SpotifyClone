@@ -134,10 +134,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     if (!token) { setFollowedArtists([]); return }
     setArtistsLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/auth/artists/following`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch(`${API_BASE}/auth/following`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
         const data = await res.json()
-        setFollowedArtists(Array.isArray(data) ? data : (data.data || []))
+        const names: string[] = data.data || []
+        // Map names to {name, photo} objects for display
+        setFollowedArtists(names.map((name: string) => ({ name, photo: null })))
+        // Load photos async
+        names.forEach(async (name: string) => {
+          try {
+            const r = await fetch(`${API_BASE}/auth/deezer-artist?name=${encodeURIComponent(name)}`)
+            const dz = await r.json()
+            const found = dz?.data?.[0]
+            const match = found && found.name.toLowerCase().includes(name.split(' ')[0].toLowerCase())
+            if (match) {
+              setFollowedArtists(prev => prev.map(a => a.name === name ? { ...a, photo: found.picture_medium } : a))
+            }
+          } catch {}
+        })
       } else {
         setFollowedArtists([])
       }
@@ -409,27 +423,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
               )}
             </div>
 
-            {/* Кнопка tab toggle внизу */}
-            <div className="flex flex-col items-center gap-1 pt-2 border-t border-white/5 w-full px-2">
-              <CollapsedTooltip label={tab === 'playlists' ? t('sidebarTabArtists') : t('sidebarTabPlaylists')}>
-                <button
-                  onClick={() => setTab(tab === 'playlists' ? 'artists' : 'playlists')}
-                  className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors group/tab"
-                >
-                  {tab === 'playlists' ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                      className="text-neutral-400 group-hover/tab:text-white transition-colors">
-                      <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                    </svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                      className="text-neutral-400 group-hover/tab:text-white transition-colors">
-                      <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </CollapsedTooltip>
-            </div>
           </div>
         </div>
 

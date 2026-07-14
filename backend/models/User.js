@@ -17,10 +17,8 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: function () {
-        // Пароль обязателен только если нет googleId (или другого провайдера)
-        return !this.googleId;
-      }
+      required: [true, 'Password is required'],
+      select: false,
     },
     role: {
       type: String,
@@ -42,41 +40,15 @@ const userSchema = new mongoose.Schema(
       message: { type: String, default: '' },
       requestedAt: { type: Date },
     },
-    // Старе поле — залишаємо для сумісності
-    following: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-    // Нове поле — підписки на артистів по імені (працює з iTunes та local)
-    followingArtists: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    // Підписки на артистів (ім'я артиста, рядок)
+    followedArtists: { type: [{ type: String, trim: true }], default: [] },
     // Історія прослуховування
     listenHistory: [
       {
-        song: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'Song',
-        },
-        listenedAt: {
-          type: Date,
-          default: Date.now,
-        },
+        song: { type: mongoose.Schema.Types.ObjectId, ref: 'Song' },
+        listenedAt: { type: Date, default: Date.now },
       },
     ],
-    googleId: {
-      type: String,
-      default: null,
-    },
-    facebookId: {
-      type: String,
-      default: null,
-    },
   },
   { timestamps: true }
 );

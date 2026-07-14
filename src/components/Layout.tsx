@@ -10,7 +10,7 @@ function Layout() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-black text-white flex flex-col">
-      <div className="flex flex-1 min-h-0 gap-2 p-2 pb-0">
+      <div className="flex flex-1 min-h-0 gap-2 p-2 pb-0 overflow-x-hidden">
         <Sidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}

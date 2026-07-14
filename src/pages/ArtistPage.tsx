@@ -7,7 +7,6 @@ import { apiFetch, isOfflineError } from '../utils/apiError'
 import { ErrorScreen, LoadingScreen, EmptyScreen } from '../components/StateScreens'
 import { useLanguage } from '../context/LanguageContext'
 import { useArtistBio } from '../hooks/useArtistBio'
-import { useNotifications } from '../context/NotificationContext'
 
 interface ArtistSong {
   id: string
@@ -55,8 +54,6 @@ function ArtistPage() {
   const { t, language } = useLanguage()
   const artistName = decodeURIComponent(name || '')
   const [offline, setOffline] = useState(false)
-  const [musicianId, setMusicianId] = useState<string | null>(null)
-  const { follow, unfollow, isFollowing } = useNotifications()
 
   const [following, setFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
@@ -120,34 +117,47 @@ function ArtistPage() {
   // Перевіряємо чи підписані на цього артиста
   useEffect(() => {
     if (!token || !artistName) return
+    let cancelled = false
     fetch(`http://localhost:5000/api/auth/following`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((data) => {
+        if (cancelled) return
         if (data.success) {
-          setFollowing(data.data.includes(artistName))
+          setFollowing(data.data.some((a: string) => a.toLowerCase() === artistName.toLowerCase()))
         }
       })
       .catch(() => {})
+    return () => { cancelled = true }
   }, [token, artistName])
 
   const handleFollow = async () => {
     if (!token || followLoading) return
     setFollowLoading(true)
+    const wasFollowing = following
+    setFollowing(!wasFollowing)
     try {
       const res = await fetch(
         `http://localhost:5000/api/auth/follow/${encodeURIComponent(artistName)}`,
         { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
       )
       const data = await res.json()
-      if (data.success) setFollowing(data.data.following)
-    } catch { /* ignore */ } finally {
+      if (data.success) {
+        setFollowing(data.data.following)
+        // Оновлюємо сайдбар — перезавантажуємо список підписок
+        window.dispatchEvent(new Event('follow-changed'))
+      } else {
+        setFollowing(wasFollowing)
+      }
+    } catch {
+      setFollowing(wasFollowing)
+    } finally {
       setFollowLoading(false)
     }
   }
 
-  const resolveUrl = (url: string) =>
+    const resolveUrl = (url: string) =>
     url?.startsWith('http') ? url : `http://localhost:5000/${url}`
 
   const isAnyActive = songs.some((s) => s.id === track?.id)
