@@ -10,10 +10,18 @@ const protect = (req, res, next) => {
     return next(createError('Access denied: token is missing', 401));
   }
   try {
-    req.user = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+    const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+    
+    // Стандартизуємо id та _id для повної сумісності
+    req.user = {
+      id: decoded.id || decoded._id,
+      _id: decoded.id || decoded._id,
+      role: decoded.role,
+    };
+    
     next();
   } catch (err) {
-    next(err);
+    next(createError('Invalid or expired token', 401));
   }
 };
 
@@ -23,7 +31,7 @@ const isAdmin = (req, res, next) =>
     ? next()
     : next(createError('Access denied: administrator privileges are required', 403));
 
-// Музикант АБО адмін (адмін має всі права)
+// Музикант АБО адмін
 const isMusician = (req, res, next) =>
   req.user?.role === 'musician' || req.user?.role === 'admin'
     ? next()

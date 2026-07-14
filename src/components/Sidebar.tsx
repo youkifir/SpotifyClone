@@ -9,8 +9,6 @@ import CreatePlaylistModal from './CreatePlaylistModal'
 import ConfirmDialog from './ConfirmDialog'
 import type { Playlist as CreatedPlaylist } from './CreatePlaylistModal'
 
-type SortOrder = 'recent' | 'name' | 'artist' | 'created'
-
 const API = 'http://localhost:5000'
 const API_BASE = 'http://localhost:5000/api'
 
@@ -36,6 +34,29 @@ interface SidebarProps {
   onToggleCollapse?: () => void
 }
 
+// ── Допоміжні функції (Винесено вгору, щоб уникнути TDZ та зайвих перевизначень) ──
+
+const getOwnerName = (playlist: Playlist): string => {
+  if (!playlist.owner) return ''
+  if (typeof playlist.owner === 'string') return ''
+  return playlist.owner.name || playlist.owner.username || ''
+}
+
+const resolveImage = (playlist: Playlist) => {
+  if (playlist.isLikedSongs) return null
+  if (!playlist.image) return assets.stack_icon
+  if (playlist.image.startsWith('data:') || playlist.image.startsWith('http')) return playlist.image
+  return `${API}/${playlist.image}`
+}
+
+const resolveArtistImage = (photo: string | null) => {
+  if (!photo) return null
+  if (photo.startsWith('data:') || photo.startsWith('http')) return photo
+  return `${API}/${photo}`
+}
+
+type SortOrder = 'recent' | 'name' | 'artist' | 'created'
+
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
   const { token } = useAuth()
   const { t } = useLanguage()
@@ -52,11 +73,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // ── Artists (Исправлено: Добавлены недостающие стейты) ──────
+  // ── Artists ────────────────────────────────────────────────
   const [followedArtists, setFollowedArtists] = useState<FollowedArtist[]>([])
   const [artistsLoading, setArtistsLoading] = useState(false)
 
-  // Загрузка плейлистов
+  // Завантаження плейлистів
   const fetchPlaylists = useCallback(async (silent = false) => {
     if (!token) {
       setPlaylists([])
@@ -68,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
       if (res.ok) {
         const data = await res.json()
         const list: Playlist[] = Array.isArray(data) ? data : (data.data || [])
-        // Liked Songs всегда вверху по умолчанию
+        // Liked Songs завжди вверху за замовчуванням
         list.sort((a, b) => (b.isLikedSongs ? 1 : 0) - (a.isLikedSongs ? 1 : 0))
         setPlaylists(list)
       }
@@ -79,9 +100,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     }
   }, [token])
 
-  // Загрузка общих плейлистов
+  // Завантаження спільних плейлистів
   const fetchSharedPlaylists = useCallback(async () => {
-    if (!token) { setSharedPlaylists([]); return }
+    if (!token) { 
+      setSharedPlaylists([])
+      return 
+    }
     try {
       const res = await fetch(`${API_BASE}/playlists/shared`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.ok) {
@@ -93,12 +117,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     }
   }, [token])
 
-  // Загрузка подписок на исполнителей (Исправлено: Добавлен метод получения данных)
+  // Завантаження підписок на виконавців
   const fetchFollowedArtists = useCallback(async () => {
-    if (!token) { setFollowedArtists([]); return }
+    if (!token) { 
+      setFollowedArtists([])
+      return 
+    }
     setArtistsLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/auth/following`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await fetch(`${API_BASE}/auth/artists/following`, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      })
       if (res.ok) {
         const data = await res.json()
         setFollowedArtists(Array.isArray(data) ? data : (data.data || []))
@@ -110,24 +139,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     }
   }, [token])
 
-  // Первичный запрос данных при изменении токена
+  // Первинний запит даних при зміні токена або авторизації
   useEffect(() => { 
     fetchPlaylists()
     fetchSharedPlaylists()
     fetchFollowedArtists()
   }, [fetchPlaylists, fetchSharedPlaylists, fetchFollowedArtists])
 
-  // Слушатели глобальных событий (Исправлено: Дубликаты удалены, логика объединена)
+  // Слухачі глобальних подій (лайки, додавання треків, підписки)
   useEffect(() => {
     const unsubLike = onLikeChanged(() => fetchPlaylists(true))
     const unsubAdd = onPlaylistSongAdded(() => fetchPlaylists(true))
+    
+    // Автоматично оновлюємо підписки, коли користувач натискає "Follow / Unfollow" на сторінці артиста
+    const handleFollowChange = () => {
+      fetchFollowedArtists()
+    }
+    window.addEventListener('follow-changed', handleFollowChange)
+
     return () => {
       unsubLike()
       unsubAdd()
+      window.removeEventListener('follow-changed', handleFollowChange)
     }
-  }, [fetchPlaylists])
+  }, [fetchPlaylists, fetchFollowedArtists])
 
-  // Закрытие меню сортировки при клике вне области (Исправлено: Добавлен рабочий обработчик)
+  // Закриття меню сортування при кліку поза областю
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
@@ -138,11 +175,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Сортировка плейлистов (Исправлено: Добавлен отсутствовавший метод sortedPlaylists)
+  // Сортування плейлистів
   const sortedPlaylistsList = useMemo(() => {
     if (!playlists.length) return []
 
-    // "Liked Songs" всегда на самом первом месте вне зависимости от выбранного типа сортировки
     const likedSongs = playlists.filter(p => p.isLikedSongs)
     const restPlaylists = playlists.filter(p => !p.isLikedSongs)
 
@@ -162,7 +198,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
         }
         case 'recent':
         default:
-          // Сортировка по умолчанию (например, по ID или дате последнего изменения, если доступна)
           return b._id.localeCompare(a._id)
       }
     })
@@ -202,19 +237,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
     } finally { 
       setDeletingId(null) 
     }
-  }
-
-  const resolveImage = (playlist: Playlist) => {
-    if (playlist.isLikedSongs) return null
-    if (!playlist.image) return assets.stack_icon
-    if (playlist.image.startsWith('data:') || playlist.image.startsWith('http')) return playlist.image
-    return `${API}/${playlist.image}`
-  }
-
-  const getOwnerName = (playlist: Playlist) => {
-    if (!playlist.owner) return ''
-    if (typeof playlist.owner === 'string') return ''
-    return playlist.owner.name || playlist.owner.username || ''
   }
 
   const PlaylistItem = ({ playlist, isShared = false }: { playlist: Playlist; isShared?: boolean }) => {
@@ -336,7 +358,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
                   className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white transition px-2 py-1 rounded hover:bg-[#1a1a1a] group"
                   title="Сортування"
                 >
-                  {/* Sort icon */}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                     <path d="M3 6h18M7 12h10M11 18h2"/>
                   </svg>
@@ -441,26 +462,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose, colla
                 </div>
               ) : (
                 <div className="flex flex-col gap-1 pt-1">
-                  {followedArtists.map(({ name, photo }) => (
-                    <Link
-                      key={name}
-                      to={`/artist/${encodeURIComponent(name)}`}
-                      onClick={onClose}
-                      className="flex items-center gap-3 p-2 rounded-md hover:bg-[#1a1a1a] transition-colors group cursor-pointer"
-                    >
-                      {photo ? (
-                        <img src={photo} alt={name} className="w-12 h-12 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-[#282828] shrink-0 flex items-center justify-center text-xl">🎤</div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors">{name}</p>
-                        <p className="text-xs text-neutral-400">{t('artistLabel2')}</p>
-                      </div>
-                    </Link>
-                  ))}
+                  {followedArtists.map(({ name, photo }) => {
+                    const artistImg = resolveArtistImage(photo)
+                    return (
+                      <Link
+                        key={name}
+                        to={`/artist/${encodeURIComponent(name)}`}
+                        onClick={onClose}
+                        className="flex items-center gap-3 p-2 rounded-md hover:bg-[#1a1a1a] transition-colors group cursor-pointer"
+                      >
+                        {artistImg ? (
+                          <img src={artistImg} alt={name} className="w-12 h-12 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-[#282828] shrink-0 flex items-center justify-center text-xl">🎤</div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm text-white truncate group-hover:text-[#1db954] transition-colors">{name}</p>
+                          <p className="text-xs text-neutral-400">{t('artistLabel2')}</p>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
-              ))}
+              )
+            )}
           </div>
         </div>
       </div>

@@ -40,11 +40,24 @@ const userSchema = new mongoose.Schema(
       message: { type: String, default: '' },
       requestedAt: { type: Date },
     },
-    // Музиканти, на яких підписаний юзер (щоб отримувати сповіщення)
+    // Музиканти (ID користувачів з роллю musician), на яких підписаний юзер
     following: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
+      },
+    ],
+    // Історія прослуховування
+    listenHistory: [
+      {
+        song: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Song',
+        },
+        listenedAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
   },
