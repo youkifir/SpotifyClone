@@ -15,10 +15,25 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address'],
     },
+    // ИЗМЕНЕНИЕ 1: Пароль теперь обязателен только если нет ID от Google или Facebook
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: function () {
+        // Если это обычная регистрация (нет googleId и facebookId), пароль обязателен
+        return !this.googleId && !this.facebookId;
+      },
       select: false,
+    },
+    // ИЗМЕНЕНИЕ 2: Добавляем поля для хранения ID провайдеров авторизации
+    googleId: {
+      type: String,
+      default: null,
+      sparse: true, // Позволяет делать поле уникальным, даже если у большинства там null
+    },
+    facebookId: {
+      type: String,
+      default: null,
+      sparse: true,
     },
     role: {
       type: String,
@@ -40,7 +55,7 @@ const userSchema = new mongoose.Schema(
       message: { type: String, default: '' },
       requestedAt: { type: Date },
     },
-    // Підписки на артистів (ім'я артиста, рядок)
+    // Підписки на артистів
     followedArtists: { type: [{ type: String, trim: true }], default: [] },
     // Історія прослуховування
     listenHistory: [
